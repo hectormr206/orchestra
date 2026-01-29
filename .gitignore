@@ -1,0 +1,7 @@
+# Runtime files
+.orchestra/
+dist/
+node_modules/
+
+# Test outputs
+*.log

@@ -1,0 +1,80 @@
+{
+  "name": "@ai-core/orchestra",
+  "version": "0.1.0",
+  "description": "Meta-Orchestrator for AI development tools - coordinates Claude, Codex, Gemini, and GLM for complex development tasks",
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./cli": "./dist/cli/index.js",
+    "./tui": "./dist/tui/index.js"
+  },
+  "bin": {
+    "orchestra": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "start": "node dist/cli/index.js",
+    "tui": "node dist/tui/index.js",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src/",
+    "clean": "rm -rf dist/",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "orchestrator",
+    "claude",
+    "codex",
+    "gemini",
+    "glm",
+    "automation",
+    "cli",
+    "tui",
+    "multi-agent",
+    "code-generation"
+  ],
+  "author": "Hector MR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gama/ai-core.git",
+    "directory": "orchestra"
+  },
+  "bugs": {
+    "url": "https://github.com/gama/ai-core/issues"
+  },
+  "homepage": "https://github.com/gama/ai-core/tree/main/orchestra#readme",
+  "dependencies": {
+    "@types/glob": "^8.1.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "glob": "^13.0.0",
+    "ink": "^6.6.0",
+    "ink-big-text": "^2.0.0",
+    "ink-box": "^1.0.0",
+    "ink-gradient": "^3.0.0",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "ora": "^8.0.1",
+    "react": "^19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/react": "^19.2.10",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

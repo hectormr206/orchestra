@@ -1,0 +1,1281 @@
+#!/usr/bin/env node
+
+/**
+ * Meta-Orchestrator CLI
+ *
+ * Uso:
+ *   orchestra start "Crea un API REST"
+ *   orchestra start "Crea un API REST" --auto --parallel
+ *   orchestra pipeline "Crea un API REST" --auto
+ *   orchestra watch "Crea un API REST" --auto
+ *   orchestra resume --parallel
+ *   orchestra status
+ *   orchestra clean
+ */
+
+import { Command } from 'commander';
+import chalk from 'chalk';
+import ora from 'ora';
+import * as readline from 'readline';
+import { Orchestrator, type PlanApprovalResult } from '../orchestrator/Orchestrator.js';
+import { StateManager } from '../utils/StateManager.js';
+import { createDefaultConfig } from '../utils/configLoader.js';
+import { readFile, writeFile } from 'fs/promises';
+import { existsSync } from 'fs';
+import path from 'path';
+import type { TestResult } from '../types.js';
+import type { CommitResult } from '../utils/gitIntegration.js';
+
+/**
+ * Pregunta al usuario y retorna la respuesta
+ */
+async function askQuestion(question: string): Promise<string> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+/**
+ * Muestra el plan y solicita aprobación
+ */
+async function promptPlanApproval(
+  planContent: string,
+  planFile: string
+): Promise<PlanApprovalResult> {
+  console.log();
+  console.log(chalk.cyan('═'.repeat(60)));
+  console.log(chalk.cyan.bold('                    PLAN GENERADO'));
+  console.log(chalk.cyan('═'.repeat(60)));
+  console.log();
+  console.log(planContent);
+  console.log();
+  console.log(chalk.cyan('═'.repeat(60)));
+  console.log();
+  console.log(chalk.yellow('Opciones:'));
+  console.log(chalk.green('  [A]probar') + ' - Continuar con la implementación');
+  console.log(chalk.red('  [R]echazar') + ' - Cancelar la tarea');
+  console.log(chalk.blue('  [E]ditar') + ' - Abrir el plan para edición manual');
+  console.log();
+
+  const answer = await askQuestion(chalk.bold('¿Qué deseas hacer? [A/r/e]: '));
+
+  const choice = answer.toLowerCase() || 'a';
+
+  switch (choice) {
+    case 'a':
+    case 'aprobar':
+    case 'approve':
+    case 'yes':
+    case 'y':
+    case '':
+      console.log(chalk.green('✓ Plan aprobado'));
+      return { approved: true };
+
+    case 'r':
+    case 'rechazar':
+    case 'reject':
+    case 'no':
+    case 'n':
+      console.log(chalk.red('✗ Plan rechazado'));
+      return { approved: false, reason: 'rejected' };
+
+    case 'e':
+    case 'editar':
+    case 'edit':
+      console.log(chalk.blue(`→ Edita el plan en: ${planFile}`));
+      console.log(chalk.gray('  Guarda los cambios y presiona Enter para continuar...'));
+      await askQuestion('');
+
+      // Leer el plan editado
+      const editedPlan = await readFile(planFile, 'utf-8');
+      console.log(chalk.green('✓ Plan editado guardado'));
+      return { approved: false, reason: 'edit', editedPlan };
+
+    default:
+      console.log(chalk.yellow('⚠ Opción no reconocida, aprobando por defecto'));
+      return { approved: true };
+  }
+}
+
+/**
+ * Estado para mostrar progreso paralelo
+ */
+interface ParallelState {
+  spinner: ReturnType<typeof ora>;
+  inProgress: Map<string, number>; // file -> startTime
+  completed: number;
+  total: number;
+}
+
+function createParallelState(): ParallelState {
+  return {
+    spinner: ora(),
+    inProgress: new Map(),
+    completed: 0,
+    total: 0,
+  };
+}
+
+function updateParallelSpinner(state: ParallelState) {
+  const inProgressFiles = Array.from(state.inProgress.keys());
+  if (inProgressFiles.length === 0) {
+    return;
+  }
+
+  const fileList = inProgressFiles.map(f => chalk.cyan(f)).join(', ');
+  state.spinner.text = chalk.yellow(
+    `Procesando ${inProgressFiles.length} archivo(s): ${fileList} ` +
+    chalk.gray(`[${state.completed}/${state.total}]`)
+  );
+}
+
+const program = new Command();
+
+// Banner
+function showBanner() {
+  console.log(chalk.cyan(`
+╔════════════════════════════════════════════════════════════╗
+║              META-ORCHESTRATOR v0.1.0                      ║
+║          Orquestación Inteligente de Agentes IA            ║
+╚════════════════════════════════════════════════════════════╝
+`));
+}
+
+program
+  .name('orchestra')
+  .description('Meta-Orchestrator for AI development tools')
+  .version('0.1.0');
+
+// ============================================================================
+// COMANDO: start
+// ============================================================================
+program
+  .command('start <task>')
+  .description('Inicia una nueva tarea de orquestación')
+  .option('--no-banner', 'No mostrar banner')
+  .option('--auto', 'Aprobar plan automáticamente sin confirmación')
+  .option('--parallel', 'Procesar archivos en paralelo')
+  .option('--concurrency <n>', 'Número máximo de archivos en paralelo', '3')
+  .option('--test', 'Ejecutar tests después de la generación')
+  .option('--test-command <cmd>', 'Comando de tests personalizado')
+  .option('--commit', 'Auto-commit de archivos generados')
+  .option('--commit-message <msg>', 'Template de mensaje de commit')
+  .action(async (task: string, options: {
+    banner: boolean;
+    auto: boolean;
+    parallel: boolean;
+    concurrency: string;
+    test: boolean;
+    testCommand?: string;
+    commit: boolean;
+    commitMessage?: string;
+  }) => {
+    if (options.banner) {
+      showBanner();
+    }
+
+    console.log(chalk.blue('Task:'), task);
+    if (options.auto) {
+      console.log(chalk.gray('Modo automático: el plan se aprobará sin confirmación'));
+    }
+    if (options.parallel) {
+      console.log(chalk.gray(`Modo paralelo: hasta ${options.concurrency} archivos simultáneos`));
+    }
+    if (options.test) {
+      console.log(chalk.gray(`Tests: ${options.testCommand || 'auto-detectar'}`));
+    }
+    if (options.commit) {
+      console.log(chalk.gray('Auto-commit: habilitado'));
+    }
+    console.log();
+
+    const spinner = ora();
+    const parallelState = createParallelState();
+
+    const orchestrator = new Orchestrator(
+      {
+        autoApprove: options.auto,
+        parallel: options.parallel,
+        maxConcurrency: parseInt(options.concurrency, 10),
+        runTests: options.test,
+        testCommand: options.testCommand || '',
+        gitCommit: options.commit,
+        commitMessage: options.commitMessage || '',
+      },
+      {
+        onPhaseStart: (phase, agent) => {
+          if (options.parallel && (phase === 'executing' || phase === 'fixing')) {
+            parallelState.spinner.start(chalk.yellow(`${agent} iniciando...`));
+          } else {
+            spinner.start(chalk.yellow(`${agent} trabajando...`));
+          }
+        },
+        onPhaseComplete: (phase, agent, result) => {
+          if (options.parallel && (phase === 'executing' || phase === 'fixing')) {
+            parallelState.spinner.succeed(
+              chalk.green(`${agent} completado`) +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+            parallelState.inProgress.clear();
+          } else {
+            spinner.succeed(
+              chalk.green(`${agent} completado`) +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+          }
+        },
+        onError: (phase, error) => {
+          if (options.parallel) {
+            parallelState.spinner.fail(chalk.red(`Error en ${phase}: ${error}`));
+          } else {
+            spinner.fail(chalk.red(`Error en ${phase}: ${error}`));
+          }
+        },
+        onIteration: (iteration, max) => {
+          console.log(chalk.cyan(`  Iteración ${iteration}/${max}`));
+        },
+        onSyntaxCheck: (file, valid, error) => {
+          if (valid) {
+            console.log(chalk.green(`    ✓ ${file}: sintaxis válida`));
+          } else {
+            console.log(chalk.yellow(`    ⚠ ${file}: ${error?.substring(0, 50)}...`));
+          }
+        },
+        onConsultant: (file, reason) => {
+          console.log(chalk.magenta(`    → Consultor ayudando con ${file}: ${reason}`));
+        },
+        onAdapterFallback: (from, to, reason) => {
+          console.log(chalk.yellow(`    ⚠ Fallback: ${from} → ${to} (${reason})`));
+        },
+        onPlanReady: options.auto ? undefined : promptPlanApproval,
+        onFileStart: (file, index, total) => {
+          if (options.parallel) {
+            parallelState.inProgress.set(file, Date.now());
+            parallelState.total = total;
+            updateParallelSpinner(parallelState);
+          }
+        },
+        onFileComplete: (file, success, duration) => {
+          if (options.parallel) {
+            parallelState.inProgress.delete(file);
+            parallelState.completed++;
+            const status = success ? chalk.green('✓') : chalk.red('✗');
+            console.log(`    ${status} ${file} ${chalk.gray(`(${(duration / 1000).toFixed(1)}s)`)}`);
+            updateParallelSpinner(parallelState);
+          }
+        },
+        onParallelProgress: (completed, total, inProgress) => {
+          if (options.parallel) {
+            parallelState.completed = completed;
+            parallelState.total = total;
+            updateParallelSpinner(parallelState);
+          }
+        },
+        onTestStart: (command) => {
+          spinner.start(chalk.blue(`Ejecutando tests: ${command}`));
+        },
+        onTestComplete: (result: TestResult) => {
+          if (result.success) {
+            spinner.succeed(
+              chalk.green(`Tests completados: ${result.passed} passed`) +
+              (result.skipped > 0 ? chalk.yellow(`, ${result.skipped} skipped`) : '') +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+          } else {
+            spinner.fail(
+              chalk.red(`Tests fallaron: ${result.failed} failed, ${result.passed} passed`) +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+          }
+        },
+        onCommitStart: (files) => {
+          spinner.start(chalk.blue(`Creando commit con ${files.length} archivo(s)...`));
+        },
+        onCommitComplete: (result: CommitResult) => {
+          if (result.success) {
+            spinner.succeed(
+              chalk.green(`Commit creado: ${result.commitHash}`)
+            );
+          } else {
+            spinner.fail(chalk.red(`Error en commit: ${result.error}`));
+          }
+        },
+        onConfigLoaded: (configPath) => {
+          console.log(chalk.gray(`  Configuración cargada: ${configPath}`));
+        },
+      }
+    );
+
+    const success = await orchestrator.run(task);
+
+    console.log();
+    if (success) {
+      console.log(chalk.green('✓ Tarea completada y aprobada por el Auditor'));
+      console.log();
+      console.log(chalk.gray('Archivos creados en el directorio actual.'));
+      console.log(chalk.gray('Plan: .orchestra/plan.md'));
+      console.log(chalk.gray('Auditoría: .orchestra/audit-result.json'));
+    } else {
+      console.log(chalk.red('✗ La tarea no se completó'));
+      console.log(chalk.gray('Usa "orchestra status" para ver detalles'));
+    }
+  });
+
+// ============================================================================
+// COMANDO: status
+// ============================================================================
+program
+  .command('status')
+  .description('Muestra el estado de la sesión actual')
+  .action(async () => {
+    const orchestrator = new Orchestrator();
+    const status = await orchestrator.getStatus();
+    console.log(status);
+  });
+
+// ============================================================================
+// COMANDO: resume
+// ============================================================================
+program
+  .command('resume')
+  .description('Retoma una sesión interrumpida')
+  .option('--no-banner', 'No mostrar banner')
+  .option('--auto', 'Aprobar plan automáticamente sin confirmación')
+  .option('--parallel', 'Procesar archivos en paralelo')
+  .option('--concurrency <n>', 'Número máximo de archivos en paralelo', '3')
+  .action(async (options: { banner: boolean; auto: boolean; parallel: boolean; concurrency: string }) => {
+    if (options.banner) {
+      showBanner();
+    }
+
+    if (options.auto) {
+      console.log(chalk.gray('Modo automático: el plan se aprobará sin confirmación'));
+    }
+    if (options.parallel) {
+      console.log(chalk.gray(`Modo paralelo: hasta ${options.concurrency} archivos simultáneos`));
+    }
+
+    const spinner = ora();
+    const parallelState = createParallelState();
+
+    const orchestrator = new Orchestrator(
+      {
+        autoApprove: options.auto,
+        parallel: options.parallel,
+        maxConcurrency: parseInt(options.concurrency, 10),
+      },
+      {
+        onResume: (sessionId, phase, iteration) => {
+          console.log(chalk.cyan(`Retomando sesión: ${sessionId}`));
+          console.log(chalk.gray(`  Fase: ${phase}, Iteración: ${iteration}`));
+          console.log();
+        },
+        onPhaseStart: (phase, agent) => {
+          if (options.parallel && (phase === 'executing' || phase === 'fixing')) {
+            parallelState.spinner.start(chalk.yellow(`${agent} iniciando...`));
+          } else {
+            spinner.start(chalk.yellow(`${agent} trabajando...`));
+          }
+        },
+        onPhaseComplete: (phase, agent, result) => {
+          if (options.parallel && (phase === 'executing' || phase === 'fixing')) {
+            parallelState.spinner.succeed(
+              chalk.green(`${agent} completado`) +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+            parallelState.inProgress.clear();
+          } else {
+            spinner.succeed(
+              chalk.green(`${agent} completado`) +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+          }
+        },
+        onError: (phase, error) => {
+          if (options.parallel) {
+            parallelState.spinner.fail(chalk.red(`Error en ${phase}: ${error}`));
+          } else {
+            spinner.fail(chalk.red(`Error en ${phase}: ${error}`));
+          }
+        },
+        onIteration: (iteration, max) => {
+          console.log(chalk.cyan(`  Iteración ${iteration}/${max}`));
+        },
+        onSyntaxCheck: (file, valid, error) => {
+          if (valid) {
+            console.log(chalk.green(`    ✓ ${file}: sintaxis válida`));
+          } else {
+            console.log(chalk.yellow(`    ⚠ ${file}: ${error?.substring(0, 50)}...`));
+          }
+        },
+        onConsultant: (file, reason) => {
+          console.log(chalk.magenta(`    → Consultor ayudando con ${file}: ${reason}`));
+        },
+        onAdapterFallback: (from, to, reason) => {
+          console.log(chalk.yellow(`    ⚠ Fallback: ${from} → ${to} (${reason})`));
+        },
+        onPlanReady: options.auto ? undefined : promptPlanApproval,
+        onFileStart: (file, index, total) => {
+          if (options.parallel) {
+            parallelState.inProgress.set(file, Date.now());
+            parallelState.total = total;
+            updateParallelSpinner(parallelState);
+          }
+        },
+        onFileComplete: (file, success, duration) => {
+          if (options.parallel) {
+            parallelState.inProgress.delete(file);
+            parallelState.completed++;
+            const status = success ? chalk.green('✓') : chalk.red('✗');
+            console.log(`    ${status} ${file} ${chalk.gray(`(${(duration / 1000).toFixed(1)}s)`)}`);
+            updateParallelSpinner(parallelState);
+          }
+        },
+        onParallelProgress: (completed, total, inProgress) => {
+          if (options.parallel) {
+            parallelState.completed = completed;
+            parallelState.total = total;
+            updateParallelSpinner(parallelState);
+          }
+        },
+      }
+    );
+
+    const success = await orchestrator.resume();
+
+    console.log();
+    if (success) {
+      console.log(chalk.green('✓ Tarea completada y aprobada por el Auditor'));
+      console.log();
+      console.log(chalk.gray('Archivos creados en el directorio actual.'));
+      console.log(chalk.gray('Plan: .orchestra/plan.md'));
+      console.log(chalk.gray('Auditoría: .orchestra/audit-result.json'));
+    } else {
+      console.log(chalk.red('✗ La tarea no se completó'));
+      console.log(chalk.gray('Usa "orchestra status" para ver detalles'));
+    }
+  });
+
+// ============================================================================
+// COMANDO: pipeline
+// ============================================================================
+program
+  .command('pipeline <task>')
+  .description('Ejecuta en modo pipeline: procesa y audita archivos simultáneamente')
+  .option('--no-banner', 'No mostrar banner')
+  .option('--auto', 'Aprobar plan automáticamente sin confirmación')
+  .option('--concurrency <n>', 'Número máximo de archivos en paralelo', '3')
+  .action(async (task: string, options: { banner: boolean; auto: boolean; concurrency: string }) => {
+    if (options.banner) {
+      showBanner();
+    }
+
+    console.log(chalk.blue('Task:'), task);
+    console.log(chalk.magenta('Modo Pipeline: ejecutar y auditar simultáneamente'));
+    if (options.auto) {
+      console.log(chalk.gray('Modo automático: el plan se aprobará sin confirmación'));
+    }
+    console.log();
+
+    const spinner = ora();
+    const parallelState = createParallelState();
+
+    const orchestrator = new Orchestrator(
+      {
+        autoApprove: options.auto,
+        parallel: true,
+        pipeline: true,
+        maxConcurrency: parseInt(options.concurrency, 10),
+      },
+      {
+        onPhaseStart: (phase, agent) => {
+          if (phase === 'pipeline') {
+            parallelState.spinner.start(chalk.magenta(`${agent}...`));
+          } else {
+            spinner.start(chalk.yellow(`${agent} trabajando...`));
+          }
+        },
+        onPhaseComplete: (phase, agent, result) => {
+          if (phase === 'pipeline') {
+            parallelState.spinner.succeed(
+              chalk.magenta(`${agent} completado`) +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+          } else {
+            spinner.succeed(
+              chalk.green(`${agent} completado`) +
+              chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+            );
+          }
+        },
+        onError: (phase, error) => {
+          spinner.fail(chalk.red(`Error en ${phase}: ${error}`));
+        },
+        onIteration: (iteration, max) => {
+          console.log(chalk.cyan(`  Iteración ${iteration}/${max}`));
+        },
+        onSyntaxCheck: (file, valid, error) => {
+          if (valid) {
+            console.log(chalk.green(`    ✓ ${file}: sintaxis válida`));
+          } else {
+            console.log(chalk.yellow(`    ⚠ ${file}: ${error?.substring(0, 50)}...`));
+          }
+        },
+        onFileStart: (file, index, total) => {
+          parallelState.inProgress.set(file, Date.now());
+          parallelState.total = total;
+        },
+        onFileComplete: (file, success, duration) => {
+          parallelState.inProgress.delete(file);
+          parallelState.completed++;
+          const status = success ? chalk.green('✓') : chalk.red('✗');
+          console.log(`    ${status} ${file} ${chalk.gray(`(${(duration / 1000).toFixed(1)}s)`)}`);
+        },
+        onFileAudit: (file, status, issues) => {
+          const icon = status === 'APPROVED' ? chalk.green('✓') : chalk.yellow('⚠');
+          const issueText = issues > 0 ? chalk.gray(` (${issues} issues)`) : '';
+          console.log(`    ${icon} Audit ${file}: ${status}${issueText}`);
+        },
+        onPlanReady: options.auto ? undefined : promptPlanApproval,
+      }
+    );
+
+    const success = await orchestrator.runPipeline(task);
+
+    console.log();
+    if (success) {
+      console.log(chalk.green('✓ Pipeline completado - todos los archivos aprobados'));
+      console.log();
+      console.log(chalk.gray('Archivos creados en el directorio actual.'));
+      console.log(chalk.gray('Plan: .orchestra/plan.md'));
+    } else {
+      console.log(chalk.yellow('⚠ Pipeline completado con issues pendientes'));
+      console.log(chalk.gray('Usa "orchestra status" para ver detalles'));
+    }
+  });
+
+// ============================================================================
+// COMANDO: watch
+// ============================================================================
+program
+  .command('watch <task>')
+  .description('Ejecuta y observa cambios para re-ejecutar automáticamente')
+  .option('--no-banner', 'No mostrar banner')
+  .option('--auto', 'Aprobar plan automáticamente sin confirmación')
+  .option('--parallel', 'Procesar archivos en paralelo')
+  .option('--concurrency <n>', 'Número máximo de archivos en paralelo', '3')
+  .action(async (task: string, options: { banner: boolean; auto: boolean; parallel: boolean; concurrency: string }) => {
+    if (options.banner) {
+      showBanner();
+    }
+
+    console.log(chalk.blue('Task:'), task);
+    console.log(chalk.cyan('Modo Watch: observando cambios...'));
+    console.log(chalk.gray('Presiona Ctrl+C para detener'));
+    console.log();
+
+    const spinner = ora();
+    const parallelState = createParallelState();
+
+    const orchestrator = new Orchestrator(
+      {
+        autoApprove: options.auto,
+        parallel: options.parallel,
+        watch: true,
+        maxConcurrency: parseInt(options.concurrency, 10),
+      },
+      {
+        onPhaseStart: (phase, agent) => {
+          spinner.start(chalk.yellow(`${agent} trabajando...`));
+        },
+        onPhaseComplete: (phase, agent, result) => {
+          spinner.succeed(
+            chalk.green(`${agent} completado`) +
+            chalk.gray(` (${(result.duration / 1000).toFixed(1)}s)`)
+          );
+        },
+        onError: (phase, error) => {
+          spinner.fail(chalk.red(`Error en ${phase}: ${error}`));
+        },
+        onIteration: (iteration, max) => {
+          console.log(chalk.cyan(`  Iteración ${iteration}/${max}`));
+        },
+        onSyntaxCheck: (file, valid, error) => {
+          if (valid) {
+            console.log(chalk.green(`    ✓ ${file}: sintaxis válida`));
+          } else {
+            console.log(chalk.yellow(`    ⚠ ${file}: ${error?.substring(0, 50)}...`));
+          }
+        },
+        onFileStart: (file, index, total) => {
+          if (options.parallel) {
+            parallelState.inProgress.set(file, Date.now());
+            parallelState.total = total;
+            updateParallelSpinner(parallelState);
+          }
+        },
+        onFileComplete: (file, success, duration) => {
+          if (options.parallel) {
+            parallelState.inProgress.delete(file);
+            parallelState.completed++;
+            const status = success ? chalk.green('✓') : chalk.red('✗');
+            console.log(`    ${status} ${file} ${chalk.gray(`(${(duration / 1000).toFixed(1)}s)`)}`);
+            updateParallelSpinner(parallelState);
+          }
+        },
+        onPlanReady: options.auto ? undefined : promptPlanApproval,
+        onWatchChange: (file, event) => {
+          console.log(chalk.cyan(`  → Cambio detectado: ${file} (${event})`));
+        },
+        onWatchRerun: (trigger, runNumber) => {
+          console.log();
+          console.log(chalk.cyan('═'.repeat(50)));
+          console.log(chalk.cyan(`Re-ejecución #${runNumber} - trigger: ${trigger}`));
+          console.log(chalk.cyan('═'.repeat(50)));
+        },
+      }
+    );
+
+    // Manejar Ctrl+C
+    process.on('SIGINT', () => {
+      console.log();
+      console.log(chalk.yellow('Deteniendo watch mode...'));
+      orchestrator.stopWatch();
+      process.exit(0);
+    });
+
+    await orchestrator.watch(task);
+  });
+
+// ============================================================================
+// COMANDO: plan
+// ============================================================================
+program
+  .command('plan')
+  .description('Muestra el plan actual')
+  .action(async () => {
+    const planFile = '.orchestra/plan.md';
+
+    if (!existsSync(planFile)) {
+      console.log(chalk.yellow('No hay plan activo.'));
+      console.log(chalk.gray('Usa "orchestra start <task>" para crear uno.'));
+      return;
+    }
+
+    const content = await readFile(planFile, 'utf-8');
+    console.log(content);
+  });
+
+// ============================================================================
+// COMANDO: clean
+// ============================================================================
+program
+  .command('clean')
+  .description('Limpia la sesión actual')
+  .action(async () => {
+    const { rm } = await import('fs/promises');
+    const orchestraDir = '.orchestra';
+
+    if (existsSync(orchestraDir)) {
+      await rm(orchestraDir, { recursive: true });
+      console.log(chalk.green('✓ Sesión limpiada'));
+    } else {
+      console.log(chalk.gray('No hay sesión que limpiar'));
+    }
+  });
+
+// ============================================================================
+// COMANDO: doctor
+// ============================================================================
+program
+  .command('doctor')
+  .description('Verifica que todo esté configurado correctamente')
+  .action(async () => {
+    console.log(chalk.cyan('Verificando configuración...\n'));
+
+    // Verificar Claude CLI
+    const { execFile } = await import('child_process');
+    const { promisify } = await import('util');
+    const execFileAsync = promisify(execFile);
+
+    try {
+      const { stdout } = await execFileAsync('claude', ['--version']);
+      console.log(chalk.green('✓'), 'Claude CLI:', stdout.trim());
+    } catch {
+      console.log(chalk.red('✗'), 'Claude CLI no encontrado');
+    }
+
+    // Verificar Codex CLI
+    try {
+      const { stdout } = await execFileAsync('codex', ['--version']);
+      console.log(chalk.green('✓'), 'Codex CLI:', stdout.trim());
+    } catch {
+      console.log(chalk.yellow('⚠'), 'Codex CLI no encontrado (opcional, para Consultor)');
+    }
+
+    // Verificar Gemini CLI (opcional)
+    try {
+      const { stdout } = await execFileAsync('gemini', ['--version']);
+      console.log(chalk.green('✓'), 'Gemini CLI:', stdout.trim(), chalk.gray('(disponible)'));
+    } catch {
+      console.log(chalk.gray('-'), 'Gemini CLI no encontrado (opcional)');
+    }
+
+    // Verificar Python
+    try {
+      const { stdout } = await execFileAsync('python3', ['--version']);
+      console.log(chalk.green('✓'), 'Python:', stdout.trim());
+    } catch {
+      console.log(chalk.red('✗'), 'Python3 no encontrado (necesario para validación)');
+    }
+
+    // Verificar ZAI_API_KEY
+    if (process.env.ZAI_API_KEY) {
+      const key = process.env.ZAI_API_KEY;
+      const masked = key.substring(0, 8) + '...' + key.substring(key.length - 4);
+      console.log(chalk.green('✓'), 'ZAI_API_KEY:', masked);
+    } else {
+      console.log(chalk.red('✗'), 'ZAI_API_KEY no configurada');
+    }
+
+    // Verificar Node.js version
+    const nodeVersion = process.version;
+    const majorVersion = parseInt(nodeVersion.slice(1).split('.')[0]);
+    if (majorVersion >= 18) {
+      console.log(chalk.green('✓'), 'Node.js:', nodeVersion);
+    } else {
+      console.log(chalk.yellow('⚠'), 'Node.js:', nodeVersion, '(se requiere 18+)');
+    }
+
+    // Verificar archivo de configuración
+    const configFiles = ['.orchestrarc.json', '.orchestrarc', 'orchestra.config.json'];
+    let configFound = false;
+    for (const file of configFiles) {
+      if (existsSync(file)) {
+        console.log(chalk.green('✓'), 'Configuración:', file);
+        configFound = true;
+        break;
+      }
+    }
+    if (!configFound) {
+      console.log(chalk.gray('-'), 'Configuración: no encontrada (usa "orchestra init" para crear)');
+    }
+
+    console.log();
+  });
+
+// ============================================================================
+// COMANDO: init
+// ============================================================================
+program
+  .command('init')
+  .description('Crea un archivo de configuración .orchestrarc.json')
+  .option('--force', 'Sobrescribir si ya existe')
+  .action(async (options: { force: boolean }) => {
+    const configFile = '.orchestrarc.json';
+
+    if (existsSync(configFile) && !options.force) {
+      console.log(chalk.yellow('⚠ El archivo .orchestrarc.json ya existe.'));
+      console.log(chalk.gray('Usa --force para sobrescribir.'));
+      return;
+    }
+
+    try {
+      const createdPath = await createDefaultConfig(process.cwd());
+      console.log(chalk.green('✓ Archivo de configuración creado:'), createdPath);
+      console.log();
+      console.log(chalk.cyan('Configuración disponible:'));
+      console.log(chalk.gray('  - defaultTask: Tarea por defecto'));
+      console.log(chalk.gray('  - languages: Lenguajes a validar'));
+      console.log(chalk.gray('  - test.command: Comando de tests'));
+      console.log(chalk.gray('  - test.runAfterGeneration: Auto-ejecutar tests'));
+      console.log(chalk.gray('  - git.autoCommit: Auto-commit'));
+      console.log(chalk.gray('  - execution.parallel: Ejecución paralela'));
+      console.log(chalk.gray('  - execution.maxConcurrency: Máximo de archivos simultáneos'));
+      console.log();
+      console.log(chalk.gray('Edita el archivo para personalizar la configuración.'));
+    } catch (error) {
+      console.log(chalk.red('✗ Error creando configuración:'), error);
+    }
+  });
+
+// ============================================================================
+// COMANDO: validate
+// ============================================================================
+program
+  .command('validate')
+  .description('Valida la sintaxis de los archivos generados')
+  .action(async () => {
+    const planFile = '.orchestra/plan.md';
+
+    if (!existsSync(planFile)) {
+      console.log(chalk.yellow('No hay archivos para validar.'));
+      console.log(chalk.gray('Ejecuta "orchestra start <task>" primero.'));
+      return;
+    }
+
+    const spinner = ora('Validando archivos...').start();
+
+    const orchestrator = new Orchestrator(
+      {},
+      {
+        onSyntaxValidation: (result) => {
+          const icon = result.valid ? chalk.green('✓') : chalk.red('✗');
+          console.log(`  ${icon} ${result.file} (${result.language})`);
+          if (!result.valid) {
+            for (const err of result.errors) {
+              console.log(chalk.red(`    L${err.line}:${err.column} - ${err.message}`));
+            }
+          }
+        },
+      }
+    );
+
+    try {
+      const results = await orchestrator.validateGeneratedFiles();
+      spinner.stop();
+
+      const valid = results.filter(r => r.valid).length;
+      const invalid = results.filter(r => !r.valid).length;
+
+      console.log();
+      if (invalid === 0) {
+        console.log(chalk.green(`✓ Todos los archivos válidos (${valid})`));
+      } else {
+        console.log(chalk.yellow(`⚠ ${invalid} archivo(s) con errores, ${valid} válido(s)`));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red(`Error: ${error}`));
+    }
+  });
+
+// ============================================================================
+// COMANDO: github
+// ============================================================================
+program
+  .command('github')
+  .description('Integración con GitHub (crear issues/PRs)')
+  .option('--issue', 'Crear issue desde los resultados de auditoría')
+  .option('--pr', 'Crear PR con los archivos generados')
+  .option('--branch <name>', 'Nombre de la rama para el PR')
+  .action(async (options: { issue?: boolean; pr?: boolean; branch?: string }) => {
+    const { isGitHubAvailable, createIssue, createPullRequest, createBranch, pushBranch, generateIssueFromAudit, generatePRFromTask } = await import('../utils/githubIntegration.js');
+
+    // Verificar disponibilidad de gh CLI
+    const available = await isGitHubAvailable();
+    if (!available) {
+      console.log(chalk.red('✗ GitHub CLI (gh) no está disponible o no autenticado.'));
+      console.log(chalk.gray('  Instala: https://cli.github.com/'));
+      console.log(chalk.gray('  Autentica: gh auth login'));
+      return;
+    }
+
+    const planFile = '.orchestra/plan.md';
+    const auditFile = '.orchestra/audit-result.json';
+
+    if (!existsSync(planFile)) {
+      console.log(chalk.yellow('No hay sesión activa.'));
+      console.log(chalk.gray('Ejecuta "orchestra start <task>" primero.'));
+      return;
+    }
+
+    const planContent = await readFile(planFile, 'utf-8');
+    const taskMatch = planContent.match(/## Objetivo\n([^\n]+)/);
+    const task = taskMatch ? taskMatch[1] : 'Tarea de Orchestra';
+
+    if (options.issue) {
+      // Crear issue desde auditoría
+      if (!existsSync(auditFile)) {
+        console.log(chalk.yellow('No hay resultados de auditoría.'));
+        return;
+      }
+
+      const auditContent = JSON.parse(await readFile(auditFile, 'utf-8'));
+      const issues = auditContent.issues || [];
+
+      if (issues.length === 0) {
+        console.log(chalk.green('✓ No hay issues que reportar.'));
+        return;
+      }
+
+      const spinner = ora('Creando issue en GitHub...').start();
+      const issueData = generateIssueFromAudit(task, issues);
+      const result = await createIssue(issueData);
+
+      if (result.success) {
+        spinner.succeed(chalk.green('Issue creado: ' + result.url));
+      } else {
+        spinner.fail(chalk.red('Error: ' + result.error));
+      }
+    }
+
+    if (options.pr) {
+      const branchName = options.branch || 'orchestra/' + Date.now();
+
+      // Obtener archivos del plan
+      const { extractFilesFromPlan } = await import('../prompts/executor.js');
+      const files = extractFilesFromPlan(planContent).map(f => f.path);
+
+      const spinner = ora('Creando PR en GitHub...').start();
+
+      // Crear rama y hacer push
+      spinner.text = 'Creando rama...';
+      const branchCreated = await createBranch(branchName);
+      if (!branchCreated) {
+        spinner.fail(chalk.red('Error creando rama'));
+        return;
+      }
+
+      spinner.text = 'Haciendo push...';
+      const pushed = await pushBranch(branchName);
+      if (!pushed) {
+        spinner.fail(chalk.red('Error haciendo push'));
+        return;
+      }
+
+      spinner.text = 'Creando PR...';
+      const prData = generatePRFromTask(task, files, branchName);
+      const result = await createPullRequest(prData);
+
+      if (result.success) {
+        spinner.succeed(chalk.green('PR creado: ' + result.url));
+      } else {
+        spinner.fail(chalk.red('Error: ' + result.error));
+      }
+    }
+
+    if (!options.issue && !options.pr) {
+      console.log(chalk.cyan('Opciones disponibles:'));
+      console.log(chalk.gray('  --issue    Crear issue desde auditoría'));
+      console.log(chalk.gray('  --pr       Crear PR con archivos generados'));
+      console.log(chalk.gray('  --branch   Nombre de rama para PR'));
+    }
+  });
+
+// ============================================================================
+// COMANDO: dry-run
+// ============================================================================
+program
+  .command('dry-run <task>')
+  .description('Analiza una tarea sin ejecutar (muestra plan estimado)')
+  .option('--json', 'Salida en formato JSON')
+  .action(async (task: string, options: { json?: boolean }) => {
+    const { analyzeDryRun, formatDryRunOutput } = await import('../utils/dryRun.js');
+    const planFile = '.orchestra/plan.md';
+
+    // Si existe un plan, usarlo para análisis más preciso
+    let planContent: string | undefined;
+    if (existsSync(planFile)) {
+      planContent = await readFile(planFile, 'utf-8');
+    }
+
+    const analysis = await analyzeDryRun(task, planContent);
+    const output = formatDryRunOutput(analysis, {
+      outputFormat: options.json ? 'json' : 'text',
+    });
+
+    console.log(output);
+  });
+
+// ============================================================================
+// COMANDO: export
+// ============================================================================
+program
+  .command('export')
+  .description('Exporta la sesión actual a Markdown/JSON')
+  .option('--format <type>', 'Formato: markdown, json, both', 'both')
+  .option('--output <dir>', 'Directorio de salida', '.orchestra/exports')
+  .action(async (options: { format: 'markdown' | 'json' | 'both'; output: string }) => {
+    const sessionExportModule = await import('../utils/sessionExport.js');
+    const stateFile = '.orchestra/session-state.json';
+    const planFile = '.orchestra/plan.md';
+    const auditFile = '.orchestra/audit-result.json';
+
+    if (!existsSync(stateFile)) {
+      console.log(chalk.yellow('No hay sesión para exportar.'));
+      console.log(chalk.gray('Ejecuta "orchestra start <task>" primero.'));
+      return;
+    }
+
+    const spinner = ora('Exportando sesión...').start();
+
+    try {
+      const stateContent = JSON.parse(await readFile(stateFile, 'utf-8'));
+      const planContent = existsSync(planFile) ? await readFile(planFile, 'utf-8') : undefined;
+      const auditContent = existsSync(auditFile) ? JSON.parse(await readFile(auditFile, 'utf-8')) : undefined;
+
+      const sessionData = {
+        id: stateContent.sessionId || 'unknown',
+        task: stateContent.task || 'Unknown task',
+        startTime: stateContent.startTime || new Date().toISOString(),
+        endTime: stateContent.endTime,
+        status: stateContent.status || 'completed',
+        plan: planContent,
+        files: (stateContent.files || []).map((f: any) => ({
+          path: f.path || f,
+          description: f.description || '',
+          status: f.status || 'created',
+        })),
+        iterations: stateContent.iterations || [],
+        metrics: stateContent.metrics,
+      };
+
+      const savedFiles = await sessionExportModule.saveSession(sessionData, options.format, options.output);
+
+      spinner.succeed(chalk.green('Sesión exportada'));
+      for (const file of savedFiles) {
+        console.log(chalk.gray('  → ' + file));
+      }
+    } catch (error) {
+      spinner.fail(chalk.red('Error exportando: ' + error));
+    }
+  });
+
+// ============================================================================
+// COMANDO: history
+// ============================================================================
+program
+  .command('history')
+  .description('Muestra el historial de sesiones')
+  .option('--limit <n>', 'Número de sesiones a mostrar', '10')
+  .option('--status <status>', 'Filtrar por estado (completed, failed, running)')
+  .option('--search <query>', 'Buscar en tareas')
+  .option('--stats', 'Mostrar estadísticas')
+  .option('--load <id>', 'Cargar detalles de una sesión')
+  .option('--delete <id>', 'Eliminar una sesión')
+  .action(async (options: {
+    limit: string;
+    status?: string;
+    search?: string;
+    stats?: boolean;
+    load?: string;
+    delete?: string;
+  }) => {
+    const { SessionHistory } = await import('../utils/sessionHistory.js');
+    const history = new SessionHistory();
+    await history.init();
+
+    if (options.delete) {
+      const deleted = await history.deleteSession(options.delete);
+      if (deleted) {
+        console.log(chalk.green('✓ Sesión eliminada: ' + options.delete));
+      } else {
+        console.log(chalk.yellow('Sesión no encontrada: ' + options.delete));
+      }
+      return;
+    }
+
+    if (options.load) {
+      const session = await history.loadFullSession(options.load);
+      if (session) {
+        console.log(chalk.cyan.bold('Sesión: ' + session.id));
+        console.log();
+        console.log(chalk.white('Task: ') + session.task);
+        console.log(chalk.white('Status: ') + session.status);
+        console.log(chalk.white('Start: ') + session.startTime);
+        if (session.endTime) {
+          console.log(chalk.white('End: ') + session.endTime);
+        }
+        console.log(chalk.white('Files: ') + session.files.length);
+        console.log();
+        if (session.plan) {
+          console.log(chalk.cyan('Plan:'));
+          console.log(session.plan);
+        }
+      } else {
+        console.log(chalk.yellow('Sesión no encontrada: ' + options.load));
+      }
+      return;
+    }
+
+    if (options.stats) {
+      const stats = history.getStats();
+      console.log(chalk.cyan.bold('Estadísticas del Historial'));
+      console.log();
+      console.log(chalk.white('Total sesiones: ') + stats.total);
+      console.log(chalk.green('Completadas: ') + stats.completed);
+      console.log(chalk.red('Fallidas: ') + stats.failed);
+      console.log(chalk.white('Duración promedio: ') + formatDurationMs(stats.avgDuration));
+      console.log(chalk.white('Archivos promedio: ') + stats.avgFiles.toFixed(1));
+      return;
+    }
+
+    const sessions = history.list({
+      limit: parseInt(options.limit, 10),
+      status: options.status,
+      search: options.search,
+    });
+
+    if (sessions.length === 0) {
+      console.log(chalk.gray('No hay sesiones en el historial.'));
+      return;
+    }
+
+    console.log(chalk.cyan.bold('Historial de Sesiones'));
+    console.log();
+    for (const session of sessions) {
+      console.log(SessionHistory.formatForConsole(session));
+    }
+    console.log();
+    console.log(chalk.gray('Usa --load <id> para ver detalles, --stats para estadísticas'));
+  });
+
+// ============================================================================
+// COMANDO: notify (configurar notificaciones)
+// ============================================================================
+program
+  .command('notify')
+  .description('Configurar notificaciones')
+  .option('--test', 'Enviar notificación de prueba')
+  .option('--slack <url>', 'Configurar webhook de Slack')
+  .option('--webhook <url>', 'Configurar webhook genérico')
+  .action(async (options: { test?: boolean; slack?: string; webhook?: string }) => {
+    const { NotificationService } = await import('../utils/notifications.js');
+
+    if (options.test) {
+      const notifier = new NotificationService({ enabled: true, desktop: true });
+      await notifier.notify({
+        title: '🎵 Orchestra Test',
+        message: 'Las notificaciones están funcionando correctamente.',
+        type: 'info',
+      });
+      console.log(chalk.green('✓ Notificación de prueba enviada'));
+      return;
+    }
+
+    if (options.slack || options.webhook) {
+      // Guardar configuración
+      const configPath = '.orchestra/notifications.json';
+      const config: any = {};
+
+      if (existsSync(configPath)) {
+        const existing = JSON.parse(await readFile(configPath, 'utf-8'));
+        Object.assign(config, existing);
+      }
+
+      if (options.slack) {
+        config.slack = { webhookUrl: options.slack };
+        console.log(chalk.green('✓ Webhook de Slack configurado'));
+      }
+
+      if (options.webhook) {
+        config.webhook = { url: options.webhook };
+        console.log(chalk.green('✓ Webhook genérico configurado'));
+      }
+
+      const { mkdir } = await import('fs/promises');
+      if (!existsSync('.orchestra')) {
+        await mkdir('.orchestra', { recursive: true });
+      }
+      await writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
+      console.log(chalk.gray('Configuración guardada en: ' + configPath));
+      return;
+    }
+
+    console.log(chalk.cyan('Opciones de notificación:'));
+    console.log(chalk.gray('  --test            Enviar notificación de prueba'));
+    console.log(chalk.gray('  --slack <url>     Configurar webhook de Slack'));
+    console.log(chalk.gray('  --webhook <url>   Configurar webhook genérico'));
+  });
+
+// ============================================================================
+// COMANDO: cache
+// ============================================================================
+program
+  .command('cache')
+  .description('Gestionar cache de resultados')
+  .option('--list', 'Listar entradas en cache')
+  .option('--stats', 'Mostrar estadísticas del cache')
+  .option('--clear', 'Limpiar todo el cache')
+  .action(async (options: { list?: boolean; stats?: boolean; clear?: boolean }) => {
+    const { ResultCache } = await import('../utils/cache.js');
+    const cache = new ResultCache();
+    await cache.init();
+
+    if (options.clear) {
+      await cache.clear();
+      console.log(chalk.green('✓ Cache limpiado'));
+      return;
+    }
+
+    if (options.stats) {
+      const stats = cache.getStats();
+      console.log(chalk.cyan.bold('Estadísticas del Cache'));
+      console.log();
+      console.log(chalk.white('Entradas: ') + stats.entries);
+      if (stats.oldestEntry) {
+        console.log(chalk.white('Más antigua: ') + stats.oldestEntry);
+      }
+      if (stats.newestEntry) {
+        console.log(chalk.white('Más reciente: ') + stats.newestEntry);
+      }
+      return;
+    }
+
+    if (options.list) {
+      const entries = cache.list();
+      if (entries.length === 0) {
+        console.log(chalk.gray('Cache vacío.'));
+        return;
+      }
+
+      console.log(chalk.cyan.bold('Entradas en Cache'));
+      console.log();
+      for (const entry of entries) {
+        const status = entry.success ? chalk.green('✓') : chalk.red('✗');
+        const date = new Date(entry.timestamp).toLocaleString();
+        console.log(status + ' ' + entry.taskHash.substring(0, 8) + ' | ' + date + ' | ' + entry.task.substring(0, 50) + '...');
+      }
+      return;
+    }
+
+    console.log(chalk.cyan('Opciones de cache:'));
+    console.log(chalk.gray('  --list    Listar entradas'));
+    console.log(chalk.gray('  --stats   Ver estadísticas'));
+    console.log(chalk.gray('  --clear   Limpiar cache'));
+  });
+
+// ============================================================================
+// COMANDO: tui (Interfaz Visual en Terminal)
+// ============================================================================
+program
+  .command('tui')
+  .description('Abre la interfaz visual en terminal (TUI)')
+  .option('--task <task>', 'Iniciar con una tarea específica')
+  .option('--auto', 'Auto-iniciar la tarea (requiere --task)')
+  .action(async (options: { task?: string; auto?: boolean }) => {
+    const { startTUI } = await import('../tui/index.js');
+    await startTUI({
+      task: options.task,
+      autoStart: options.auto && !!options.task,
+    });
+  });
+
+// ============================================================================
+// COMANDO: default (sin argumentos abre TUI)
+// ============================================================================
+program
+  .action(() => {
+    // Si no hay comando, mostrar ayuda
+    program.help();
+  });
+
+// Helper function para formatear duración
+function formatDurationMs(ms: number): string {
+  if (ms < 1000) return ms + 'ms';
+  if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  return minutes + 'm ' + seconds + 's';
+}
+
+// Ejecutar
+program.parse();
