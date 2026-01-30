@@ -1,3 +1,22 @@
+<!-- ============================================================================
+     AI-CORE INTEGRATION - CLAUDE CODE
+     ============================================================================
+     Este proyecto usa ai-core para patrones universales de desarrollo.
+
+     📖 REFERENCIA CENTRAL: ai-core/SUBAGENTS/AGENTS.md
+        Contiene: Working Agreements, Subagentes, Skills, Estructura del proyecto
+
+     PRIORIDAD: Las instrucciones de este archivo tienen precedencia sobre ai-core
+     ============================================================================ -->
+
+> **Orden de lectura** para Claude Code:
+>
+> 1. `ai-core/SUBAGENTS/AGENTS.md` ← 📖 Guía central (skills, subagentes, working agreements)
+> 2. Este archivo ← Instrucciones específicas de TU proyecto
+>
+> **Precedencia**: Este archivo > ai-core
+
+---
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -330,3 +349,23 @@ Override with `test.command` in config.
 - Run `orchestra clean` to reset session
 - Delete `.orchestra/` directory manually
 - Resume with `orchestra resume` if possible
+---
+
+## Recursos de ai-core
+
+| Recurso          | Ubicación                     | Descripción                                        |
+| ---------------- | ----------------------------- | -------------------------------------------------- |
+| **Guía Central** | `ai-core/SUBAGENTS/AGENTS.md` | Working agreements, subagentes, skills disponibles |
+| **Skills**       | `.claude/skills/`             | Symlink a `ai-core/SKILLS/`                        |
+| **Subagentes**   | `.claude/agents/`             | Symlink a `ai-core/SUBAGENTS/`                     |
+
+### Subagentes Principales
+
+- `ai-core-guardian` - Guardian de producción (siempre activo)
+- `security-specialist` - OWASP, Zero Trust, OAuth2
+- `frontend-specialist` - React/Vue/Angular, a11y
+- `backend-specialist` - REST/GraphQL, validación
+- `testing-specialist` - TDD, coverage, mocking
+- `code-reviewer` - Revisión de PRs, auditorías
+
+Para lista completa y working agreements, ver: **`ai-core/SUBAGENTS/AGENTS.md`**

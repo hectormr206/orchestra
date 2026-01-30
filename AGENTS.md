@@ -1,3 +1,22 @@
+<!-- ============================================================================
+     AI-CORE INTEGRATION
+     ============================================================================
+     Este proyecto usa ai-core para patrones universales de desarrollo.
+
+     📖 REFERENCIA CENTRAL: ai-core/SUBAGENTS/AGENTS.md
+        Contiene: Working Agreements, Subagentes, Skills, Estructura del proyecto
+
+     PRIORIDAD: Las instrucciones de este archivo tienen precedencia sobre ai-core
+     ============================================================================ -->
+
+> **Orden de lectura**:
+>
+> 1. `ai-core/SUBAGENTS/AGENTS.md` ← 📖 Guía central (skills, subagentes, working agreements)
+> 2. Este archivo ← Instrucciones específicas de TU proyecto
+>
+> **Precedencia**: Este archivo > ai-core
+
+---
 # AGENTS.md
 
 This file provides guidance to Orchestra when working with code in this repository.
@@ -340,3 +359,28 @@ Override with `test.command` in config.
 - Run `orchestra clean` to reset session
 - Delete `.orchestra/` directory manually
 - Resume with `orchestra resume` if possible
+---
+
+## Recursos de ai-core
+
+| Recurso          | Ubicación                     | Descripción                                        |
+| ---------------- | ----------------------------- | -------------------------------------------------- |
+| **Guía Central** | `ai-core/SUBAGENTS/AGENTS.md` | Working agreements, subagentes, skills disponibles |
+| **Skills**       | `ai-core/SKILLS/`             | 30+ skills especializados por dominio              |
+| **Subagentes**   | `ai-core/SUBAGENTS/`          | Agentes especializados para tareas específicas     |
+
+### Skills por Categoría
+
+- **Core**: security, testing, frontend, backend, mobile, database
+- **DevOps**: git-workflow, ci-cd, infrastructure, disaster-recovery
+- **Observability**: observability, logging, error-handling, performance
+- **Enterprise**: compliance, audit-logging, accessibility, i18n
+- **AI/Data**: ai-ml, data-analytics, llms-txt
+
+### Subagentes Principales
+
+- `ai-core-guardian` - Guardian de producción (siempre activo)
+- `security-specialist` - OWASP, Zero Trust, OAuth2
+- `code-reviewer` - Revisión de PRs, auditorías
+
+Para detalles completos, ver: **`ai-core/SUBAGENTS/AGENTS.md`**
