@@ -4,9 +4,9 @@
  * Usa Claude CLI redirigido a la API de z.ai para usar GLM 4.7
  */
 
-import { spawn } from 'child_process';
-import { writeFile } from 'fs/promises';
-import type { AdapterConfig, ExecuteOptions, AgentResult } from '../types.js';
+import { spawn } from "child_process";
+import { writeFile } from "fs/promises";
+import type { AdapterConfig, ExecuteOptions, AgentResult } from "../types.js";
 
 export class GLMAdapter {
   private config: AdapterConfig;
@@ -16,19 +16,19 @@ export class GLMAdapter {
 
     if (!apiKey) {
       throw new Error(
-        'ZAI_API_KEY no está configurada. Agrégala a tu .zshrc:\n' +
-        '  export ZAI_API_KEY="tu-api-key"'
+        "ZAI_API_KEY no está configurada. Agrégala a tu .zshrc:\n" +
+          '  export ZAI_API_KEY="tu-api-key"',
       );
     }
 
     this.config = {
-      command: 'claude',
+      command: "claude",
       timeout: 600000, // 10 minutos
       env: {
         ANTHROPIC_API_KEY: apiKey,
-        ANTHROPIC_BASE_URL: 'https://api.z.ai/api/anthropic',
-        API_TIMEOUT_MS: '3000000',
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
+        ANTHROPIC_BASE_URL: "https://api.z.ai/api/anthropic",
+        API_TIMEOUT_MS: "3000000",
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
       },
     };
   }
@@ -40,23 +40,27 @@ export class GLMAdapter {
     const startTime = Date.now();
 
     return new Promise((resolve) => {
-      const proc = spawn(this.config.command, ['--print', '-p', options.prompt], {
-        cwd: options.workingDir || process.cwd(),
-        env: {
-          ...process.env,
-          ...this.config.env,
+      const proc = spawn(
+        this.config.command,
+        ["--print", "-p", options.prompt],
+        {
+          cwd: options.workingDir || process.cwd(),
+          env: {
+            ...process.env,
+            ...this.config.env,
+          },
+          stdio: ["pipe", "pipe", "pipe"],
         },
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      );
 
-      let stdout = '';
-      let stderr = '';
+      let stdout = "";
+      let stderr = "";
 
-      proc.stdout.on('data', (data) => {
+      proc.stdout.on("data", (data) => {
         stdout += data.toString();
       });
 
-      proc.stderr.on('data', (data) => {
+      proc.stderr.on("data", (data) => {
         stderr += data.toString();
       });
 
@@ -65,15 +69,15 @@ export class GLMAdapter {
 
       // Timeout
       const timeoutId = setTimeout(() => {
-        proc.kill('SIGTERM');
+        proc.kill("SIGTERM");
         resolve({
           success: false,
           duration: Date.now() - startTime,
-          error: 'Timeout: el proceso tardó más de 10 minutos',
+          error: "Timeout: el proceso tardó más de 10 minutos",
         });
       }, this.config.timeout);
 
-      proc.on('close', async (code) => {
+      proc.on("close", async (code) => {
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
 
@@ -82,7 +86,7 @@ export class GLMAdapter {
           resolve({
             success: false,
             duration,
-            error: 'RATE_LIMIT: GLM 4.7 alcanzó su límite de uso',
+            error: "RATE_LIMIT: GLM 4.7 alcanzó su límite de uso",
           });
           return;
         }
@@ -91,7 +95,7 @@ export class GLMAdapter {
           // Si hay archivo de salida, escribir el resultado
           if (options.outputFile) {
             try {
-              await writeFile(options.outputFile, stdout, 'utf-8');
+              await writeFile(options.outputFile, stdout, "utf-8");
             } catch (err) {
               resolve({
                 success: false,
@@ -116,7 +120,7 @@ export class GLMAdapter {
         }
       });
 
-      proc.on('error', (error) => {
+      proc.on("error", (error) => {
         clearTimeout(timeoutId);
         resolve({
           success: false,
@@ -140,7 +144,7 @@ export class GLMAdapter {
       /limit reached/i,
       /usage limit/i,
     ];
-    return rateLimitPatterns.some(pattern => pattern.test(output));
+    return rateLimitPatterns.some((pattern) => pattern.test(output));
   }
 
   /**
@@ -148,11 +152,11 @@ export class GLMAdapter {
    */
   async isAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn('which', ['claude']);
-      proc.on('close', (code) => {
+      const proc = spawn("which", ["claude"]);
+      proc.on("close", (code) => {
         resolve(code === 0);
       });
-      proc.on('error', () => {
+      proc.on("error", () => {
         resolve(false);
       });
     });
@@ -163,9 +167,9 @@ export class GLMAdapter {
    */
   getInfo(): { name: string; model: string; provider: string } {
     return {
-      name: 'GLMAdapter',
-      model: 'GLM 4.7',
-      provider: 'z.ai',
+      name: "GLMAdapter",
+      model: "Claude (GLM 4.7)",
+      provider: "z.ai",
     };
   }
 }

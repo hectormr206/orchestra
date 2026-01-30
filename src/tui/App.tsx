@@ -9,7 +9,11 @@ import { History } from "./screens/History.js";
 import { Settings } from "./screens/Settings.js";
 import { Doctor } from "./screens/Doctor.js";
 import { useOrchestrator } from "./hooks/useOrchestrator.js";
-import { loadSettings, saveSettings } from "../utils/configLoader.js";
+import {
+  loadSettings,
+  saveSettings,
+  type TUISettings,
+} from "../utils/configLoader.js";
 
 type Screen =
   | "dashboard"
@@ -31,7 +35,7 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
     autoStart && initialTask ? "execution" : "dashboard",
   );
   const [orchestratorState, orchestratorActions] = useOrchestrator();
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<TUISettings>({
     parallel: true,
     maxConcurrency: 3,
     autoApprove: false,
@@ -44,6 +48,13 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
     maxRecoveryAttempts: 3,
     recoveryTimeoutMinutes: 10,
     autoRevertOnFailure: true,
+    // Agent Models
+    agents: {
+      architect: ["Claude (Opus 4.5)", "Gemini", "Claude (GLM 4.7)", "Codex"],
+      executor: ["Claude (GLM 4.7)", "Gemini", "Claude (Opus 4.5)", "Codex"],
+      auditor: ["Gemini", "Claude (GLM 4.7)", "Claude (Opus 4.5)", "Codex"],
+      consultant: ["Claude (Opus 4.5)", "Gemini", "Claude (GLM 4.7)", "Codex"],
+    },
   });
   const [stats, setStats] = useState({
     totalSessions: 0,

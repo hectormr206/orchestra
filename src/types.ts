@@ -36,8 +36,24 @@ export interface OrchestratorConfig {
   /** Timeout for recovery mode in milliseconds (default: 600000 = 10 min) */
   recoveryTimeout: number;
   /** Auto-revert failed files when recovery mode fails (default: true) */
+  /** Auto-revert failed files when recovery mode fails (default: true) */
   autoRevertOnFailure: boolean;
+  /** Configuration for specific agents */
+  agents: AgentConfig;
 }
+
+export interface AgentConfig {
+  architect: ModelType[];
+  executor: ModelType[];
+  auditor: ModelType[];
+  consultant: ModelType[];
+}
+
+export type ModelType =
+  | "Claude (GLM 4.7)"
+  | "Gemini"
+  | "Codex"
+  | "Claude (Opus 4.5)";
 
 /** Custom prompt templates */
 export interface CustomPrompts {
@@ -126,6 +142,8 @@ export interface ProjectConfig {
     maxRecoveryAttempts?: number;
     recoveryTimeoutMinutes?: number;
     autoRevertOnFailure?: boolean;
+    // Agent Models
+    agents?: AgentConfig;
   };
 }
 

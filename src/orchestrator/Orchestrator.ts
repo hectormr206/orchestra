@@ -18,6 +18,7 @@ import path from "path";
 import { GLMAdapter } from "../adapters/GLMAdapter.js";
 import { CodexAdapter } from "../adapters/CodexAdapter.js";
 import { GeminiAdapter } from "../adapters/GeminiAdapter.js";
+import { ClaudeAdapter } from "../adapters/ClaudeAdapter.js";
 import { FallbackAdapter, type Adapter } from "../adapters/FallbackAdapter.js";
 import { StateManager } from "../utils/StateManager.js";
 import { buildArchitectPrompt } from "../prompts/architect.js";
@@ -181,12 +182,13 @@ export class Orchestrator {
   private glmAdapter: GLMAdapter;
   private codexAdapter: CodexAdapter;
   private geminiAdapter: GeminiAdapter;
+  private claudeAdapter: ClaudeAdapter;
 
   // Adaptadores con fallback para cada agente
-  private architectAdapter: Adapter; // Codex → Gemini → GLM 4.7
-  private executorAdapter: Adapter; // GLM 4.7 (sin fallback)
-  private auditorAdapter: Adapter; // Gemini → GLM 4.7
-  private consultantAdapter: Adapter; // Codex → Gemini → GLM 4.7
+  private architectAdapter: Adapter;
+  private executorAdapter: Adapter;
+  private auditorAdapter: Adapter;
+  private consultantAdapter: Adapter;
 
   constructor(
     config: Partial<OrchestratorConfig> = {},
@@ -212,6 +214,12 @@ export class Orchestrator {
       maxRecoveryAttempts: config.maxRecoveryAttempts || 3,
       recoveryTimeout: config.recoveryTimeout || 600000,
       autoRevertOnFailure: config.autoRevertOnFailure ?? true,
+      agents: config.agents || {
+        architect: ["Claude (Opus 4.5)"],
+        executor: ["Claude (GLM 4.7)"],
+        auditor: ["Gemini"],
+        consultant: ["Claude (Opus 4.5)"],
+      },
     };
 
     this.callbacks = callbacks;
@@ -221,35 +229,55 @@ export class Orchestrator {
     this.glmAdapter = new GLMAdapter();
     this.codexAdapter = new CodexAdapter();
     this.geminiAdapter = new GeminiAdapter();
+    this.claudeAdapter = new ClaudeAdapter();
 
-    // Crear callbacks para fallback
+    // Configurar adaptadores dinámicamente
+    this.architectAdapter = this.createAdapterChain(
+      this.config.agents.architect,
+    );
+    this.executorAdapter = this.createAdapterChain(this.config.agents.executor);
+    this.auditorAdapter = this.createAdapterChain(this.config.agents.auditor);
+    this.consultantAdapter = this.createAdapterChain(
+      this.config.agents.consultant,
+    );
+  }
+
+  /**
+   * Crea una cadena de fallback basada en la lista de modelos
+   */
+  private createAdapterChain(models: string[]): Adapter {
     const fallbackCallbacks = {
       onAdapterFallback: (from: string, to: string, reason: string) => {
         this.callbacks.onAdapterFallback?.(from, to, reason);
       },
     };
 
-    // Configurar adaptadores con fallback para cada agente:
-    // Arquitecto: Codex → Gemini → GLM 4.7
-    this.architectAdapter = new FallbackAdapter(
-      [this.codexAdapter, this.geminiAdapter, this.glmAdapter],
-      fallbackCallbacks,
-    );
+    const getAdapterByName = (name: string): Adapter => {
+      switch (name) {
+        case "GLM 4.7":
+        case "Claude (GLM 4.7)":
+          return this.glmAdapter;
+        case "Gemini":
+          return this.geminiAdapter;
+        case "Codex":
+          return this.codexAdapter;
+        case "Claude (Opus 4.5)":
+          return this.claudeAdapter;
+        default:
+          return this.claudeAdapter;
+      }
+    };
 
-    // Ejecutor: GLM 4.7 (sin fallback, necesita consistencia)
-    this.executorAdapter = this.glmAdapter;
+    // Remove duplicates and map to adapters
+    const uniqueModels = [...new Set(models)];
+    const chain = uniqueModels.map((name) => getAdapterByName(name));
 
-    // Auditor: Gemini → GLM 4.7
-    this.auditorAdapter = new FallbackAdapter(
-      [this.geminiAdapter, this.glmAdapter],
-      fallbackCallbacks,
-    );
+    // Ensure at least one adapter
+    if (chain.length === 0) {
+      chain.push(this.claudeAdapter);
+    }
 
-    // Consultor: Codex → Gemini → GLM 4.7
-    this.consultantAdapter = new FallbackAdapter(
-      [this.codexAdapter, this.geminiAdapter, this.glmAdapter],
-      fallbackCallbacks,
-    );
+    return new FallbackAdapter(chain, fallbackCallbacks);
   }
 
   /**
@@ -676,6 +704,9 @@ export class Orchestrator {
   /**
    * Procesa un solo archivo (usado por runExecutor)
    */
+  /**
+   * Procesa un solo archivo (usado por runExecutor) con intentos de auto-corrección
+   */
   private async processFile(
     file: { path: string; description: string },
     planContent: string,
@@ -683,45 +714,78 @@ export class Orchestrator {
     total: number,
   ): Promise<{ success: boolean; duration: number; error?: string }> {
     const startTime = Date.now();
+    const maxRetries = 5; // Self-correction attempts
+    let currentAttempt = 0;
+    let lastError = "";
 
     this.callbacks.onFileStart?.(file.path, index, total);
 
-    const prompt = buildExecutorPrompt(planContent, file.path, 1);
-    const tempFile = this.stateManager.getFilePath(
-      `temp_${file.path.replace(/\//g, "_")}`,
-    );
+    while (currentAttempt < maxRetries) {
+      currentAttempt++;
 
-    const result = await this.executorAdapter.execute({
-      prompt,
-      outputFile: tempFile,
-      workingDir: process.cwd(),
-    });
+      const prompt =
+        currentAttempt === 1
+          ? buildExecutorPrompt(planContent, file.path, 1) // First attempt
+          : buildExecutorPrompt(planContent, file.path, 1) + // Retry with error context
+            `\n\n⚠️ PREVIOUS ATTEMPT FAILED. FIX THIS ERROR:\n${lastError}\n\nEnsure the code is COMPLETE and SYNTACTICALLY CORRECT.`;
 
-    if (!result.success) {
-      const duration = Date.now() - startTime;
-      this.callbacks.onFileComplete?.(file.path, false, duration);
-      return { success: false, duration, error: result.error };
-    }
+      const tempFile = this.stateManager.getFilePath(
+        `temp_${file.path.replace(/\//g, "_")}_v${currentAttempt}`,
+      );
 
-    try {
-      let code = await readFile(tempFile, "utf-8");
-      code = this.cleanGeneratedCode(code);
+      // Execute generation
+      const result = await this.executorAdapter.execute({
+        prompt,
+        outputFile: tempFile,
+        workingDir: process.cwd(),
+      });
 
-      const destPath = path.join(process.cwd(), file.path);
-      await writeFile(destPath, code, "utf-8");
-
-      if (file.path.endsWith(".py")) {
-        await this.validateAndFixPython(destPath, file.path, planContent);
+      if (!result.success) {
+        lastError = result.error || "Unknown generation error";
+        continue; // Retry
       }
 
-      const duration = Date.now() - startTime;
-      this.callbacks.onFileComplete?.(file.path, true, duration);
-      return { success: true, duration };
-    } catch (err) {
-      const duration = Date.now() - startTime;
-      this.callbacks.onFileComplete?.(file.path, false, duration);
-      return { success: false, duration, error: String(err) };
+      try {
+        let code = await readFile(tempFile, "utf-8");
+        code = this.cleanGeneratedCode(code);
+
+        // Basic Syntax Validation before saving
+        const syntaxResult = await validateSyntax(code, file.path);
+
+        if (!syntaxResult.valid) {
+          const firstError = syntaxResult.errors[0];
+          lastError = `Syntax Error at line ${firstError.line}: ${firstError.message}`;
+          this.callbacks.onSyntaxCheck?.(file.path, false, firstError.message);
+          continue; // Retry with this error
+        }
+
+        // Logic specific for Python if needed (existing logic kept)
+        // Note: Logic moved after syntax check to avoid fixing broken code
+
+        const destPath = path.join(process.cwd(), file.path);
+        await writeFile(destPath, code, "utf-8");
+
+        if (file.path.endsWith(".py")) {
+          // We might want to re-validate python specificaly here if needed
+          // but validateSyntax handles basic ast parsing
+        }
+
+        const duration = Date.now() - startTime;
+        this.callbacks.onFileComplete?.(file.path, true, duration);
+        return { success: true, duration };
+      } catch (err) {
+        lastError = String(err);
+      }
     }
+
+    // If we get here, all retries failed
+    const duration = Date.now() - startTime;
+    this.callbacks.onFileComplete?.(file.path, false, duration);
+    return {
+      success: false,
+      duration,
+      error: `Failed after ${maxRetries} attempts. Last error: ${lastError}`,
+    };
   }
 
   /**

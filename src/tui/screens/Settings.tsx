@@ -1,27 +1,20 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
-
-interface SettingsConfig {
-  parallel: boolean;
-  maxConcurrency: number;
-  autoApprove: boolean;
-  runTests: boolean;
-  testCommand: string;
-  gitCommit: boolean;
-  notifications: boolean;
-  cacheEnabled: boolean;
-  // Recovery Mode settings
-  maxRecoveryAttempts: number;
-  recoveryTimeoutMinutes: number;
-  autoRevertOnFailure: boolean;
-}
+import type { TUISettings } from "../../utils/configLoader.js";
+import type { ModelType } from "../../types.js";
 
 interface SettingsProps {
-  config: SettingsConfig;
-  onChange: (config: SettingsConfig) => void;
+  config: TUISettings;
+  onChange: (config: TUISettings) => void;
   onSave: () => void;
   onBack: () => void;
 }
+
+type SettingItem =
+  | { key: string; label: string; type: "boolean" }
+  | { key: string; label: string; type: "number"; min: number; max: number }
+  | { key: string; label: string; type: "string" }
+  | { key: string; label: string; type: "select"; options: readonly string[] };
 
 export const Settings: React.FC<SettingsProps> = ({
   config,
@@ -32,7 +25,84 @@ export const Settings: React.FC<SettingsProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editingText, setEditingText] = useState(false);
 
-  const settings = [
+  const models = ["Claude (GLM 4.7)", "Gemini", "Codex", "Claude (Opus 4.5)"];
+
+  const settings: readonly SettingItem[] = [
+    // --- Architect ---
+    {
+      key: "agents.architect.0",
+      label: "Architect (Primary)",
+      type: "select",
+      options: models,
+    },
+    {
+      key: "agents.architect.1",
+      label: "Architect (Fallback 1)",
+      type: "select",
+      options: models,
+    },
+    {
+      key: "agents.architect.2",
+      label: "Architect (Fallback 2)",
+      type: "select",
+      options: models,
+    },
+    {
+      key: "agents.architect.3",
+      label: "Architect (Fallback 3)",
+      type: "select",
+      options: models,
+    },
+
+    // --- Executor ---
+    {
+      key: "agents.executor.0",
+      label: "Executor (Primary)",
+      type: "select",
+      options: models,
+    },
+    {
+      key: "agents.executor.1",
+      label: "Executor (Fallback 1)",
+      type: "select",
+      options: models,
+    },
+
+    // --- Auditor ---
+    {
+      key: "agents.auditor.0",
+      label: "Auditor (Primary)",
+      type: "select",
+      options: models,
+    },
+    {
+      key: "agents.auditor.1",
+      label: "Auditor (Fallback 1)",
+      type: "select",
+      options: models,
+    },
+    {
+      key: "agents.auditor.2",
+      label: "Auditor (Fallback 2)",
+      type: "select",
+      options: models,
+    },
+
+    // --- Consultant ---
+    {
+      key: "agents.consultant.0",
+      label: "Consultant (Primary)",
+      type: "select",
+      options: models,
+    },
+    {
+      key: "agents.consultant.1",
+      label: "Consultant (Fallback 1)",
+      type: "select",
+      options: models,
+    },
+
+    // --- General Settings ---
     { key: "parallel", label: "Parallel Execution", type: "boolean" },
     {
       key: "maxConcurrency",
@@ -67,7 +137,31 @@ export const Settings: React.FC<SettingsProps> = ({
       label: "Auto-revert on Failure",
       type: "boolean",
     },
-  ] as const;
+  ];
+
+  // Helper to access nested keys safely
+  const getNestedValue = (obj: any, path: string) => {
+    return path.split(".").reduce((o, i) => o?.[i], obj);
+  };
+
+  const setNestedValue = (obj: any, path: string, value: any) => {
+    if (!path.includes(".")) {
+      return { ...obj, [path]: value };
+    }
+    const keys = path.split(".");
+    const lastKey = keys.pop()!;
+    const deepClone = JSON.parse(JSON.stringify(obj));
+    const target = keys.reduce((o, i) => o[i], deepClone);
+
+    // Handle array update if the target is an array
+    if (Array.isArray(target) && !isNaN(Number(lastKey))) {
+      target[Number(lastKey)] = value;
+    } else {
+      target[lastKey] = value;
+    }
+
+    return deepClone;
+  };
 
   useInput((input, key) => {
     if (key.escape) {
@@ -81,29 +175,40 @@ export const Settings: React.FC<SettingsProps> = ({
     }
 
     const currentSetting = settings[selectedIndex];
+    const currentValue = getNestedValue(config, currentSetting.key);
 
     if (currentSetting.type === "boolean" && (input === " " || key.return)) {
-      onChange({
-        ...config,
-        [currentSetting.key]:
-          !config[currentSetting.key as keyof SettingsConfig],
-      });
+      onChange(setNestedValue(config, currentSetting.key, !currentValue));
     }
 
     if (currentSetting.type === "number") {
       if (key.leftArrow) {
         const newValue = Math.max(
           currentSetting.min || 1,
-          (config[currentSetting.key as keyof SettingsConfig] as number) - 1,
+          (currentValue as number) - 1,
         );
-        onChange({ ...config, [currentSetting.key]: newValue });
+        onChange(setNestedValue(config, currentSetting.key, newValue));
       }
       if (key.rightArrow) {
         const newValue = Math.min(
           currentSetting.max || 10,
-          (config[currentSetting.key as keyof SettingsConfig] as number) + 1,
+          (currentValue as number) + 1,
         );
-        onChange({ ...config, [currentSetting.key]: newValue });
+        onChange(setNestedValue(config, currentSetting.key, newValue));
+      }
+    }
+
+    if (currentSetting.type === "select") {
+      const options = currentSetting.options;
+      const currentIndex = options.indexOf(currentValue as string);
+
+      if (key.leftArrow) {
+        const newIndex = (currentIndex - 1 + options.length) % options.length;
+        onChange(setNestedValue(config, currentSetting.key, options[newIndex]));
+      }
+      if (key.rightArrow) {
+        const newIndex = (currentIndex + 1) % options.length;
+        onChange(setNestedValue(config, currentSetting.key, options[newIndex]));
       }
     }
 
@@ -112,11 +217,10 @@ export const Settings: React.FC<SettingsProps> = ({
     }
   });
 
-  const renderValue = (setting: (typeof settings)[number]) => {
-    const value = config[setting.key as keyof SettingsConfig];
+  const renderValue = (setting: SettingItem) => {
+    const value = getNestedValue(config, setting.key);
 
     if (setting.type === "boolean") {
-      // Fixed width for boolean values: "[x] Enabled " or "[ ] Disabled"
       return (
         <Box width={16}>
           <Text color={value ? "green" : "red"}>
@@ -127,12 +231,21 @@ export const Settings: React.FC<SettingsProps> = ({
     }
 
     if (setting.type === "number") {
-      // Pad number to 2 digits for consistent width
       const paddedValue = String(value).padStart(2, " ");
       return (
         <Box width={10}>
           <Text color="cyan">
             {"<"} {paddedValue} {">"}
+          </Text>
+        </Box>
+      );
+    }
+
+    if (setting.type === "select") {
+      return (
+        <Box width={25}>
+          <Text color="magenta">
+            {"<"} {String(value)} {">"}
           </Text>
         </Box>
       );
@@ -175,19 +288,20 @@ export const Settings: React.FC<SettingsProps> = ({
         ))}
       </Box>
 
-      {/* Instructions based on selected setting type - fixed width */}
+      {/* Instructions */}
       <Box
         marginTop={2}
         borderStyle="round"
         borderColor="yellow"
         padding={1}
-        width={30}
+        width={40}
       >
         <Text color="yellow">
-          {settings[selectedIndex].type === "boolean" &&
-            "Space/Enter: Toggle  "}
-          {settings[selectedIndex].type === "number" && "Left/Right: Adjust   "}
-          {settings[selectedIndex].type === "string" && "Enter: Edit text     "}
+          {settings[selectedIndex].type === "boolean" && "Space/Enter: Toggle"}
+          {(settings[selectedIndex].type === "number" ||
+            settings[selectedIndex].type === "select") &&
+            "Left/Right: Change Value"}
+          {settings[selectedIndex].type === "string" && "Enter: Edit text"}
         </Text>
       </Box>
 

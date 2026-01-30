@@ -5,7 +5,7 @@
   },
   "test": {
     "command": "npm test",
-    "runAfterGeneration": false
+    "runAfterGeneration": true
   },
   "git": {
     "autoCommit": false
@@ -16,6 +16,32 @@
     "cacheEnabled": true,
     "maxRecoveryAttempts": 3,
     "recoveryTimeoutMinutes": 10,
-    "autoRevertOnFailure": true
+    "autoRevertOnFailure": true,
+    "agents": {
+      "architect": [
+        "Claude (Opus 4.5)",
+        "Gemini",
+        "Claude (GLM 4.7)",
+        "Codex"
+      ],
+      "executor": [
+        "Claude (GLM 4.7)",
+        "Gemini",
+        "Claude (Opus 4.5)",
+        "Codex"
+      ],
+      "auditor": [
+        "Gemini",
+        "Claude (GLM 4.7)",
+        "Codex",
+        "Codex"
+      ],
+      "consultant": [
+        "Codex",
+        "Claude (Opus 4.5)",
+        "Gemini",
+        "Claude (GLM 4.7)"
+      ]
+    }
   }
 }

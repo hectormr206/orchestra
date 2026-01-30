@@ -5,7 +5,7 @@
 import { readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import type { ProjectConfig, OrchestratorConfig } from "../types.js";
+import type { ProjectConfig, OrchestratorConfig, ModelType } from "../types.js";
 
 const CONFIG_FILES = [
   ".orchestrarc.json",
@@ -222,6 +222,13 @@ export interface TUISettings {
   maxRecoveryAttempts: number;
   recoveryTimeoutMinutes: number;
   autoRevertOnFailure: boolean;
+  // Agent Models
+  agents: {
+    architect: ModelType[];
+    executor: ModelType[];
+    auditor: ModelType[];
+    consultant: ModelType[];
+  };
 }
 
 export async function saveSettings(
@@ -268,6 +275,8 @@ export async function saveSettings(
       maxRecoveryAttempts: settings.maxRecoveryAttempts,
       recoveryTimeoutMinutes: settings.recoveryTimeoutMinutes,
       autoRevertOnFailure: settings.autoRevertOnFailure,
+      // Agent Models
+      agents: settings.agents,
     },
   };
 
@@ -286,6 +295,33 @@ export async function loadSettings(
     return null;
   }
 
+  const defaultAgents = {
+    architect: [
+      "Claude (Opus 4.5)",
+      "Gemini",
+      "Claude (GLM 4.7)",
+      "Codex",
+    ] as ModelType[],
+    executor: [
+      "Claude (GLM 4.7)",
+      "Gemini",
+      "Claude (Opus 4.5)",
+      "Codex",
+    ] as ModelType[],
+    auditor: [
+      "Gemini",
+      "Claude (GLM 4.7)",
+      "Claude (Opus 4.5)",
+      "Codex",
+    ] as ModelType[],
+    consultant: [
+      "Claude (Opus 4.5)",
+      "Gemini",
+      "Claude (GLM 4.7)",
+      "Codex",
+    ] as ModelType[],
+  };
+
   return {
     parallel: config.execution?.parallel ?? true,
     maxConcurrency: config.execution?.maxConcurrency ?? 3,
@@ -299,5 +335,27 @@ export async function loadSettings(
     maxRecoveryAttempts: (config as any).tui?.maxRecoveryAttempts ?? 3,
     recoveryTimeoutMinutes: (config as any).tui?.recoveryTimeoutMinutes ?? 10,
     autoRevertOnFailure: (config as any).tui?.autoRevertOnFailure ?? true,
+    // Agent Models
+    agents: (() => {
+      const loadedAgents = (config as any).tui?.agents;
+      if (!loadedAgents) return defaultAgents;
+
+      const mergedAgents = { ...defaultAgents };
+      const keys = ["architect", "executor", "auditor", "consultant"] as const;
+
+      for (const key of keys) {
+        const val = loadedAgents[key];
+        if (Array.isArray(val)) {
+          mergedAgents[key] = val;
+        } else if (typeof val === "string") {
+          // Migration: Old string config -> New array config
+          // Use loaded value as primary, keep defaults as backfills (excluding duplicates)
+          const primary = val as ModelType;
+          const defaults = defaultAgents[key].filter((m) => m !== primary);
+          mergedAgents[key] = [primary, ...defaults];
+        }
+      }
+      return mergedAgents;
+    })(),
   };
 }
