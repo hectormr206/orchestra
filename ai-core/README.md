@@ -23,7 +23,7 @@ Los LLMs tienen conocimiento general pero no conocen:
 
 AI-Core proporciona:
 
-- ✅ **41 Skills** universales con patrones probados (todos con ejemplos y tests)
+- ✅ **46 Skills** universales con patrones probados (todos con ejemplos y tests)
 - ✅ **3 Subagentes** para tareas complejas
 - ✅ **Orquestración inteligente** para selección automática de recursos
 - ✅ **Sistema de aprendizaje** (Actor-Critic RL) para mejorar con la experiencia
@@ -198,7 +198,7 @@ AI-Core ha alcanzado **perfección al 100%** con todos los objetivos completados
 
 | Categoría      | Métrica    | Estado       |
 | -------------- | ---------- | ------------ |
-| Skills         | 41/41      | ✅ 100%      |
+| Skills         | 46/46      | ✅ 100%      |
 | Tests          | 52 totales | ✅ 100%      |
 | Examples       | 40/40      | ✅ 100%      |
 | Deuda técnica  | 0 items    | ✅ 100%      |
@@ -788,7 +788,7 @@ Apache License 2.0 - Ver [LICENSE](LICENSE) para detalles
 
 **Última actualización:** Enero 2026
 **Versión:** 2.2.0 (100% Completado)
-**Skills totales:** 41 (100%)
+**Skills totales:** 46 (100%)
 **Deuda técnica:** 0 items (100% eliminada)
 **Tests:** 53 (100% coverage)
 **Performance:** 98/100
