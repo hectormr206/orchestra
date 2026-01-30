@@ -5,14 +5,17 @@
   },
   "test": {
     "command": "npm test",
-    "runAfterGeneration": true
+    "runAfterGeneration": false
   },
   "git": {
-    "autoCommit": true
+    "autoCommit": false
   },
   "tui": {
-    "autoApprove": true,
+    "autoApprove": false,
     "notifications": true,
-    "cacheEnabled": true
+    "cacheEnabled": true,
+    "maxRecoveryAttempts": 3,
+    "recoveryTimeoutMinutes": 10,
+    "autoRevertOnFailure": true
   }
 }

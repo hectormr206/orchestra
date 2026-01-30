@@ -193,6 +193,12 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
             onSubmit={handleTaskSubmit}
             onCancel={handleBack}
             defaultTask=""
+            initialOptions={{
+              autoApprove: settings.autoApprove,
+              parallel: settings.parallel,
+              runTests: settings.runTests,
+              gitCommit: settings.gitCommit,
+            }}
           />
         );
 

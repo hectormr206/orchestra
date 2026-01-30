@@ -70,23 +70,48 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
     null,
   );
 
+  // LOG BATCHING TO PREVENT FLICKERING -------------------------------------
+  const logBufferRef = useRef<LogEntry[]>([]);
+  const flushTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const addLog = useCallback(
     (level: LogEntry["level"], message: string, agent?: string) => {
-      setState((prev) => ({
-        ...prev,
-        logs: [
-          ...prev.logs,
-          {
-            timestamp: new Date().toISOString(),
-            level,
-            message,
-            agent,
-          },
-        ].slice(-100), // Keep last 100 logs
-      }));
+      const newLog: LogEntry = {
+        timestamp: new Date().toISOString(),
+        level,
+        message,
+        agent,
+      };
+
+      logBufferRef.current.push(newLog);
+
+      if (!flushTimeoutRef.current) {
+        flushTimeoutRef.current = setTimeout(() => {
+          setState((prev) => {
+            const buffer = logBufferRef.current;
+            logBufferRef.current = []; // Clear buffer immediately
+            flushTimeoutRef.current = null;
+
+            return {
+              ...prev,
+              logs: [...prev.logs, ...buffer].slice(-100), // Keep last 100 logs
+            };
+          });
+        }, 100); // Throttle updates to max 10 times per second
+      }
     },
     [],
   );
+  // ------------------------------------------------------------------------
 
   const updateAgent = useCallback(
     (name: string, update: Partial<AgentInfo>) => {

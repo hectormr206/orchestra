@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
-import TextInput from 'ink-text-input';
+import React, { useState } from "react";
+import { Box, Text, useInput } from "ink";
+import TextInput from "ink-text-input";
 
 interface TaskInputProps {
   onSubmit: (task: string, options: TaskOptions) => void;
   onCancel: () => void;
   defaultTask?: string;
+  initialOptions?: Partial<TaskOptions>; // Added to inherit settings
 }
 
 interface TaskOptions {
@@ -19,7 +20,8 @@ interface TaskOptions {
 export const TaskInput: React.FC<TaskInputProps> = ({
   onSubmit,
   onCancel,
-  defaultTask = '',
+  defaultTask = "",
+  initialOptions = {}, // Default empty object
 }) => {
   const [task, setTask] = useState(defaultTask);
   const [options, setOptions] = useState<TaskOptions>({
@@ -28,6 +30,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     runTests: false,
     gitCommit: false,
     dryRun: false,
+    ...initialOptions, // Override defaults with passed settings
   });
   const [focusedOption, setFocusedOption] = useState(-1); // -1 = text input
 
@@ -38,9 +41,13 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     if (key.tab) {
       setFocusedOption((prev) => (prev + 1) % 6);
     }
-    if (focusedOption >= 0 && (input === ' ' || key.return)) {
+    if (focusedOption >= 0 && (input === " " || key.return)) {
       const optionKeys: (keyof TaskOptions)[] = [
-        'autoApprove', 'parallel', 'runTests', 'gitCommit', 'dryRun'
+        "autoApprove",
+        "parallel",
+        "runTests",
+        "gitCommit",
+        "dryRun",
       ];
       if (focusedOption < optionKeys.length) {
         setOptions((prev) => ({
@@ -65,22 +72,29 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     focused: boolean;
   }> = ({ label, checked, focused }) => (
     <Box>
-      <Text color={focused ? 'cyan' : 'white'}>
-        {focused ? '▶ ' : '  '}
-        [{checked ? '✓' : ' '}] {label}
+      <Text color={focused ? "cyan" : "white"}>
+        {focused ? "▶ " : "  "}[{checked ? "✓" : " "}] {label}
       </Text>
     </Box>
   );
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Text bold color="cyan">📝 Enter Your Task</Text>
+      <Text bold color="cyan">
+        📝 Enter Your Task
+      </Text>
       <Text color="gray">Describe what you want to build or accomplish</Text>
-      <Text color="gray">─────────────────────────────────────────────────</Text>
+      <Text color="gray">
+        ─────────────────────────────────────────────────
+      </Text>
 
       <Box marginTop={1} marginBottom={1}>
         <Text color="yellow">Task: </Text>
-        <Box borderStyle="single" borderColor={focusedOption === -1 ? 'cyan' : 'gray'} paddingX={1}>
+        <Box
+          borderStyle="single"
+          borderColor={focusedOption === -1 ? "cyan" : "gray"}
+          paddingX={1}
+        >
           <TextInput
             value={task}
             onChange={setTask}
@@ -91,7 +105,9 @@ export const TaskInput: React.FC<TaskInputProps> = ({
       </Box>
 
       <Box marginTop={1} flexDirection="column">
-        <Text bold color="white">Options (Tab to navigate, Space to toggle):</Text>
+        <Text bold color="white">
+          Options (Tab to navigate, Space to toggle):
+        </Text>
         <Box marginTop={1} flexDirection="column">
           <OptionCheckbox
             label="Auto-approve plan"
@@ -122,8 +138,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
       </Box>
 
       <Box marginTop={2}>
-        <Text color={focusedOption === 5 ? 'green' : 'gray'}>
-          {focusedOption === 5 ? '▶ ' : '  '}
+        <Text color={focusedOption === 5 ? "green" : "gray"}>
+          {focusedOption === 5 ? "▶ " : "  "}
           [Enter] Start Orchestration
         </Text>
       </Box>
