@@ -163,23 +163,45 @@ link_or_copy() {
 echo -e "${BLUE}Instalando ai-core en $PROJECT_ROOT...${NC}"
 echo ""
 
-# 1. AGENTS.md
-echo -e "${CYAN}[1/5]${NC} Creando ${GREEN}AGENTS.md${NC}..."
-cp "$AI_CORE_DIR/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
-echo -e "  ✓ ${GREEN}AGENTS.md creado${NC}"
+# 1. AGENTS.md (solo si no existe - preservar contenido del proyecto)
+echo -e "${CYAN}[1/6]${NC} Configurando ${GREEN}AGENTS.md${NC}..."
+if [ ! -f "$PROJECT_ROOT/AGENTS.md" ]; then
+    cp "$AI_CORE_DIR/templates/AGENTS.template.md" "$PROJECT_ROOT/AGENTS.md"
+    echo -e "  ✓ ${GREEN}AGENTS.md creado (desde plantilla)${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  AGENTS.md ya existe (preservado)${NC}"
+fi
 
-# 2. CLAUDE.md
-echo -e "${CYAN}[2/5]${NC} Creando ${GREEN}CLAUDE.md${NC}..."
-cp "$AI_CORE_DIR/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
-echo -e "  ✓ ${GREEN}CLAUDE.md creado${NC}"
+# 2. CLAUDE.md (solo si no existe - preservar contenido del proyecto)
+echo -e "${CYAN}[2/6]${NC} Configurando ${GREEN}CLAUDE.md${NC}..."
+if [ ! -f "$PROJECT_ROOT/CLAUDE.md" ]; then
+    cp "$AI_CORE_DIR/templates/CLAUDE.template.md" "$PROJECT_ROOT/CLAUDE.md"
+    echo -e "  ✓ ${GREEN}CLAUDE.md creado (desde plantilla)${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  CLAUDE.md ya existe (preservado)${NC}"
+fi
 
-# 3. GEMINI.md
-echo -e "${CYAN}[3/5]${NC} Creando ${GREEN}GEMINI.md${NC}..."
-cp "$AI_CORE_DIR/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
-echo -e "  ✓ ${GREEN}GEMINI.md creado${NC}"
+# 3. GEMINI.md (solo si no existe - preservar contenido del proyecto)
+echo -e "${CYAN}[3/6]${NC} Configurando ${GREEN}GEMINI.md${NC}..."
+if [ ! -f "$PROJECT_ROOT/GEMINI.md" ]; then
+    cp "$AI_CORE_DIR/templates/GEMINI.template.md" "$PROJECT_ROOT/GEMINI.md"
+    echo -e "  ✓ ${GREEN}GEMINI.md creado (desde plantilla)${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  GEMINI.md ya existe (preservado)${NC}"
+fi
 
-# 4. .claude/skills (symlink)
-echo -e "${CYAN}[4/5]${NC} Creando ${GREEN}.claude/skills → ai-core/SKILLS/${NC}..."
+# 4. .github/copilot-instructions.md (solo si no existe)
+echo -e "${CYAN}[4/6]${NC} Configurando ${GREEN}.github/copilot-instructions.md${NC}..."
+mkdir -p "$PROJECT_ROOT/.github"
+if [ ! -f "$PROJECT_ROOT/.github/copilot-instructions.md" ]; then
+    cp "$AI_CORE_DIR/templates/copilot-instructions.template.md" "$PROJECT_ROOT/.github/copilot-instructions.md"
+    echo -e "  ✓ ${GREEN}copilot-instructions.md creado (desde plantilla)${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  copilot-instructions.md ya existe (preservado)${NC}"
+fi
+
+# 5. .claude/skills (symlink)
+echo -e "${CYAN}[5/20]${NC} Creando ${GREEN}.claude/skills → ai-core/SKILLS/${NC}..."
 mkdir -p "$PROJECT_ROOT/.claude"
 link_or_copy "$AI_CORE_DIR/SKILLS" "$PROJECT_ROOT/.claude/skills"
 if [ "$USE_SYMLINKS" = true ]; then
@@ -188,8 +210,8 @@ else
     echo -e "  ✓ ${GREEN}Copia creada${NC}"
 fi
 
-# 5. .claude/agents (symlink)
-echo -e "${CYAN}[5/13]${NC} Creando ${GREEN}.claude/agents → ai-core/SUBAGENTS/${NC}..."
+# 6. .claude/agents (symlink)
+echo -e "${CYAN}[6/20]${NC} Creando ${GREEN}.claude/agents → ai-core/SUBAGENTS/${NC}..."
 link_or_copy "$AI_CORE_DIR/SUBAGENTS" "$PROJECT_ROOT/.claude/agents"
 if [ "$USE_SYMLINKS" = true ]; then
     echo -e "  ✓ ${GREEN}Symlink creado${NC}"
@@ -204,37 +226,41 @@ fi
 echo ""
 echo -e "${BLUE}Instalando soporte para herramientas de IA...${NC}"
 
-# 6. .cursor/skills (Cursor Editor)
-echo -e "${CYAN}[6/13]${NC} Creando ${GREEN}.cursor/skills → ai-core/SKILLS/${NC}..."
+# 7. .cursor/skills (Cursor Editor)
+echo -e "${CYAN}[7/20]${NC} Creando ${GREEN}.cursor/skills → ai-core/SKILLS/${NC}..."
 mkdir -p "$PROJECT_ROOT/.cursor"
 link_or_copy "$AI_CORE_DIR/SKILLS" "$PROJECT_ROOT/.cursor/skills"
 echo -e "  ✓ ${GREEN}.cursor/skills creado${NC}"
 
-# 7. .cursorrules (Cursor Editor)
-echo -e "${CYAN}[7/13]${NC} Creando ${GREEN}.cursorrules${NC}..."
-cp "$PROJECT_ROOT/AGENTS.md" "$PROJECT_ROOT/.cursorrules"
-echo -e "  ✓ ${GREEN}.cursorrules creado${NC}"
+# 8. .cursorrules (Cursor Editor - solo si no existe)
+echo -e "${CYAN}[8/20]${NC} Configurando ${GREEN}.cursorrules${NC}..."
+if [ ! -f "$PROJECT_ROOT/.cursorrules" ]; then
+    cp "$AI_CORE_DIR/templates/AGENTS.template.md" "$PROJECT_ROOT/.cursorrules"
+    echo -e "  ✓ ${GREEN}.cursorrules creado (desde plantilla)${NC}"
+else
+    echo -e "  ${YELLOW}⚠️  .cursorrules ya existe (preservado)${NC}"
+fi
 
-# 8. .agent/skills (Antigravity)
-echo -e "${CYAN}[8/13]${NC} Creando ${GREEN}.agent/skills → ai-core/SKILLS/${NC}..."
+# 9. .agent/skills (Antigravity)
+echo -e "${CYAN}[9/20]${NC} Creando ${GREEN}.agent/skills → ai-core/SKILLS/${NC}..."
 mkdir -p "$PROJECT_ROOT/.agent"
 link_or_copy "$AI_CORE_DIR/SKILLS" "$PROJECT_ROOT/.agent/skills"
 echo -e "  ✓ ${GREEN}.agent/skills creado${NC}"
 
-# 9. .codex/skills (Codex)
-echo -e "${CYAN}[9/13]${NC} Creando ${GREEN}.codex/skills → ai-core/SKILLS/${NC}..."
+# 10. .codex/skills (Codex)
+echo -e "${CYAN}[10/20]${NC} Creando ${GREEN}.codex/skills → ai-core/SKILLS/${NC}..."
 mkdir -p "$PROJECT_ROOT/.codex"
 link_or_copy "$AI_CORE_DIR/SKILLS" "$PROJECT_ROOT/.codex/skills"
 echo -e "  ✓ ${GREEN}.codex/skills creado${NC}"
 
-# 10. .opencode/skills (OpenCode)
-echo -e "${CYAN}[10/13]${NC} Creando ${GREEN}.opencode/skills → ai-core/SKILLS/${NC}..."
+# 11. .opencode/skills (OpenCode)
+echo -e "${CYAN}[11/20]${NC} Creando ${GREEN}.opencode/skills → ai-core/SKILLS/${NC}..."
 mkdir -p "$PROJECT_ROOT/.opencode"
 link_or_copy "$AI_CORE_DIR/SKILLS" "$PROJECT_ROOT/.opencode/skills"
 echo -e "  ✓ ${GREEN}.opencode/skills creado${NC}"
 
-# 11. .gemini/skills (Gemini CLI)
-echo -e "${CYAN}[11/19]${NC} Creando ${GREEN}.gemini/skills → ai-core/SKILLS/${NC}..."
+# 12. .gemini/skills (Gemini CLI)
+echo -e "${CYAN}[12/20]${NC} Creando ${GREEN}.gemini/skills → ai-core/SKILLS/${NC}..."
 if [ ! -d "$PROJECT_ROOT/.gemini" ]; then
     mkdir -p "$PROJECT_ROOT/.gemini"
     link_or_copy "$AI_CORE_DIR/SKILLS" "$PROJECT_ROOT/.gemini/skills"
@@ -250,28 +276,28 @@ fi
 echo ""
 echo -e "${BLUE}Instalando subagentes para herramientas de IA...${NC}"
 
-# 12. .cursor/agents (Cursor Editor)
-echo -e "${CYAN}[12/19]${NC} Creando ${GREEN}.cursor/agents → ai-core/SUBAGENTS/${NC}..."
+# 13. .cursor/agents (Cursor Editor)
+echo -e "${CYAN}[13/20]${NC} Creando ${GREEN}.cursor/agents → ai-core/SUBAGENTS/${NC}..."
 link_or_copy "$AI_CORE_DIR/SUBAGENTS" "$PROJECT_ROOT/.cursor/agents"
 echo -e "  ✓ ${GREEN}.cursor/agents creado${NC}"
 
-# 13. .agent/agents (Antigravity)
-echo -e "${CYAN}[13/19]${NC} Creando ${GREEN}.agent/agents → ai-core/SUBAGENTS/${NC}..."
+# 14. .agent/agents (Antigravity)
+echo -e "${CYAN}[14/20]${NC} Creando ${GREEN}.agent/agents → ai-core/SUBAGENTS/${NC}..."
 link_or_copy "$AI_CORE_DIR/SUBAGENTS" "$PROJECT_ROOT/.agent/agents"
 echo -e "  ✓ ${GREEN}.agent/agents creado${NC}"
 
-# 14. .codex/agents (Codex)
-echo -e "${CYAN}[14/19]${NC} Creando ${GREEN}.codex/agents → ai-core/SUBAGENTS/${NC}..."
+# 15. .codex/agents (Codex)
+echo -e "${CYAN}[15/20]${NC} Creando ${GREEN}.codex/agents → ai-core/SUBAGENTS/${NC}..."
 link_or_copy "$AI_CORE_DIR/SUBAGENTS" "$PROJECT_ROOT/.codex/agents"
 echo -e "  ✓ ${GREEN}.codex/agents creado${NC}"
 
-# 15. .opencode/agents (OpenCode)
-echo -e "${CYAN}[15/19]${NC} Creando ${GREEN}.opencode/agents → ai-core/SUBAGENTS/${NC}..."
+# 16. .opencode/agents (OpenCode)
+echo -e "${CYAN}[16/20]${NC} Creando ${GREEN}.opencode/agents → ai-core/SUBAGENTS/${NC}..."
 link_or_copy "$AI_CORE_DIR/SUBAGENTS" "$PROJECT_ROOT/.opencode/agents"
 echo -e "  ✓ ${GREEN}.opencode/agents creado${NC}"
 
-# 16. .gemini/agents (Gemini CLI)
-echo -e "${CYAN}[16/19]${NC} Creando ${GREEN}.gemini/agents → ai-core/SUBAGENTS/${NC}..."
+# 17. .gemini/agents (Gemini CLI)
+echo -e "${CYAN}[17/20]${NC} Creando ${GREEN}.gemini/agents → ai-core/SUBAGENTS/${NC}..."
 if [ ! -d "$PROJECT_ROOT/.gemini/agents" ]; then
     link_or_copy "$AI_CORE_DIR/SUBAGENTS" "$PROJECT_ROOT/.gemini/agents"
     echo -e "  ✓ ${GREEN}.gemini/agents creado${NC}"
@@ -286,13 +312,13 @@ fi
 echo ""
 echo -e "${BLUE}Configurando mantenimiento automático...${NC}"
 
-# 17. Create .github/workflows directory
-echo -e "${CYAN}[17/19]${NC} Creando directorio ${GREEN}.github/workflows/${NC}..."
+# 18. Create .github/workflows directory
+echo -e "${CYAN}[18/20]${NC} Creando directorio ${GREEN}.github/workflows/${NC}..."
 mkdir -p "$PROJECT_ROOT/.github/workflows"
 echo -e "  ✓ ${GREEN}Directorio creado${NC}"
 
-# 18. Copy maintenance workflows
-echo -e "${CYAN}[18/19]${NC} Copiando workflows de mantenimiento..."
+# 19. Copy maintenance workflows
+echo -e "${CYAN}[19/20]${NC} Copiando workflows de mantenimiento..."
 
 # List of workflows to copy
 WORKFLOWS=(
@@ -397,6 +423,12 @@ if [ -f "$PROJECT_ROOT/.cursorrules" ]; then
     echo -e "  ${GREEN}✓${NC} .cursorrules creado"
 else
     echo -e "  ${RED}✗${NC} .cursorrules no encontrado"
+fi
+
+if [ -f "$PROJECT_ROOT/.github/copilot-instructions.md" ]; then
+    echo -e "  ${GREEN}✓${NC} copilot-instructions.md creado"
+else
+    echo -e "  ${RED}✗${NC} copilot-instructions.md no encontrado"
 fi
 
 # ============================================================================
