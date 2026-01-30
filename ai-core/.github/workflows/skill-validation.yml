@@ -1,0 +1,214 @@
+name: AI-Core Skill Validation
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run every Sunday at 00:00 UTC
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  validate-skills:
+    name: Validate Skills
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install markdown pyyaml
+
+      - name: Make validation script executable
+        run: chmod +x tests/validate-skills.sh
+
+      - name: Run skill validation
+        id: validate
+        run: |
+          cd tests
+          ./validate-skills.sh --report
+        continue-on-error: true
+
+      - name: Check validation results
+        run: |
+          if [ -f tests/reports/validation-report-*.md ]; then
+            echo "✅ Validation report generated"
+            cat tests/reports/validation-report-*.md
+          else
+            echo "⚠️ No validation report found"
+          fi
+
+      - name: Upload validation report
+        uses: actions/upload-artifact@v3
+        with:
+          name: validation-report
+          path: tests/reports/*.md
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportFiles = fs.readdirSync('tests/reports')
+              .filter(f => f.startsWith('validation-report-'));
+
+            if (reportFiles.length > 0) {
+              const report = fs.readFileSync(`tests/reports/${reportFiles[0]}`, 'utf8');
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🔍 AI-Core Skill Validation Report\n\n${report}`
+              });
+            }
+
+  check-ghost-debt:
+    name: Check Ghost Debt
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Count debt markers
+        id: debt-count
+        run: |
+          TODO_COUNT=$(git grep -i "TODO" -- SKILLS/**/SKILL.md SUBAGENTS/**/*.md 2>/dev/null | grep -v "EXAMPLE:" | wc -l)
+          FIXME_COUNT=$(git grep -i "FIXME" -- SKILLS/**/SKILL.md SUBAGENTS/**/*.md 2>/dev/null | grep -v "EXAMPLE:" | wc -l)
+          HACK_COUNT=$(git grep -i "HACK" -- SKILLS/**/SKILL.md SUBAGENTS/**/*.md 2>/dev/null | grep -v "EXAMPLE:" | wc -l)
+
+          TOTAL=$((TODO_COUNT + FIXME_COUNT + HACK_COUNT))
+
+          echo "todo_count=$TODO_COUNT" >> $GITHUB_OUTPUT
+          echo "fixme_count=$FIXME_COUNT" >> $GITHUB_OUTPUT
+          echo "hack_count=$HACK_COUNT" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+      - name: Display debt summary
+        run: |
+          echo "📊 Technical Debt Markers:"
+          echo "  TODO: ${{ steps.debt-count.outputs.todo_count }}"
+          echo "  FIXME: ${{ steps.debt-count.outputs.fixme_count }}"
+          echo "  HACK: ${{ steps.debt-count.outputs.hack_count }}"
+          echo "  ─────────────────────"
+          echo "  TOTAL: ${{ steps.debt-count.outputs.total }}"
+
+      - name: Check for debt increase
+        run: |
+          THRESHOLD=105
+          CURRENT=${{ steps.debt-count.outputs.total }}
+
+          if [ $CURRENT -gt $THRESHOLD ]; then
+            echo "⚠️ WARNING: Debt markers ($CURRENT) exceed threshold ($THRESHOLD)"
+            echo "Consider addressing technical debt"
+            exit 1
+          else
+            echo "✅ Debt markers within acceptable range"
+          fi
+
+  check-adrs:
+    name: Check ADRs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for ADRs directory
+        id: check-adrs
+        run: |
+          if [ -d "docs/adr" ]; then
+            ADR_COUNT=$(ls -1 docs/adr/*.md 2>/dev/null | grep -v README | wc -l)
+            echo "adr_count=$ADR_COUNT" >> $GITHUB_OUTPUT
+            echo "✅ Found $ADR_COUNT ADRs in docs/adr/"
+          else
+            echo "adr_count=0" >> $GITHUB_OUTPUT
+            echo "⚠️ No docs/adr directory found"
+          fi
+
+      - name: Verify critical ADRs exist
+        run: |
+          CRITICAL_ADRS=(
+            "docs/adr/001-orchestration-model.md"
+            "docs/adr/002-master-orchestrator.md"
+            "docs/adr/004-dangerous-mode-protection.md"
+          )
+
+          MISSING=0
+          for adr in "${CRITICAL_ADRS[@]}"; do
+            if [ ! -f "$adr" ]; then
+              echo "❌ Missing critical ADR: $adr"
+              ((MISSING++))
+            else
+              echo "✅ Found: $adr"
+            fi
+          done
+
+          if [ $MISSING -gt 0 ]; then
+            echo "❌ $MISSING critical ADR(s) missing"
+            exit 1
+          fi
+
+  check-file-sizes:
+    name: Check File Sizes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for oversized files
+        run: |
+          echo "🔍 Checking for files > 50KB..."
+
+          find . -type f -name "*.md" -size +50k | while read file; do
+            size=$(du -h "$file" | cut -f1)
+            lines=$(wc -l < "$file")
+            echo "⚠️ Large file: $file"
+            echo "   Size: $size, Lines: $lines"
+          done | head -20 || echo "✅ No files > 50KB found"
+
+      - name: Check for files without TOC
+        run: |
+          echo "🔍 Checking for large files without table of contents..."
+
+          find SKILLS SUBAGENTS -type f -name "SKILL.md" -size +15k | while read file; do
+            if ! grep -q "^## .*Contents" "$file" && ! grep -q "^## 📑.*Contents" "$file"; then
+              echo "⚠️ Missing TOC: $file"
+            fi
+          done || echo "✅ All large files have structure"
+
+  summary:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: [validate-skills, check-ghost-debt, check-adrs, check-file-sizes]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## 📊 AI-Core Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Job Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Skill Validation: ${{ needs.validate-skills.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Ghost Debt Check: ${{ needs.check-ghost-debt.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ ADR Check: ${{ needs.check-adrs.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ File Size Check: ${{ needs.check-file-sizes.result }}" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,32 @@
+[
+  {
+    "repo": "hectormr206/pivotforge",
+    "path": "ai-core",
+    "base_branch": "main",
+    "enabled": true
+  },
+  {
+    "repo": "hectormr206/vellum",
+    "path": "ai-core",
+    "base_branch": "main",
+    "enabled": true
+  },
+  {
+    "repo": "hectormr206/el_buen_esposo",
+    "path": "ai-core",
+    "base_branch": "main",
+    "enabled": true
+  },
+  {
+    "repo": "hectormr206/OmniForge",
+    "path": "ai-core",
+    "base_branch": "main",
+    "enabled": true
+  },
+  {
+    "repo": "hectormr206/orchestra",
+    "path": "ai-core",
+    "base_branch": "main",
+    "enabled": true
+  }
+]

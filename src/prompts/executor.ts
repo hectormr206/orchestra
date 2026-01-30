@@ -11,18 +11,19 @@ export function buildExecutorPrompt(
   planContent: string,
   targetFile: string,
   iteration: number = 1,
-  customContext?: string
+  customContext?: string,
 ): string {
-  const iterationNote = iteration > 1
-    ? `\n\nNOTA: Esta es la iteración ${iteration}. Considera el feedback previo.\n`
-    : '';
+  const iterationNote =
+    iteration > 1
+      ? `\n\nNOTA: Esta es la iteración ${iteration}. Considera el feedback previo.\n`
+      : "";
 
   const customSection = customContext
     ? `\nCONTEXTO ADICIONAL DEL PROYECTO:\n${customContext}\n`
-    : '';
+    : "";
 
   // Determinar el tipo de archivo para ejemplos específicos
-  const extension = targetFile.split('.').pop()?.toLowerCase() || '';
+  const extension = targetFile.split(".").pop()?.toLowerCase() || "";
   const examples = getExamplesForFileType(extension, targetFile);
 
   return `Eres un Desarrollador Senior experto. Tu tarea es generar código de producción.
@@ -58,25 +59,28 @@ GENERA EL CÓDIGO PARA: ${targetFile}
  */
 function getExamplesForFileType(extension: string, fileName: string): string {
   switch (extension) {
-    case 'py':
+    case "py":
       return getPythonExamples(fileName);
-    case 'js':
-    case 'ts':
+    case "js":
+    case "ts":
       return getJavaScriptExamples(fileName);
-    case 'txt':
-      if (fileName.toLowerCase().includes('requirements')) {
+    case "txt":
+      if (fileName.toLowerCase().includes("requirements")) {
         return getRequirementsExamples();
       }
-      return '';
-    case 'json':
+      return "";
+    case "json":
       return getJsonExamples(fileName);
+    case "md":
+    case "markdown":
+      return getMarkdownExamples(fileName);
     default:
-      return '';
+      return "";
   }
 }
 
 function getPythonExamples(fileName: string): string {
-  if (fileName.includes('model')) {
+  if (fileName.includes("model")) {
     return `
 EJEMPLO DE RESPUESTA CORRECTA PARA UN ARCHIVO DE MODELOS:
 ─────────────────────────────────────────────────────────
@@ -120,7 +124,7 @@ Este código implementa el modelo User con los campos requeridos.
 `;
   }
 
-  if (fileName.includes('app')) {
+  if (fileName.includes("app")) {
     return `
 EJEMPLO DE RESPUESTA CORRECTA PARA UNA APLICACIÓN FLASK:
 ─────────────────────────────────────────────────────────
@@ -269,7 +273,7 @@ TU RESPUESTA DEBE COMENZAR CON: import, export, const, let, var, function, class
 }
 
 function getJsonExamples(fileName: string): string {
-  if (fileName.includes('package')) {
+  if (fileName.includes("package")) {
     return `
 EJEMPLO DE RESPUESTA CORRECTA PARA package.json:
 ─────────────────────────────────────────────────────────
@@ -290,7 +294,139 @@ EJEMPLO DE RESPUESTA CORRECTA PARA package.json:
 IMPORTANTE: JSON válido, sin comentarios, sin trailing commas.
 `;
   }
-  return '';
+  return "";
+}
+
+/**
+ * Retorna ejemplos específicos para archivos Markdown
+ */
+function getMarkdownExamples(fileName: string): string {
+  const lowerName = fileName.toLowerCase();
+
+  // Ejemplos específicos para ROADMAP
+  if (lowerName.includes("roadmap")) {
+    return `
+⚠️ ADVERTENCIA CRÍTICA PARA ARCHIVOS MARKDOWN ⚠️
+─────────────────────────────────────────────────────────
+NO generes una META-DESCRIPCIÓN del archivo.
+GENERA el CONTENIDO REAL y COMPLETO.
+─────────────────────────────────────────────────────────
+
+❌ EJEMPLO INCORRECTO (NO HAGAS ESTO):
+─────────────────────────────────────────────────────────
+# ROADMAP
+
+Este documento debería contener la visión del proyecto,
+las fases de desarrollo planificadas, y los objetivos
+a largo plazo...
+─────────────────────────────────────────────────────────
+
+✅ EJEMPLO CORRECTO (HAZ ESTO):
+─────────────────────────────────────────────────────────
+# ROADMAP
+
+## 🎯 Visión
+
+Orchestra será la herramienta de referencia para orquestación
+de agentes IA en desarrollo de software.
+
+## 📍 Fase 1: Consolidación (Q1 2025)
+- [ ] Mejorar estabilidad del TUI
+- [ ] Optimizar Recovery Mode
+- [ ] Añadir más tests unitarios
+
+## 📍 Fase 2: Expansión (Q2 2025)
+- [ ] Integrar Llama 3
+- [ ] Añadir sistema de plugins
+- [ ] Soporte para proyectos monorepo
+
+## 📍 Fase 3: Inteligencia (Q3 2025)
+- [ ] Auto-mejora de prompts
+- [ ] Aprendizaje de sesiones previas
+- [ ] Análisis de código estático
+─────────────────────────────────────────────────────────
+
+REGLAS PARA ROADMAP:
+1. Tu respuesta debe comenzar con # (encabezado Markdown)
+2. Incluye secciones REALES con CONTENIDO REAL
+3. Usa listas con checkboxes [ ] para tareas
+4. NO describas lo que "debería contener" - ESCRÍBELO
+5. Sé específico con fechas, versiones y features
+`;
+  }
+
+  // Ejemplos para README
+  if (lowerName.includes("readme")) {
+    return `
+⚠️ ADVERTENCIA CRÍTICA PARA ARCHIVOS MARKDOWN ⚠️
+─────────────────────────────────────────────────────────
+NO generes una META-DESCRIPCIÓN. GENERA el CONTENIDO REAL.
+─────────────────────────────────────────────────────────
+
+✅ EJEMPLO CORRECTO PARA README.md:
+─────────────────────────────────────────────────────────
+# Nombre del Proyecto
+
+Descripción breve pero completa del proyecto.
+
+## 🚀 Instalación
+
+\`\`\`bash
+npm install
+npm run build
+\`\`\`
+
+## 📖 Uso
+
+\`\`\`bash
+npx my-command start "mi tarea"
+\`\`\`
+
+## ⚙️ Configuración
+
+Crea un archivo \`.env\` con las siguientes variables:
+
+\`\`\`
+API_KEY=tu_api_key
+DEBUG=true
+\`\`\`
+
+## 📝 Licencia
+
+MIT
+─────────────────────────────────────────────────────────
+
+REGLAS PARA README:
+1. Comienza con # y el nombre del proyecto
+2. Incluye secciones de instalación, uso y configuración REALES
+3. Usa bloques de código con ejemplos reales
+4. NO digas "esta sección debería contener..." - ESCRÍBELO
+`;
+  }
+
+  // Ejemplos genéricos para otros archivos .md
+  return `
+⚠️ ADVERTENCIA CRÍTICA PARA ARCHIVOS MARKDOWN ⚠️
+─────────────────────────────────────────────────────────
+NO generes una META-DESCRIPCIÓN del archivo.
+GENERA el CONTENIDO REAL y COMPLETO.
+─────────────────────────────────────────────────────────
+
+❌ INCORRECTO: "Este archivo debería contener..."
+❌ INCORRECTO: "Aquí se describirá..."
+❌ INCORRECTO: "El contenido incluirá..."
+
+✅ CORRECTO: Escribe el contenido REAL directamente
+✅ CORRECTO: Comienza con # seguido del título del documento
+✅ CORRECTO: Incluye secciones completas con información real
+
+REGLAS PARA MARKDOWN:
+1. Tu respuesta debe comenzar con # (encabezado)
+2. Escribe contenido REAL, no descripciones del contenido
+3. Usa formato Markdown apropiado (##, -, *, \`\`\`, etc.)
+4. Sé específico y detallado
+5. NO uses bloques de código \`\`\`markdown al inicio
+`;
 }
 
 /**
@@ -300,7 +436,9 @@ export function extractFilesFromPlan(planContent: string): FileToCreate[] {
   const files: FileToCreate[] = [];
 
   // Buscar sección "Archivos a Crear"
-  const match = planContent.match(/## Archivos a Crear[\/Modificar]*\n([\s\S]*?)(?=\n##|$)/i);
+  const match = planContent.match(
+    /## Archivos a Crear[\/Modificar]*\n([\s\S]*?)(?=\n##|$)/i,
+  );
 
   if (match) {
     const section = match[1];
@@ -311,9 +449,9 @@ export function extractFilesFromPlan(planContent: string): FileToCreate[] {
     // - archivo.py: descripción
     // - `/ruta/archivo.py`: descripción
     const patterns = [
-      /[-*]\s+\*\*[`]?([^`*:\n]+)[`]?\*\*:\s*(.+)/g,  // **`file`**: desc
-      /[-*]\s+[`]([^`:\n]+)[`]:\s*(.+)/g,              // `file`: desc
-      /[-*]\s+([^\s:]+\.\w+):\s*(.+)/g,                // file.ext: desc
+      /[-*]\s+\*\*[`]?([^`*:\n]+)[`]?\*\*:\s*(.+)/g, // **`file`**: desc
+      /[-*]\s+[`]([^`:\n]+)[`]:\s*(.+)/g, // `file`: desc
+      /[-*]\s+([^\s:]+\.\w+):\s*(.+)/g, // file.ext: desc
     ];
 
     for (const pattern of patterns) {
@@ -323,13 +461,13 @@ export function extractFilesFromPlan(planContent: string): FileToCreate[] {
         const description = fileMatch[2].trim();
 
         // Limpiar el path (remover backticks, asteriscos)
-        filePath = filePath.replace(/[`*]/g, '');
+        filePath = filePath.replace(/[`*]/g, "");
 
         // Extraer solo el nombre del archivo (no rutas absolutas)
-        const fileName = filePath.split('/').pop() || filePath;
+        const fileName = filePath.split("/").pop() || filePath;
 
         // Solo agregar si parece un archivo (tiene extensión)
-        if (fileName.includes('.') && !files.some(f => f.path === fileName)) {
+        if (fileName.includes(".") && !files.some((f) => f.path === fileName)) {
           files.push({ path: fileName, description });
         }
       }
@@ -339,7 +477,8 @@ export function extractFilesFromPlan(planContent: string): FileToCreate[] {
   // Si no encontramos archivos con el parsing, buscar patrón simple
   if (files.length === 0) {
     // Buscar cualquier mención de archivo.ext en el plan
-    const simplePattern = /[`*]*([a-zA-Z_][a-zA-Z0-9_]*\.(py|js|ts|tsx|jsx|md|json|yaml|yml|sh|html|css))[`*]*/g;
+    const simplePattern =
+      /[`*]*([a-zA-Z_][a-zA-Z0-9_]*\.(py|js|ts|tsx|jsx|md|json|yaml|yml|sh|html|css))[`*]*/g;
     const matches = planContent.matchAll(simplePattern);
     const seen = new Set<string>();
 
@@ -347,7 +486,7 @@ export function extractFilesFromPlan(planContent: string): FileToCreate[] {
       const fileName = m[1];
       if (!seen.has(fileName)) {
         seen.add(fileName);
-        files.push({ path: fileName, description: 'Extraído del plan' });
+        files.push({ path: fileName, description: "Extraído del plan" });
       }
     }
   }

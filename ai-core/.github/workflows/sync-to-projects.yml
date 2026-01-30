@@ -1,0 +1,270 @@
+# ============================================================================
+# AI-CORE SYNC TO PROJECTS
+# ============================================================================
+# Este workflow se ejecuta cuando hay cambios en ai-core y sincroniza
+# automáticamente a todos los proyectos registrados.
+#
+# Trigger: Push a main, o manual dispatch
+# Acción: Crea PRs en todos los proyectos dependientes
+# ============================================================================
+
+name: Sync AI-Core to Projects
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '.github/workflows/**'  # Ignorar workflows internos del repo central
+      - 'NEXT_STEPS.md'         # Ignorar docs específicos de ai-core
+      - 'DEBT-TRACKING.md'      # Ignorar docs específicos de ai-core
+      - 'MAINTENANCE_PLAN.md'   # Ignorar docs específicos de ai-core
+      - 'LEARNING_GUIDE.md'     # Ignorar docs específicos de ai-core
+
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'Sync to specific repo (owner/repo) or "all"'
+        required: false
+        default: 'all'
+      force:
+        description: 'Force sync even if no changes detected'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  AI_CORE_VERSION: ${{ github.sha }}
+
+jobs:
+  # -------------------------------------------------------------------------
+  # JOB 1: Detectar cambios y preparar matriz de proyectos
+  # -------------------------------------------------------------------------
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.get-projects.outputs.projects }}
+      has_changes: ${{ steps.check-changes.outputs.has_changes }}
+      changed_files: ${{ steps.check-changes.outputs.changed_files }}
+
+    steps:
+      - name: Checkout ai-core
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for meaningful changes
+        id: check-changes
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force }}" = "true" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_files=force-sync" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Obtener todos los archivos cambiados, excluyendo los ignorados
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null | \
+            grep -v -E '^(\.github/workflows/|NEXT_STEPS\.md|DEBT-TRACKING\.md|MAINTENANCE_PLAN\.md|LEARNING_GUIDE\.md)' || echo "")
+
+          if [ -n "$CHANGED" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGED" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "changed_files=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Get registered projects
+        id: get-projects
+        run: |
+          if [ -f ".github/sync-targets.json" ]; then
+            if [ "${{ inputs.target_repo }}" = "all" ] || [ -z "${{ inputs.target_repo }}" ]; then
+              # Usar jq -c para compactar JSON en una sola línea
+              PROJECTS=$(jq -c '.' .github/sync-targets.json)
+            else
+              # Filtrar solo el repo especificado y compactar
+              PROJECTS=$(jq -c --arg repo "${{ inputs.target_repo }}" '[.[] | select(.repo == $repo)]' .github/sync-targets.json)
+            fi
+          else
+            PROJECTS='[]'
+          fi
+
+          echo "projects=$PROJECTS" >> $GITHUB_OUTPUT
+
+  # -------------------------------------------------------------------------
+  # JOB 2: Sincronizar a cada proyecto (matriz dinámica)
+  # -------------------------------------------------------------------------
+  sync:
+    needs: prepare
+    if: needs.prepare.outputs.has_changes == 'true' && needs.prepare.outputs.projects != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJson(needs.prepare.outputs.projects) }}
+
+    steps:
+      - name: Checkout ai-core
+        uses: actions/checkout@v4
+        with:
+          path: ai-core-source
+
+      - name: Checkout target project
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.project.repo }}
+          token: ${{ secrets.SYNC_TOKEN }}
+          path: target-project
+
+      - name: Configure Git
+        run: |
+          cd target-project
+          git config user.name "AI-Core Sync Bot"
+          git config user.email "ai-core-sync@users.noreply.github.com"
+
+      - name: Create sync branch
+        run: |
+          cd target-project
+          BRANCH_NAME="ai-core-sync/${{ github.sha }}"
+          git checkout -b "$BRANCH_NAME"
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Sync ai-core folder
+        run: |
+          TARGET_PATH="${{ matrix.project.path || 'ai-core' }}"
+
+          # Crear directorio si no existe
+          mkdir -p "target-project/$TARGET_PATH"
+
+          # Sincronizar SOLO archivos esenciales de ai-core
+          # Excluir TODOS los workflows internos de ai-core (son específicos del repo central)
+          # Los proyectos solo necesitan: SKILLS/, docs, scripts, y el workflow receptor
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.github/' \
+            ai-core-source/ "target-project/$TARGET_PATH/"
+
+          # Copiar el workflow receptor si no existe
+          mkdir -p "target-project/.github/workflows"
+          if [ ! -f "target-project/.github/workflows/receive-ai-core-updates.yml" ]; then
+            cp ai-core-source/.github/workflows/receive-updates.yml \
+               target-project/.github/workflows/receive-ai-core-updates.yml 2>/dev/null || true
+          fi
+
+      - name: Check for actual changes
+        id: check-diff
+        run: |
+          cd target-project
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "has_diff=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_diff=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.check-diff.outputs.has_diff == 'true'
+        run: |
+          cd target-project
+          git add -A
+          git commit -m "$(cat <<EOF
+          chore(ai-core): sync to ${{ github.sha }}
+
+          Automated sync from ai-core repository.
+
+          Changed files:
+          ${{ needs.prepare.outputs.changed_files }}
+
+          Source: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+
+          [skip ci]
+          EOF
+          )"
+          git push origin "$BRANCH_NAME"
+
+      - name: Create Pull Request
+        if: steps.check-diff.outputs.has_diff == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SYNC_TOKEN }}
+          script: |
+            const [owner, repo] = '${{ matrix.project.repo }}'.split('/');
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner,
+              repo,
+              title: '🔄 AI-Core Sync Update',
+              head: process.env.BRANCH_NAME,
+              base: '${{ matrix.project.base_branch || 'main' }}',
+              body: `## AI-Core Sync Update
+
+            Este PR fue creado automáticamente por el sistema de sincronización de ai-core.
+
+            ### Cambios incluidos
+            \`\`\`
+            ${{ needs.prepare.outputs.changed_files }}
+            \`\`\`
+
+            ### Fuente
+            - Commit: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+            - Workflow: [Ver ejecución](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+            ### Acciones
+            - ✅ Revisar los cambios
+            - ✅ Merge cuando esté listo
+            - ⚠️ Si hay conflictos, resolver manualmente
+
+            ---
+            🤖 *Generado por AI-Core Sync Bot*`
+            });
+
+            // Agregar labels si existen
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pr.number,
+                labels: ['ai-core-sync', 'automated']
+              });
+            } catch (e) {
+              console.log('Labels not added (may not exist):', e.message);
+            }
+
+            console.log(`PR created: ${pr.html_url}`);
+
+            // Intentar auto-merge del PR
+            try {
+              await github.rest.pulls.merge({
+                owner,
+                repo,
+                pull_number: pr.number,
+                merge_method: 'merge',
+                title: pr.title
+              });
+              console.log(`✅ PR auto-merged: ${pr.html_url}`);
+            } catch (error) {
+              console.log(`⚠️  Auto-merge not available: ${error.message}`);
+              console.log(`PR requires manual merge: ${pr.html_url}`);
+            }
+
+  # -------------------------------------------------------------------------
+  # JOB 3: Notificar resultado
+  # -------------------------------------------------------------------------
+  notify:
+    needs: [prepare, sync]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Summary
+        run: |
+          echo "## AI-Core Sync Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Has Changes**: ${{ needs.prepare.outputs.has_changes }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Changed Files" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare.outputs.changed_files }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

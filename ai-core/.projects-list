@@ -1,0 +1,16 @@
+# ai-core Projects Registry
+# Format: owner/repo:branch
+# One project per line
+#
+# Projects that use ai-core and want to receive update notifications
+#
+# Example:
+# octocat/awesome-project:main
+# mycompany/myapp:develop
+
+# Add your projects here to receive ai-core update notifications
+hectormr206/pivotforge:main
+hectormr206/OmniForge:main
+hectormr206/vellum:main
+hectormr206/el_buen_esposo:main
+hectormr206/orchestra:main

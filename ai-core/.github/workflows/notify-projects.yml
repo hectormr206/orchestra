@@ -1,0 +1,191 @@
+name: Notify Projects of AI-Core Updates
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'SKILLS/**'
+      - 'SUBAGENTS/**'
+      - 'run.sh'
+      - 'AGENTS.md'
+      - 'CLAUDE.md'
+      - 'GEMINI.md'
+      - '.cursorrules'
+
+permissions:
+  contents: read
+
+jobs:
+  notify-projects:
+    name: Notify registered projects
+    runs-on: ubuntu-latest
+    # Skip if this is a notification from another ai-core (prevent loops)
+    if: "!contains(github.event.head_commit.message, '[ai-core-sync]')"
+
+    steps:
+      - name: Checkout ai-core
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v44
+        with:
+          files: |
+            SKILLS/**
+            SUBAGENTS/**
+            run.sh
+            AGENTS.md
+            CLAUDE.md
+            GEMINI.md
+            .cursorrules
+
+      - name: Generate change summary
+        id: changes
+        run: |
+          echo "### 📦 AI-Core Update Notification" > $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Message**: ${{ github.event.head_commit.message }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Author**: ${{ github.event.head_commit.author.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📝 Changed Files" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.changed-files.outputs.all_changed_files }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          # Set outputs for next steps
+          {
+            echo "commit_sha=${{ github.sha }}";
+            echo "commit_message<<EOF";
+            echo "${{ github.event.head_commit.message }}";
+            echo "EOF";
+            echo "changed_files<<EOF";
+            echo "${{ steps.changed-files.outputs.all_changed_files }}";
+            echo "EOF";
+          } >> $GITHUB_OUTPUT
+
+      - name: Read projects list
+        id: projects
+        run: |
+          if [ ! -f .projects-list ]; then
+            echo "No projects registered yet"
+            echo "projects=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Read and parse .projects-list (skip comments and empty lines)
+          PROJECTS=$(grep -v '^#' .projects-list | grep -v '^$' | wc -l)
+          echo "Found $PROJECTS registered projects"
+
+          # Create a temp file with project list
+          grep -v '^#' .projects-list | grep -v '^$' > /tmp/projects.txt
+
+          echo "projects=$PROJECTS" >> $GITHUB_OUTPUT
+
+      - name: Notify each project
+        if: steps.projects.outputs.projects != '0'
+        run: |
+          # Read PAT from secrets (or use the actor's token if available)
+          TOKEN="${{ secrets.AI_CORE_PAT }}"
+
+          if [ -z "$TOKEN" ]; then
+            echo "⚠️  No AI_CORE_PAT found. Projects must add ai-core as a collaborator."
+            echo "To enable automatic notifications, add AI_CORE_PAT to your ai-core repository secrets."
+            echo "The PAT needs 'repo' scope and write access to all registered projects."
+            exit 0
+          fi
+
+          # Read commit info
+          COMMIT_SHA="${{ steps.changes.outputs.commit_sha }}"
+          COMMIT_MSG="${{ steps.changes.outputs.commit_message }}"
+          CHANGED_FILES="${{ steps.changes.outputs.changed_files }}"
+
+          # Process each project
+          while IFS= read -r project_line; do
+            # Parse owner/repo:branch format
+            PROJECT=$(echo "$project_line" | cut -d':' -f1)
+            BRANCH=$(echo "$project_line" | cut -d':' -f2 -s)
+
+            # Default to main if no branch specified
+            if [ -z "$BRANCH" ]; then
+              BRANCH="main"
+            fi
+
+            echo "📡 Notifying $PROJECT (branch: $BRANCH)..."
+
+            # Create issue in target project
+            ISSUE_TITLE="🤖 AI-Core Update Available - $(date +%Y-%m-%d)"
+            ISSUE_BODY="AI-Core has been updated and new changes are available to sync.
+
+            ## 📦 Update Details
+
+            - **AI-Core Commit**: \`$COMMIT_SHA\`
+            - **Branch**: \`$BRANCH\`
+            - **Changes**: View [commit on GitHub](https://github.com/hectormr206/ai-core/commit/$COMMIT_SHA)
+
+            ## 📝 What Changed
+
+            **Commit Message**:
+            \`\`\`
+            $COMMIT_MSG
+            \`\`\`
+
+            **Files Modified**:
+            \`\`\`
+            $CHANGED_FILES
+            \`\`\`
+
+            ## 🔄 How to Update
+
+            This project should automatically receive updates via the \`receive-ai-core-updates\` workflow.
+
+            If automatic updates are not configured, manually update by:
+            1. \`cd ai-core && git pull origin main\`
+            2. Review the changes above
+            3. Run \`./run.sh\` if needed
+
+            ## 📚 More Information
+
+            - [AI-Core Repository](https://github.com/hectormr206/ai-core)
+            - [Sync Documentation](https://github.com/hectormr206/ai-core/blob/main/SYNC.md)
+
+            ---
+            *This issue was automatically created by [AI-Core Notify Workflow](https://github.com/hectormr206/ai-core/blob/main/.github/workflows/notify-projects.yml)*
+            "
+
+            # Create issue using GitHub API
+            RESPONSE=$(curl -s -X POST \
+              -H "Authorization: token $TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$PROJECT/issues" \
+              -d "{
+                \"title\": \"$ISSUE_TITLE\",
+                \"body\": \"$ISSUE_BODY\",
+                \"labels\": [\"ai-core\", \"update\", \"automated\"]
+              }")
+
+            # Check if issue was created
+            ISSUE_URL=$(echo "$RESPONSE" | grep -o '"html_url":"[^"]*' | cut -d'"' -f4 | head -1)
+
+            if [ -n "$ISSUE_URL" ]; then
+              echo "✅ Issue created: $ISSUE_URL"
+            else
+              echo "❌ Failed to create issue in $PROJECT"
+              echo "Response: $RESPONSE"
+            fi
+
+          done < /tmp/projects.txt
+
+      - name: Summary
+        if: steps.projects.outputs.projects != '0'
+        run: |
+          echo "### ✅ Notification Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Notified ${{ steps.projects.outputs.projects }} projects of ai-core updates." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Projects can update by:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Waiting for automatic sync (if configured)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Running: \`cd ai-core && git pull origin main\`" >> $GITHUB_STEP_SUMMARY

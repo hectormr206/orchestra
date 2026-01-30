@@ -1,6 +1,5 @@
-import React from 'react';
-import { Box, Text } from 'ink';
-import SelectInput from 'ink-select-input';
+import React, { useState } from "react";
+import { Box, Text, useInput } from "ink";
 
 export interface MenuItem {
   label: string;
@@ -16,39 +15,45 @@ interface MenuProps {
 }
 
 export const Menu: React.FC<MenuProps> = ({ items, onSelect, title }) => {
-  const handleSelect = (item: { label: string; value: string }) => {
-    const menuItem = items.find((i) => i.value === item.value);
-    if (menuItem) {
-      onSelect(menuItem);
-    }
-  };
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
-  const formattedItems = items.map((item) => ({
-    label: `${item.icon || '→'} ${item.label}`,
-    value: item.value,
-  }));
+  useInput((input, key) => {
+    if (key.upArrow) {
+      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : items.length - 1));
+    }
+    if (key.downArrow) {
+      setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : 0));
+    }
+    if (key.return) {
+      onSelect(items[selectedIndex]);
+    }
+  });
 
   return (
     <Box flexDirection="column">
       {title && (
         <Box marginBottom={1}>
-          <Text bold color="cyan">{title}</Text>
+          <Text bold color="cyan">
+            {title}
+          </Text>
         </Box>
       )}
-      <SelectInput
-        items={formattedItems}
-        onSelect={handleSelect}
-        indicatorComponent={({ isSelected }) => (
-          <Text color={isSelected ? 'green' : 'gray'}>
-            {isSelected ? '▶ ' : '  '}
-          </Text>
-        )}
-        itemComponent={({ isSelected, label }) => (
-          <Text color={isSelected ? 'green' : 'white'} bold={isSelected}>
-            {label}
-          </Text>
-        )}
-      />
+      {items.map((item, index) => {
+        const isSelected = index === selectedIndex;
+        return (
+          <Box key={item.value}>
+            <Text color={isSelected ? "green" : "gray"}>
+              {isSelected ? "▶ " : "  "}
+            </Text>
+            <Box width={4}>
+              <Text>{item.icon || "→"}</Text>
+            </Box>
+            <Text color={isSelected ? "green" : "white"} bold={isSelected}>
+              {item.label}
+            </Text>
+          </Box>
+        );
+      })}
     </Box>
   );
 };

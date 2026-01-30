@@ -1,0 +1,193 @@
+# ============================================================================
+# PROMOTE SKILL TO CENTRAL AI-CORE
+# ============================================================================
+# Este workflow permite promover un skill específico de un proyecto
+# al repositorio central de ai-core.
+#
+# Uso: Se ejecuta manualmente especificando el skill a promover
+# ============================================================================
+
+name: Promote Skill to Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      skill_name:
+        description: 'Nombre del skill a promover (ej: mi-nuevo-skill)'
+        required: true
+        type: string
+      skill_path:
+        description: 'Ruta al skill en este proyecto (ej: SKILLS/mi-nuevo-skill)'
+        required: true
+        type: string
+      ai_core_repo:
+        description: 'Repositorio central ai-core (owner/repo)'
+        required: true
+        default: 'hectormr206/ai-core'
+      description:
+        description: 'Descripción breve del skill'
+        required: true
+        type: string
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      is_valid: ${{ steps.check.outputs.is_valid }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate skill structure
+        id: check
+        run: |
+          SKILL_PATH="${{ inputs.skill_path }}"
+
+          # Verificar que existe
+          if [ ! -d "$SKILL_PATH" ]; then
+            echo "❌ Error: Skill path '$SKILL_PATH' does not exist"
+            echo "is_valid=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Verificar que tiene SKILL.md
+          if [ ! -f "$SKILL_PATH/SKILL.md" ]; then
+            echo "❌ Error: Missing SKILL.md in '$SKILL_PATH'"
+            echo "is_valid=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Verificar frontmatter YAML
+          if ! head -1 "$SKILL_PATH/SKILL.md" | grep -q "^---"; then
+            echo "❌ Error: SKILL.md must start with YAML frontmatter (---)"
+            echo "is_valid=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          echo "✅ Skill structure is valid"
+          echo "is_valid=true" >> $GITHUB_OUTPUT
+
+          # Mostrar contenido del skill
+          echo "### Skill Content Preview" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`yaml" >> $GITHUB_STEP_SUMMARY
+          head -30 "$SKILL_PATH/SKILL.md" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  promote:
+    needs: validate
+    if: needs.validate.outputs.is_valid == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this project
+        uses: actions/checkout@v4
+        with:
+          path: source-project
+
+      - name: Checkout ai-core central
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.ai_core_repo }}
+          token: ${{ secrets.SYNC_TOKEN }}
+          path: ai-core-central
+
+      - name: Configure Git
+        run: |
+          cd ai-core-central
+          git config user.name "Skill Promoter"
+          git config user.email "skill-promoter@users.noreply.github.com"
+
+      - name: Check if skill already exists
+        id: exists
+        run: |
+          if [ -d "ai-core-central/SKILLS/${{ inputs.skill_name }}" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Skill already exists - will create update PR"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "📦 New skill - will create addition PR"
+          fi
+
+      - name: Create branch
+        run: |
+          cd ai-core-central
+          BRANCH="promote/${{ inputs.skill_name }}-${{ github.run_number }}"
+          git checkout -b "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Copy skill to central
+        run: |
+          mkdir -p "ai-core-central/SKILLS/${{ inputs.skill_name }}"
+          cp -r "source-project/${{ inputs.skill_path }}/." "ai-core-central/SKILLS/${{ inputs.skill_name }}/"
+
+      - name: Commit changes
+        run: |
+          cd ai-core-central
+          git add -A
+
+          if [ "${{ steps.exists.outputs.exists }}" = "true" ]; then
+            MSG="feat(skills): update ${{ inputs.skill_name }}"
+          else
+            MSG="feat(skills): add ${{ inputs.skill_name }}"
+          fi
+
+          git commit -m "$MSG
+
+          ${{ inputs.description }}
+
+          Promoted from: ${{ github.repository }}
+          Source path: ${{ inputs.skill_path }}
+          Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          git push origin "$BRANCH"
+
+      - name: Create Pull Request
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.SYNC_TOKEN }}
+          script: |
+            const [owner, repo] = '${{ inputs.ai_core_repo }}'.split('/');
+            const isUpdate = '${{ steps.exists.outputs.exists }}' === 'true';
+
+            const { data: pr } = await github.rest.pulls.create({
+              owner,
+              repo,
+              title: isUpdate
+                ? '📝 Update skill: ${{ inputs.skill_name }}'
+                : '✨ New skill: ${{ inputs.skill_name }}',
+              head: process.env.BRANCH,
+              base: 'main',
+              body: `## ${isUpdate ? 'Skill Update' : 'New Skill'}: \`${{ inputs.skill_name }}\`
+
+            ### Description
+            ${{ inputs.description }}
+
+            ### Source
+            - **Repository**: [${{ github.repository }}](${{ github.server_url }}/${{ github.repository }})
+            - **Path**: \`${{ inputs.skill_path }}\`
+            - **Promoted by**: @${{ github.actor }}
+
+            ### Checklist
+            - [ ] Skill follows the standard template
+            - [ ] ALWAYS/NEVER patterns are clear
+            - [ ] Examples are practical and tested
+            - [ ] No project-specific code included
+
+            ---
+            🚀 *Promoted via AI-Core Skill Promoter*`
+            });
+
+            console.log(`PR created: ${pr.html_url}`);
+
+            // Add labels
+            try {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pr.number,
+                labels: ['new-skill', 'needs-review']
+              });
+            } catch (e) {
+              console.log('Could not add labels:', e.message);
+            }

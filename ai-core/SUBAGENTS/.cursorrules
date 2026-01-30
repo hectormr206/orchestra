@@ -1,0 +1,203 @@
+# AI-Core Rules for Cursor Editor
+
+> **Reglas específicas** para optimizar Cursor con ai-core
+
+---
+
+## Core Principles
+
+1. **Always reference ai-core SKILLS** before implementing features
+2. **Follow existing code patterns** in the project
+3. **Never commit secrets** or sensitive data
+4. **Write tests** using TDD when possible
+5. **Run linters** before committing code
+
+---
+
+## Available Specialists
+
+When working on specific tasks, invoke the relevant specialist:
+
+### Security
+- Use for: Authentication, authorization, input validation, secrets management
+- Reference: `ai-core/SKILLS/security/SKILL.md`
+- Always validate input on server side
+- Use parameterized queries for SQL
+- Hash passwords with bcrypt/argon2
+
+### Frontend
+- Use for: React/Vue/Angular components, state management, accessibility
+- Reference: `ai-core/SKILLS/frontend/SKILL.md`
+- Use semantic HTML
+- Implement WCAG 2.1 AA
+- Optimize for performance
+
+### Backend
+- Use for: REST/GraphQL APIs, validation, error handling
+- Reference: `ai-core/SKILLS/backend/SKILL.md`
+- Validate all input
+- Use appropriate HTTP status codes
+- Handle errors gracefully
+
+### Testing
+- Use for: Unit/integration/E2E tests, test coverage
+- Reference: `ai-core/SKILLS/testing/SKILL.md`
+- Follow AAA pattern (Arrange-Act-Assert)
+- Test behavior, not implementation
+- Mock external dependencies
+
+---
+
+## Code Style
+
+### TypeScript/JavaScript
+- Use TypeScript for type safety
+- Follow functional programming patterns
+- Use `const` by default, `let` if reassignment needed
+- Avoid `any` type
+
+### Python
+- Use type hints
+- Follow PEP 8 style guide
+- Use async/await for I/O operations
+- Prefer dataclasses over dictionaries
+
+### General
+- Write self-documenting code
+- Extract complex logic to functions
+- Use descriptive variable names
+- Add comments for WHY, not WHAT
+
+---
+
+## Security Rules
+
+1. **Never** commit secrets, API keys, or passwords
+2. **Always** validate input on both client AND server
+3. **Always** use parameterized queries for database access
+4. **Always** hash passwords with bcrypt/argon2 (cost >= 12)
+5. **Never** trust client-side validation
+6. **Always** implement rate limiting on public APIs
+7. **Always** use HTTPS in production
+8. **Never** return verbose error messages to clients
+
+---
+
+## Testing Rules
+
+1. **Always** write tests before fixing bugs (regression tests)
+2. **Always** follow AAA pattern (Arrange-Act-Assert)
+3. **Always** test behavior, not implementation
+4. **Never** skip tests (fix or delete them)
+5. **Always** mock external dependencies (databases, APIs)
+6. **Never** test third-party code
+7. **Always** maintain >80% test coverage
+
+---
+
+## Git Workflow
+
+1. **Commit frequently** with conventional commits
+   - `feat:` for new features
+   - `fix:` for bug fixes
+   - `docs:` for documentation
+   - `refactor:` for refactoring
+   - `test:` for tests
+   - `chore:` for maintenance
+
+2. **Branch naming**
+   - `feature/` for new features
+   - `bugfix/` for bug fixes
+   - `hotfix/` for urgent fixes
+
+3. **Before committing**
+   ```bash
+   npm run lint      # Run linter
+   npm run test      # Run tests
+   npm run type-check # Type check (TypeScript)
+   ```
+
+---
+
+## Performance Rules
+
+1. **Measure first**, optimize second
+2. **Cache expensive operations**
+3. **Use pagination** for large datasets
+4. **Lazy load** components and routes
+5. **Optimize images** (WebP, lazy loading)
+6. **Minimize bundle size** (code splitting)
+7. **Use indexes** for database queries
+
+---
+
+## Documentation Rules
+
+1. **Always** document complex logic
+2. **Always** update README for user-facing changes
+3. **Always** document API changes
+4. **Never** document obvious code
+5. **Use JSDoc/** for function documentation
+6. **Keep comments** up to date
+
+---
+
+## Error Handling Rules
+
+1. **Always** handle errors appropriately
+2. **Never** catch and ignore errors
+3. **Always** log errors with context
+4. **Never** expose stack traces to clients
+5. **Always** use structured logging (JSON)
+6. **Never** use generic error messages
+
+---
+
+## Accessibility Rules (WCAG 2.1 AA)
+
+1. **Always** use semantic HTML
+2. **Always** provide alt text for images
+3. **Always** ensure keyboard navigation works
+4. **Always** use ARIA labels appropriately
+5. **Always** test with screen reader
+6. **Always** ensure color contrast >= 4.5:1
+
+---
+
+## When in Doubt
+
+1. **Check ai-core SKILLS** first
+2. **Follow existing patterns** in the codebase
+3. **Ask for clarification** if requirements are unclear
+4. **Write tests** to verify behavior
+5. **Review code** before committing
+
+---
+
+## Quick Reference
+
+```bash
+# Run tests
+npm test
+pytest
+
+# Run linter
+npm run lint
+flake8 .
+
+# Type check
+npm run type-check
+mypy .
+
+# Build
+npm run build
+python -m build
+
+# Run dev server
+npm run dev
+python main.py
+```
+
+---
+
+**EOF**

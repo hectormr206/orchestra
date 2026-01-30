@@ -1,0 +1,274 @@
+name: Project Metrics
+
+on:
+  schedule:
+    # Daily at 10:00 AM UTC
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  code-coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    if: hashFiles('package.json') != ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: |
+          if npm run | grep -q "test.*coverage"; then
+            npm run test:coverage || npm test -- --coverage
+          else
+            echo "No test script with coverage found"
+          fi
+        continue-on-error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: hashFiles('coverage/lcov.info') != ''
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          fail_ci_if_error: false
+
+  technical-debt:
+    name: Technical Debt Metrics
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate technical debt metrics
+        run: |
+          echo "### 📊 Technical Debt Metrics" > debt-metrics.md
+          echo "" >> debt-metrics.md
+          echo "**Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> debt-metrics.md
+          echo "" >> debt-metrics.md
+
+          # Count TODO/FIXME/HACK comments (excluding educational examples)
+          TODO_COUNT=$(git grep -i "TODO" -- '*.js' '*.ts' '*.jsx' '*.tsx' '*.py' '*.go' '*.rs' 2>/dev/null | grep -v "EXAMPLE:" | wc -l || echo "0")
+          FIXME_COUNT=$(git grep -i "FIXME" -- '*.js' '*.ts' '*.jsx' '*.tsx' '*.py' '*.go' '*.rs' 2>/dev/null | grep -v "EXAMPLE:" | wc -l || echo "0")
+          HACK_COUNT=$(git grep -i "HACK" -- '*.js' '*.ts' '*.jsx' '*.tsx' '*.py' '*.go' '*.rs' 2>/dev/null | grep -v "EXAMPLE:" | wc -l || echo "0")
+
+          echo "#### Code Comments" >> debt-metrics.md
+          echo "| Type | Count |" >> debt-metrics.md
+          echo "|------|-------|" >> debt-metrics.md
+          echo "| 📝 TODO | $TODO_COUNT |" >> debt-metrics.md
+          echo "| 🔧 FIXME | $FIXME_COUNT |" >> debt-metrics.md
+          echo "| ⚠️  HACK | $HACK_COUNT |" >> debt-metrics.md
+          echo "" >> debt-metrics.md
+
+          # Calculate cyclomatic complexity (using eslint if available)
+          if [ -f ".eslintrc.js" ] || [ -f ".eslintrc.json" ] || [ -f ".eslintrc.yml" ]; then
+            echo "#### Complexity Analysis" >> debt-metrics.md
+            echo "Running complexity analysis..." >> debt-metrics.md
+            npx eslint --format json '.' > eslint-report.json 2>/dev/null || echo "{}" > eslint-report.json
+            echo "✅ Analysis complete" >> debt-metrics.md
+            echo "" >> debt-metrics.md
+          fi
+
+          # Count test files vs source files
+          SOURCE_FILES=$(find . -type f \( -name "*.js" -o -name "*.ts" -o -name "*.jsx" -o -name "*.tsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \) ! -path "*/node_modules/*" ! -path "*/dist/*" ! -path "*/build/*" ! -path "*/coverage/*" ! -name "*.test.*" ! -name "*.spec.*" | wc -l)
+          TEST_FILES=$(find . -type f \( -name "*.test.js" -o -name "*.test.ts" -o -name "*.spec.js" -o -name "*.spec.ts" -o -name "*_test.go" -o -name "*_test.rs" \) ! -path "*/node_modules/*" | wc -l)
+
+          echo "#### Test Coverage" >> debt-metrics.md
+          echo "| Metric | Count |" >> debt-metrics.md
+          echo "|--------|-------|" >> debt-metrics.md
+          echo "| 📁 Source Files | $SOURCE_FILES |" >> debt-metrics.md
+          echo("| 🧪 Test Files | $TEST_FILES |" >> debt-metrics.md
+
+          if [ $SOURCE_FILES -gt 0 ]; then
+            RATIO=$(echo "scale=2; ($TEST_FILES / $SOURCE_FILES) * 100" | bc)
+            echo "| 📊 Test Ratio | $RATIO% |" >> debt-metrics.md
+          fi
+          echo "" >> debt-metrics.md
+
+          cat debt-metrics.md
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: technical-debt-metrics
+          path: debt-metrics.md
+          retention-days: 90
+
+  dependency-metrics:
+    name: Dependency Metrics
+    runs-on: ubuntu-latest
+    if: hashFiles('package.json') != ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate dependency metrics
+        run: |
+          echo "### 📦 Dependency Metrics" > dep-metrics.md
+          echo "" >> dep-metrics.md
+
+          # Count dependencies
+          DEPS=$(cat package.json | jq '.dependencies | length' 2>/dev/null || echo "0")
+          DEV_DEPS=$(cat package.json | jq '.devDependencies | length' 2>/dev/null || echo "0")
+          TOTAL_DEPS=$((DEPS + DEV_DEPS))
+
+          echo "#### Dependency Counts" >> dep-metrics.md
+          echo "| Type | Count |" >> dep-metrics.md
+          echo "|------|-------|" >> dep-metrics.md
+          echo "| Production | $DEPS |" >> dep-metrics.md
+          echo "| Development | $DEV_DEPS |" >> dep-metrics.md
+          echo "| **Total** | **$TOTAL_DEPS** |" >> dep-metrics.md
+          echo "" >> dep-metrics.md
+
+          # Check for duplicate dependencies
+          echo "#### Dependency Analysis" >> dep-metrics.md
+          npx depcheck --json > depcheck-report.json 2>/dev/null || echo '{"dependencies":[],"devDependencies":[]}' > depcheck-report.json
+
+          UNUSED=$(cat depcheck-report.json | jq '.dependencies | length' 2>/dev/null || echo "0")
+          UNUSED_DEV=$(cat depcheck-report.json | jq '.devDependencies | length' 2>/dev/null || echo "0")
+
+          echo "| Metric | Count |" >> dep-metrics.md
+          echo "|--------|-------|" >> dep-metrics.md
+          echo "| Unused Production | $UNUSED |" >> dep-metrics.md
+          echo "| Unused Dev | $UNUSED_DEV |" >> dep-metrics.md
+          echo "" >> dep-metrics.md
+
+          # Check total size
+          if [ -d node_modules ]; then
+            SIZE=$(du -sh node_modules | cut -f1)
+            echo "#### Disk Usage" >> dep-metrics.md
+            echo "- **node_modules size**: $SIZE" >> dep-metrics.md
+          fi
+
+          cat dep-metrics.md
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-metrics
+          path: dep-metrics.md
+          retention-days: 90
+
+  code-quality:
+    name: Code Quality Metrics
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate quality metrics
+        run: |
+          echo "### ✨ Code Quality Metrics" > quality-metrics.md
+          echo "" >> quality-metrics.md
+
+          # Count lines of code
+          if command -v cloc &> /dev/null; then
+            cloc --json --exclude-dir=node_modules,dist,build,coverage,.git . > cloc-report.json 2>/dev/null || echo "{}" > cloc-report.json
+
+            TOTAL_LINES=$(cat cloc-report.json | jq '.SUM.code // 0' 2>/dev/null || echo "0")
+            COMMENT_LINES=$(cat cloc-report.json | jq '.SUM.comment // 0' 2>/dev/null || echo "0")
+
+            echo "#### Lines of Code" >> quality-metrics.md
+            echo "| Metric | Count |" >> quality-metrics.md
+            echo "|--------|-------|" >> quality-metrics.md
+            echo "| 📝 Code Lines | $TOTAL_LINES |" >> quality-metrics.md
+            echo "| 💬 Comment Lines | $COMMENT_LINES |" >> quality-metrics.md
+            echo "" >> quality-metrics.md
+          fi
+
+          # Count files by extension
+          echo "#### File Types" >> quality-metrics.md
+          echo '```' >> quality-metrics.md
+          find . -type f ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" ! -path "*/build/*" -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.rs" 2>/dev/null | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -10 >> quality-metrics.md || echo "No files found" >> quality-metrics.md
+          echo '```' >> quality-metrics.md
+          echo "" >> quality-metrics.md
+
+          # Check for console.log statements (excluding test files)
+          CONSOLE_COUNT=$(git grep -i "console.log" -- '*.js' '*.ts' '*.jsx' '*.tsx' 2>/dev/null | grep -v "test\|spec" | wc -l || echo "0")
+
+          echo "#### Code Health" >> quality-metrics.md
+          echo "| Check | Result |" >> quality-metrics.md
+          echo "|-------|--------|" >> quality-metrics.md
+          echo "| console.log statements | $CONSOLE_COUNT |" >> quality-metrics.md
+          echo "" >> quality-metrics.md
+
+          cat quality-metrics.md
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-quality-metrics
+          path: quality-metrics.md
+          retention-days: 90
+
+  generate-summary:
+    name: Generate Metrics Summary
+    runs-on: ubuntu-latest
+    needs: [code-coverage, technical-debt, dependency-metrics, code-quality]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: metrics
+
+      - name: Generate combined summary
+        run: |
+          echo "# 📊 Project Metrics Dashboard" > metrics-summary.md
+          echo "" >> metrics-summary.md
+          echo "**Generated**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> metrics-summary.md
+          echo "**Repository**: ${{ github.repository }}" >> metrics-summary.md
+          echo "" >> metrics-summary.md
+
+          # Add each metric section
+          for file in metrics/*/*.md; do
+            if [ -f "$file" ]; then
+              echo "" >> metrics-summary.md
+              cat "$file" >> metrics-summary.md
+            fi
+          done
+
+          cat metrics-summary.md
+
+      - name: Upload combined summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics-summary
+          path: metrics-summary.md
+          retention-days: 90
+
+      - name: Add to GitHub summary
+        run: |
+          if [ -f metrics-summary.md ]; then
+            cat metrics-summary.md >> $GITHUB_STEP_SUMMARY
+          fi

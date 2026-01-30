@@ -9,7 +9,7 @@
  */
 
 export interface ConsultantRequest {
-  type: 'syntax_error' | 'incomplete_code' | 'algorithm' | 'optimization';
+  type: "syntax_error" | "incomplete_code" | "algorithm" | "optimization";
   fileName: string;
   code: string;
   error?: string;
@@ -22,25 +22,44 @@ export interface ConsultantRequest {
 export function buildSyntaxFixPrompt(
   fileName: string,
   code: string,
-  syntaxError: string
+  syntaxError: string,
 ): string {
-  return `Fix the Python syntax error in this file.
+  return `═══════════════════════════════════════════════════════════════════════════════
+TAREA: CORREGIR ERROR DE SINTAXIS
+═══════════════════════════════════════════════════════════════════════════════
 
-FILE: ${fileName}
+ARCHIVO: ${fileName}
 
-ERROR:
+ERROR DETECTADO:
+─────────────────────────────────────────────────────────────────────────────
 ${syntaxError}
+─────────────────────────────────────────────────────────────────────────────
 
-CODE:
+CÓDIGO CON ERROR:
+─────────────────────────────────────────────────────────────────────────────
 ${code}
+─────────────────────────────────────────────────────────────────────────────
 
-INSTRUCTIONS:
-1. Fix the syntax error
-2. Keep all existing functionality
-3. Return ONLY the corrected Python code
-4. No explanations, no markdown
+═══════════════════════════════════════════════════════════════════════════════
+INSTRUCCIONES
+═══════════════════════════════════════════════════════════════════════════════
+1. Identifica y corrige el error de sintaxis
+2. Mantén TODA la funcionalidad existente
+3. Asegúrate de que los imports estén completos
+4. Verifica que los brackets estén balanceados
 
-OUTPUT THE CORRECTED CODE:`;
+⚠️ REGLAS DE FORMATO DE RESPUESTA:
+─────────────────────────────────────────────────────────────────────────────
+- Tu respuesta debe comenzar DIRECTAMENTE con código
+- La primera línea debe ser: from, import, class, def, # o """
+- NO incluyas explicaciones de texto
+- NO uses bloques markdown (\`\`\`)
+- Solo código limpio y funcional
+─────────────────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════════════════
+GENERA EL CÓDIGO CORREGIDO:
+═══════════════════════════════════════════════════════════════════════════════`;
 }
 
 /**
@@ -49,25 +68,65 @@ OUTPUT THE CORRECTED CODE:`;
 export function buildCompleteCodePrompt(
   fileName: string,
   code: string,
-  context?: string
+  context?: string,
 ): string {
-  return `Complete this truncated Python code.
+  return `═══════════════════════════════════════════════════════════════════════════════
+TAREA: COMPLETAR CÓDIGO TRUNCADO
+═══════════════════════════════════════════════════════════════════════════════
 
-FILE: ${fileName}
+ARCHIVO: ${fileName}
 
-${context ? `CONTEXT:\n${context}\n` : ''}
+${context ? `CONTEXTO:\n${context}\n` : ""}
 
-INCOMPLETE CODE:
+CÓDIGO INCOMPLETO:
+─────────────────────────────────────────────────────────────────────────────
 ${code}
+─────────────────────────────────────────────────────────────────────────────
 
-INSTRUCTIONS:
-1. The code appears to be cut off or incomplete
-2. Complete ALL functions and methods
-3. Ensure all brackets, braces, and parentheses are closed
-4. Return the COMPLETE Python code
-5. No explanations, no markdown
+═══════════════════════════════════════════════════════════════════════════════
+PROBLEMAS TÍPICOS A RESOLVER
+═══════════════════════════════════════════════════════════════════════════════
+- Funciones/métodos sin cuerpo (terminan en colon sin código)
+- Diccionarios/listas sin cerrar (falta }, ] o ))
+- Strings sin cerrar (comillas sin emparejar)
+- Return statements incompletos
+- Clases sin métodos implementados
 
-OUTPUT THE COMPLETE CODE:`;
+═══════════════════════════════════════════════════════════════════════════════
+INSTRUCCIONES
+═══════════════════════════════════════════════════════════════════════════════
+1. Identifica dónde está truncado el código
+2. COMPLETA todas las funciones y métodos
+3. Asegúrate de que todos los brackets estén cerrados
+4. Verifica que los strings estén completos
+5. Incluye todos los imports necesarios
+
+⚠️ REGLAS DE FORMATO DE RESPUESTA:
+─────────────────────────────────────────────────────────────────────────────
+- Tu respuesta debe comenzar DIRECTAMENTE con código
+- La primera línea debe ser: from, import, class, def, # o """
+- NO incluyas explicaciones de texto
+- NO uses bloques markdown (\`\`\`)
+- INCLUYE el código existente + la parte que falta
+─────────────────────────────────────────────────────────────────────────────
+
+EJEMPLO DE LO QUE SE ESPERA:
+─────────────────────────────────────────────────────────────────────────────
+# Si el código incompleto es:
+def calculate_total(items):
+    return {
+
+# Tu respuesta debe ser el código COMPLETO:
+def calculate_total(items):
+    return {
+        'total': sum(item.price for item in items),
+        'count': len(items)
+    }
+─────────────────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════════════════
+GENERA EL CÓDIGO COMPLETO:
+═══════════════════════════════════════════════════════════════════════════════`;
 }
 
 /**
@@ -75,22 +134,38 @@ OUTPUT THE COMPLETE CODE:`;
  */
 export function buildAlgorithmPrompt(
   problem: string,
-  language: string = 'python'
+  language: string = "python",
 ): string {
-  return `Solve this algorithmic problem.
+  return `═══════════════════════════════════════════════════════════════════════════════
+TAREA: RESOLVER PROBLEMA ALGORÍTMICO
+═══════════════════════════════════════════════════════════════════════════════
 
-PROBLEM:
+PROBLEMA:
+─────────────────────────────────────────────────────────────────────────────
 ${problem}
+─────────────────────────────────────────────────────────────────────────────
 
-LANGUAGE: ${language}
+LENGUAJE: ${language}
 
-INSTRUCTIONS:
-1. Implement an efficient solution
-2. Include proper error handling
-3. Return ONLY the code
-4. No explanations, no markdown
+═══════════════════════════════════════════════════════════════════════════════
+REQUISITOS
+═══════════════════════════════════════════════════════════════════════════════
+1. Implementa una solución eficiente (O(n) o O(n log n) preferido sobre O(n²))
+2. Incluye manejo de errores para edge cases
+3. Usa nombres de variables descriptivos
+4. Añade docstrings/comentarios breves si la lógica es compleja
 
-OUTPUT THE CODE:`;
+⚠️ REGLAS DE FORMATO DE RESPUESTA:
+─────────────────────────────────────────────────────────────────────────────
+- Tu respuesta debe comenzar DIRECTAMENTE con código
+- NO incluyas explicaciones de texto antes o después
+- NO uses bloques markdown (\`\`\`)
+- Solo código limpio, funcional y bien estructurado
+─────────────────────────────────────────────────────────────────────────────
+
+═══════════════════════════════════════════════════════════════════════════════
+GENERA EL CÓDIGO:
+═══════════════════════════════════════════════════════════════════════════════`;
 }
 
 /**
@@ -100,25 +175,29 @@ export function detectIncompleteCode(code: string): {
   isIncomplete: boolean;
   reason?: string;
 } {
-  const lines = code.trim().split('\n');
+  const lines = code.trim().split("\n");
   if (lines.length === 0) {
-    return { isIncomplete: true, reason: 'Empty file' };
+    return { isIncomplete: true, reason: "Empty file" };
   }
 
   const lastLine = lines[lines.length - 1].trim();
 
   // Detectar funciones/métodos incompletos
-  if (lastLine.endsWith(':')) {
-    return { isIncomplete: true, reason: 'Function or block without body' };
+  if (lastLine.endsWith(":")) {
+    return { isIncomplete: true, reason: "Function or block without body" };
   }
 
   // Detectar diccionarios/listas incompletos
-  if (lastLine === '{' || lastLine === '[' || lastLine === '(') {
-    return { isIncomplete: true, reason: 'Unclosed bracket' };
+  if (lastLine === "{" || lastLine === "[" || lastLine === "(") {
+    return { isIncomplete: true, reason: "Unclosed bracket" };
   }
 
-  if (lastLine === 'return {' || lastLine === 'return [' || lastLine === 'return (') {
-    return { isIncomplete: true, reason: 'Incomplete return statement' };
+  if (
+    lastLine === "return {" ||
+    lastLine === "return [" ||
+    lastLine === "return ("
+  ) {
+    return { isIncomplete: true, reason: "Incomplete return statement" };
   }
 
   // Contar brackets
@@ -138,7 +217,7 @@ export function detectIncompleteCode(code: string): {
   const tripleQuotes = (code.match(/"""/g) || []).length;
 
   if (singleQuotes % 2 !== 0 && tripleQuotes === 0) {
-    return { isIncomplete: true, reason: 'Unclosed string' };
+    return { isIncomplete: true, reason: "Unclosed string" };
   }
 
   return { isIncomplete: false };
@@ -157,7 +236,7 @@ export function parseConsultantResponse(response: string): string {
   }
 
   // Buscar la primera línea de código Python válido
-  const lines = code.split('\n');
+  const lines = code.split("\n");
   let startIndex = 0;
 
   const codePatterns = [
@@ -179,7 +258,7 @@ export function parseConsultantResponse(response: string): string {
   }
 
   if (startIndex > 0) {
-    code = lines.slice(startIndex).join('\n');
+    code = lines.slice(startIndex).join("\n");
   }
 
   return code.trim();

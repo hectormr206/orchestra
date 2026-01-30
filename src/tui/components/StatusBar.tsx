@@ -1,8 +1,15 @@
-import React from 'react';
-import { Box, Text } from 'ink';
+import React from "react";
+import { Box, Text } from "ink";
 
 interface StatusBarProps {
-  status: 'idle' | 'planning' | 'executing' | 'auditing' | 'complete' | 'error';
+  status:
+    | "idle"
+    | "planning"
+    | "executing"
+    | "auditing"
+    | "recovery"
+    | "complete"
+    | "error";
   sessionId?: string;
   currentFile?: string;
   progress?: { current: number; total: number };
@@ -16,25 +23,43 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   const getStatusColor = () => {
     switch (status) {
-      case 'idle': return 'gray';
-      case 'planning': return 'blue';
-      case 'executing': return 'yellow';
-      case 'auditing': return 'magenta';
-      case 'complete': return 'green';
-      case 'error': return 'red';
-      default: return 'white';
+      case "idle":
+        return "gray";
+      case "planning":
+        return "blue";
+      case "executing":
+        return "yellow";
+      case "auditing":
+        return "magenta";
+      case "recovery":
+        return "#FFA500"; // Orange for recovery
+      case "complete":
+        return "green";
+      case "error":
+        return "red";
+      default:
+        return "white";
     }
   };
 
   const getStatusIcon = () => {
     switch (status) {
-      case 'idle': return '◯';
-      case 'planning': return '📝';
-      case 'executing': return '⚡';
-      case 'auditing': return '🔍';
-      case 'complete': return '✅';
-      case 'error': return '❌';
-      default: return '?';
+      case "idle":
+        return "◯";
+      case "planning":
+        return "📝";
+      case "executing":
+        return "⚡";
+      case "auditing":
+        return "🔍";
+      case "recovery":
+        return "🔄";
+      case "complete":
+        return "✅";
+      case "error":
+        return "❌";
+      default:
+        return "?";
     }
   };
 
@@ -46,12 +71,11 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       justifyContent="space-between"
     >
       <Box>
-        <Text color={getStatusColor()}>
-          {getStatusIcon()} {status.toUpperCase()}
-        </Text>
-        {currentFile && (
-          <Text color="gray"> │ {currentFile}</Text>
-        )}
+        <Box width={4}>
+          <Text color={getStatusColor()}>{getStatusIcon()}</Text>
+        </Box>
+        <Text color={getStatusColor()}>{status.toUpperCase()}</Text>
+        {currentFile && <Text color="gray"> │ {currentFile}</Text>}
       </Box>
       <Box>
         {progress && (

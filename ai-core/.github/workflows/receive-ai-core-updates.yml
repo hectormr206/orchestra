@@ -1,0 +1,274 @@
+# ============================================================================
+# RECEIVE AI-CORE UPDATES (Para copiar a cada proyecto)
+# ============================================================================
+# Este workflow se copia a cada proyecto dependiente y permite:
+# 1. Recibir actualizaciones vía repository_dispatch
+# 2. Verificar actualizaciones manualmente
+# 3. Sincronizar bajo demanda
+#
+# SETUP: Copiar este archivo a .github/workflows/receive-ai-core-updates.yml
+# ============================================================================
+
+name: Receive AI-Core Updates
+
+on:
+  # Trigger desde el repo central via repository_dispatch
+  repository_dispatch:
+    types: [ai-core-update]
+
+  # Verificación programada (cada lunes a las 9am)
+  schedule:
+    - cron: '0 9 * * 0'
+
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      ai_core_repo:
+        description: 'AI-Core repository (owner/repo)'
+        required: true
+        default: 'hectormr206/ai-core'
+      ai_core_ref:
+        description: 'Branch or tag to sync from'
+        required: true
+        default: 'main'
+
+env:
+  # CONFIGURACIÓN - Modificar según tu setup
+  # NOTA: Este valor puede ser sobreescrito por inputs o repository_dispatch
+  AI_CORE_REPO_INPUT: ${{ inputs.ai_core_repo || github.event.client_payload.ai_core_repo || 'hectormr206/ai-core' }}
+  AI_CORE_REF: ${{ inputs.ai_core_ref || github.event.client_payload.ai_core_ref || 'main' }}
+  AI_CORE_PATH: 'ai-core'  # Carpeta donde se instala ai-core
+
+jobs:
+  check-updates:
+    runs-on: ubuntu-latest
+    outputs:
+      needs_update: ${{ steps.compare.outputs.needs_update }}
+      current_version: ${{ steps.compare.outputs.current_version }}
+      latest_version: ${{ steps.compare.outputs.latest_version }}
+      repo: ${{ steps.normalize.outputs.repo }}
+
+    steps:
+      - name: Checkout this project
+        uses: actions/checkout@v4
+
+      - name: Normalize repository name
+        id: normalize
+        run: |
+          REPO="${{ env.AI_CORE_REPO_INPUT }}"
+          echo "DEBUG: Input repo: '$REPO'"
+
+          # Normalizar usando Bash parameter expansion (más seguro que sed)
+          # 1. Eliminar protocolo y dominio
+          REPO="${REPO#https://github.com/}"
+          REPO="${REPO#git@github.com:}"
+          
+          # 2. Eliminar sufijo .git
+          REPO="${REPO%.git}"
+          
+          while [[ "$REPO" == */ ]]; do REPO="${REPO%/}"; done
+          
+          echo "DEBUG: Normalized repo: '$REPO'"
+          echo "repo=$REPO" >> $GITHUB_OUTPUT
+          echo "AI_CORE_REPO=$REPO" >> $GITHUB_ENV
+
+          if [[ "${{ secrets.AI_CORE_PAT }}" != "" ]]; then
+            echo "DEBUG: Found AI_CORE_PAT secret"
+          else
+            echo "DEBUG: No AI_CORE_PAT secret found (using GITHUB_TOKEN fallback)"
+          fi
+
+      - name: Get current ai-core version
+        id: current
+        run: |
+          if [ -f "${{ env.AI_CORE_PATH }}/.version" ]; then
+            VERSION=$(cat "${{ env.AI_CORE_PATH }}/.version")
+          else
+            VERSION="unknown"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Get latest ai-core version
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.AI_CORE_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Checking version for $AI_CORE_REPO ref $AI_CORE_REF..."
+          
+          RESPONSE=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/$AI_CORE_REPO/commits/$AI_CORE_REF")
+          
+          # Check if response contains "Not Found" or other error
+          if echo "$RESPONSE" | grep -q "Not Found"; then
+            echo "::error::Repository or Ref not found! Check private repo access and AI_CORE_PAT."
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
+          LATEST=$(echo "$RESPONSE" | jq -r '.sha' | head -c 7)
+          
+          if [ -z "$LATEST" ] || [ "$LATEST" == "null" ]; then
+             echo "::error::Failed to extract SHA from response."
+             exit 1
+          fi
+          
+          echo "Latest version SHA: $LATEST"
+          echo "version=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Compare versions
+        id: compare
+        run: |
+          CURRENT="${{ steps.current.outputs.version }}"
+          LATEST="${{ steps.latest.outputs.version }}"
+
+          echo "current_version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "latest_version=$LATEST" >> $GITHUB_OUTPUT
+
+          if [ "$CURRENT" = "$LATEST" ]; then
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+            echo "✅ AI-Core is up to date ($CURRENT)"
+          else
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Update available: $CURRENT → $LATEST"
+          fi
+
+  sync-if-needed:
+    needs: check-updates
+    if: needs.check-updates.outputs.needs_update == 'true' || github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this project
+        uses: actions/checkout@v4
+        # Default token is sufficient here
+
+      - name: Checkout ai-core
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.check-updates.outputs.repo }}
+          ref: ${{ env.AI_CORE_REF }}
+          path: ai-core-latest
+          # Use PAT if available (for private repos), otherwise fallback to GITHUB_TOKEN
+          token: ${{ secrets.AI_CORE_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "AI-Core Sync"
+          git config user.email "ai-core-sync@users.noreply.github.com"
+
+      - name: Create update branch
+        run: |
+          BRANCH="ai-core-update/${{ needs.check-updates.outputs.latest_version }}"
+          git checkout -b "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Sync ai-core
+        run: |
+          # Crear directorio si no existe
+          mkdir -p "${{ env.AI_CORE_PATH }}"
+
+          # Sincronizar SOLO archivos esenciales de ai-core
+          # Excluir TODOS los workflows internos de ai-core (son específicos del repo central)
+          rsync -av --delete \
+            --exclude='.git' \
+            --exclude='.github/' \
+            ai-core-latest/ "${{ env.AI_CORE_PATH }}/"
+
+          # Guardar versión
+          echo "${{ needs.check-updates.outputs.latest_version }}" > "${{ env.AI_CORE_PATH }}/.version"
+
+          # Limpiar
+          rm -rf ai-core-latest
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "### Changed files:" >> $GITHUB_STEP_SUMMARY
+            git diff --stat >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Commit and push
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git add -A
+          git commit -m "chore(ai-core): update to ${{ needs.check-updates.outputs.latest_version }}
+
+          Previous version: ${{ needs.check-updates.outputs.current_version }}
+          New version: ${{ needs.check-updates.outputs.latest_version }}
+
+          Source: https://github.com/${{ needs.check-updates.outputs.repo }}
+
+          [skip ci]"
+          # Agregar [skip ci] para evitar que se ejecuten workflows de CI
+
+          git push origin "$BRANCH"
+
+      - name: Create Pull Request
+        if: steps.changes.outputs.has_changes == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🔄 AI-Core Update: ${{ needs.check-updates.outputs.current_version }} → ${{ needs.check-updates.outputs.latest_version }}',
+              head: process.env.BRANCH,
+              base: 'main',
+              body: `## AI-Core Update
+
+            | Field | Value |
+            |-------|-------|
+            | Previous | \`${{ needs.check-updates.outputs.current_version }}\` |
+            | New | \`${{ needs.check-updates.outputs.latest_version }}\` |
+            | Source | [${{ needs.check-updates.outputs.repo }}](https://github.com/${{ needs.check-updates.outputs.repo }}) |
+
+            ### What's included
+            This update includes the latest universal skills and patterns from the central ai-core repository.
+
+            ### Auto-merge
+            This PR will be automatically merged if all checks pass.
+
+            ---
+            🤖 *Automated by AI-Core Sync*`
+            });
+
+            // Add labels to skip CI and mark as automated
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              labels: ['dependencies', 'automated', 'skip-ci']
+            });
+
+            console.log(`PR created: ${pr.html_url}`);
+
+            // Enable auto-merge (requires GitHub settings to be configured)
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'merge',
+                title: pr.title,
+                body: pr.body
+              });
+              console.log(`PR auto-merged: ${pr.html_url}`);
+            } catch (error) {
+              console.log(`Auto-merge not available or blocked: ${error.message}`);
+              console.log(`PR created but requires manual merge: ${pr.html_url}`);
+            }
+
+  notify-up-to-date:
+    needs: check-updates
+    if: needs.check-updates.outputs.needs_update == 'false' && github.event_name != 'repository_dispatch'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Summary
+        run: |
+          echo "## ✅ AI-Core is up to date" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Current version: \`${{ needs.check-updates.outputs.current_version }}\`" >> $GITHUB_STEP_SUMMARY

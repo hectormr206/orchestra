@@ -1,0 +1,204 @@
+# ============================================================================
+# AI-CORE PROJECT CONFIGURATION
+# ============================================================================
+# Este archivo configura cómo ai-core se integra con tu proyecto.
+#
+# Campos:
+# - project_name: Nombre del proyecto (usado en documentación generada)
+# - tech_stack: Stack tecnológico principal
+# - sync_enabled: Habilitar sincronización automática con ai-core
+# - subagents_enabled: Habilitar instalación de subagents
+# - skills_priority: Prioridad de skills (project > ai-core)
+# ============================================================================
+
+project_name: "{{PROJECT_NAME}}"
+description: "{{PROJECT_DESCRIPTION}}"
+version: "0.1.0"
+
+# ============================================================================
+# STACK TECNOLÓGICO
+# ============================================================================
+tech_stack:
+  frontend: "{{FRONTEND_FRAMEWORK}}"  # Ej: React, Vue, Angular, Svelte
+  backend: "{{BACKEND_FRAMEWORK}}"    # Ej: Node.js, Python, Go, Rust
+  database: "{{DATABASE}}"            # Ej: PostgreSQL, MongoDB, MySQL
+  infrastructure: "{{INFRASTRUCTURE}}" # Ej: AWS, GCP, Azure, On-premise
+
+# ============================================================================
+# INTEGRACIÓN CON AI-CORE
+# ============================================================================
+ai_core:
+  path: "./ai-core"                   # Ruta relativa a ai-core
+  version: "latest"                   # Versión de ai-core a usar
+  sync_enabled: true                  # Sincronización automática
+  sync_schedule: "weekly"             # daily, weekly, monthly
+  sync_branch: "main"                 # Rama objetivo para sync
+
+# ============================================================================
+# SUBAGENTS
+# ============================================================================
+subagents:
+  enabled: true
+  platforms:
+    claude_code: true
+    opencode: false
+    gemini_cli: false
+    github_copilot: false
+
+  # Workflow agents a instalar
+  workflow:
+    - project-scaffolder
+    - bug-fixer
+    - feature-creator
+    - pr-reviewer
+    - code-refactorer
+    - tech-lead
+    - onboarding-buddy
+
+  # Specialist agents a instalar (todos por defecto)
+  specialists:
+    - frontend-specialist
+    - backend-specialist
+    - security-specialist
+    - testing-specialist
+    - database-specialist
+    - devops-specialist
+    - performance-optimizer
+    - architecture-advisor
+    - compliance-auditor
+    # Agrega más según necesites
+
+# ============================================================================
+# SKILLS PERSONALIZADOS
+# ============================================================================
+custom_skills:
+  # Habilitar skills específicos del proyecto
+  enabled: []
+
+  # Deshabilitar skills específicos de ai-core
+  disabled: []
+
+  # Prioridad: project | ai-core
+  # project = Los skills del proyecto tienen prioridad
+  # ai-core = Los skills de ai-core tienen prioridad
+  priority: "project"
+
+# ============================================================================
+# DOCUMENTACIÓN
+# ============================================================================
+documentation:
+  # Generar PROJECT.md desde plantilla
+  auto_generate: true
+
+  # Plantillas a usar
+  templates:
+    readme: "templates/PROJECT.md"
+    contributing: "templates/CONTRIBUTING.md"
+    pull_request: ".github/PULL_REQUEST_TEMPLATE.md"
+    issue_bug: ".github/ISSUE_TEMPLATE/bug_report.md"
+    issue_feature: ".github/ISSUE_TEMPLATE/feature_request.md"
+
+  # Formatos de documentación soportados
+  formats:
+    - markdown
+    - adr           # Architecture Decision Records
+
+# ============================================================================
+# CI/CD
+# ============================================================================
+ci_cd:
+  # Generar workflows de GitHub Actions
+  auto_generate: true
+
+  # Plantillas de workflows
+  workflows:
+    ci: ".github/workflows/ci.yml"
+    # Agrega más workflows según necesites
+
+  # Integraciones
+  integrations:
+    - github_actions
+    # - codecov
+    # - dependabot
+
+# ============================================================================
+# COMPLIANCE
+# ============================================================================
+compliance:
+  # Estándares de cumplimiento requeridos
+  standards:
+    - name: "GDPR"
+      enabled: {{GDPR_COMPLIANCE}}        # true | false
+    - name: "HIPAA"
+      enabled: {{HIPAA_COMPLIANCE}}       # true | false
+    - name: "SOC2"
+      enabled: {{SOC2_COMPLIANCE}}        # true | false
+    - name: "PCI-DSS"
+      enabled: {{PCI_DSS_COMPLIANCE}}     # true | false
+
+  # Auditoría de logs
+  audit_logging:
+    enabled: true
+    retention_days: 365
+
+# ============================================================================
+# OBSERVABILITY
+# ============================================================================
+observability:
+  # Métricas y tracing
+  tracing:
+    enabled: {{TRACING_ENABLED}}
+    provider: "{{TRACING_PROVIDER}}"      # Ej: Datadog, New Relic, Honeycomb
+
+  # Logging
+  logging:
+    level: "{{LOG_LEVEL}}"                # debug | info | warn | error
+    structured: true                      # JSON logs
+    correlation_ids: true
+
+# ============================================================================
+# TESTING
+# ============================================================================
+testing:
+  # Cobertura mínima requerida
+  coverage_threshold: {{COVERAGE_THRESHOLD}}  # Ej: 80
+
+  # Tipos de tests requeridos
+  required:
+    unit: true
+    integration: {{INTEGRATION_TESTS}}
+    e2e: {{E2E_TESTS}}
+
+  # Framework de tests
+  framework: "{{TEST_FRAMEWORK}}"        # Ej: Jest, Pytest, JUnit
+
+# ============================================================================
+# DEVELOPER EXPERIENCE
+# ============================================================================
+developer_experience:
+  # Dev containers
+  dev_container:
+    enabled: {{DEV_CONTAINER_ENABLED}}
+    image: "{{DEV_CONTAINER_IMAGE}}"
+
+  # Pre-commit hooks
+  pre_commit_hooks:
+    enabled: true
+    hooks:
+      - lint
+      - format
+      - test
+
+  # Code quality gates
+  quality_gates:
+    lint: true
+    type_check: true
+    test_coverage: true
+
+# ============================================================================
+# METADATA
+# ============================================================================
+metadata:
+  created_at: "{{TIMESTAMP}}"
+  created_by: "ai-core"
+  version: "1.0.0"

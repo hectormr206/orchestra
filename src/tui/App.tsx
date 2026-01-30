@@ -1,16 +1,24 @@
-import React, { useState, useEffect } from 'react';
-import { Box, useApp, useInput } from 'ink';
-import { Header } from './components/Header.js';
-import { Dashboard } from './screens/Dashboard.js';
-import { TaskInput } from './screens/TaskInput.js';
-import { Execution } from './screens/Execution.js';
-import { PlanReview } from './screens/PlanReview.js';
-import { History } from './screens/History.js';
-import { Settings } from './screens/Settings.js';
-import { Doctor } from './screens/Doctor.js';
-import { useOrchestrator } from './hooks/useOrchestrator.js';
+import React, { useState, useEffect } from "react";
+import { Box, useApp, useInput } from "ink";
+import { Header } from "./components/Header.js";
+import { Dashboard } from "./screens/Dashboard.js";
+import { TaskInput } from "./screens/TaskInput.js";
+import { Execution } from "./screens/Execution.js";
+import { PlanReview } from "./screens/PlanReview.js";
+import { History } from "./screens/History.js";
+import { Settings } from "./screens/Settings.js";
+import { Doctor } from "./screens/Doctor.js";
+import { useOrchestrator } from "./hooks/useOrchestrator.js";
+import { loadSettings, saveSettings } from "../utils/configLoader.js";
 
-type Screen = 'dashboard' | 'new-task' | 'execution' | 'plan-review' | 'history' | 'settings' | 'doctor';
+type Screen =
+  | "dashboard"
+  | "new-task"
+  | "execution"
+  | "plan-review"
+  | "history"
+  | "settings"
+  | "doctor";
 
 interface AppProps {
   initialTask?: string;
@@ -19,17 +27,23 @@ interface AppProps {
 
 export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
   const { exit } = useApp();
-  const [screen, setScreen] = useState<Screen>(autoStart && initialTask ? 'execution' : 'dashboard');
+  const [screen, setScreen] = useState<Screen>(
+    autoStart && initialTask ? "execution" : "dashboard",
+  );
   const [orchestratorState, orchestratorActions] = useOrchestrator();
   const [settings, setSettings] = useState({
     parallel: true,
     maxConcurrency: 3,
     autoApprove: false,
     runTests: false,
-    testCommand: 'npm test',
+    testCommand: "npm test",
     gitCommit: false,
     notifications: true,
     cacheEnabled: true,
+    // Recovery Mode settings
+    maxRecoveryAttempts: 3,
+    recoveryTimeoutMinutes: 10,
+    autoRevertOnFailure: true,
   });
   const [stats, setStats] = useState({
     totalSessions: 0,
@@ -43,8 +57,8 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const { SessionHistory } = await import('../utils/sessionHistory.js');
-        const { ResultCache } = await import('../utils/cache.js');
+        const { SessionHistory } = await import("../utils/sessionHistory.js");
+        const { ResultCache } = await import("../utils/cache.js");
 
         const history = new SessionHistory();
         await history.init();
@@ -70,6 +84,22 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
     loadStats();
   }, []);
 
+  // Load settings on mount
+  useEffect(() => {
+    const loadSavedSettings = async () => {
+      try {
+        const savedSettings = await loadSettings();
+        if (savedSettings) {
+          setSettings(savedSettings);
+        }
+      } catch {
+        // Settings not available, use defaults
+      }
+    };
+
+    loadSavedSettings();
+  }, []);
+
   // Auto-start if provided
   useEffect(() => {
     if (autoStart && initialTask) {
@@ -82,44 +112,51 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
 
   // Global keyboard shortcuts
   useInput((input, key) => {
-    if (screen === 'dashboard') {
-      if (input === 'n') setScreen('new-task');
-      if (input === 'r') setScreen('history');
-      if (input === 'h') setScreen('history');
-      if (input === 's') setScreen('settings');
-      if (input === 'q') exit();
+    if (screen === "dashboard") {
+      if (input === "n") setScreen("new-task");
+      if (input === "r") setScreen("history");
+      if (input === "h") setScreen("history");
+      if (input === "s") setScreen("settings");
+      if (input === "q") exit();
     }
   });
 
   // Watch orchestrator phase changes
   useEffect(() => {
-    if (orchestratorState.phase === 'awaiting-approval') {
-      setScreen('plan-review');
-    } else if (orchestratorState.phase === 'executing' || orchestratorState.phase === 'auditing') {
-      setScreen('execution');
-    } else if (orchestratorState.phase === 'complete' || orchestratorState.phase === 'error') {
+    if (orchestratorState.phase === "awaiting-approval") {
+      setScreen("plan-review");
+    } else if (
+      orchestratorState.phase === "executing" ||
+      orchestratorState.phase === "auditing" ||
+      orchestratorState.phase === "recovery"
+    ) {
+      setScreen("execution");
+    } else if (
+      orchestratorState.phase === "complete" ||
+      orchestratorState.phase === "error"
+    ) {
       // Stay on execution screen to show results
     }
   }, [orchestratorState.phase]);
 
   const handleNavigate = (destination: string) => {
     switch (destination) {
-      case 'new-task':
-        setScreen('new-task');
+      case "new-task":
+        setScreen("new-task");
         break;
-      case 'resume':
-        setScreen('history');
+      case "resume":
+        setScreen("history");
         break;
-      case 'history':
-        setScreen('history');
+      case "history":
+        setScreen("history");
         break;
-      case 'settings':
-        setScreen('settings');
+      case "settings":
+        setScreen("settings");
         break;
-      case 'doctor':
-        setScreen('doctor');
+      case "doctor":
+        setScreen("doctor");
         break;
-      case 'exit':
+      case "exit":
         exit();
         break;
     }
@@ -131,7 +168,7 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
       return;
     }
 
-    setScreen('execution');
+    setScreen("execution");
     orchestratorActions.start(task, {
       autoApprove: options.autoApprove,
       parallel: options.parallel,
@@ -141,16 +178,16 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
   };
 
   const handleBack = () => {
-    setScreen('dashboard');
+    setScreen("dashboard");
     orchestratorActions.reset();
   };
 
   const renderScreen = () => {
     switch (screen) {
-      case 'dashboard':
+      case "dashboard":
         return <Dashboard onNavigate={handleNavigate} stats={stats} />;
 
-      case 'new-task':
+      case "new-task":
         return (
           <TaskInput
             onSubmit={handleTaskSubmit}
@@ -159,7 +196,7 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
           />
         );
 
-      case 'execution':
+      case "execution":
         return (
           <Execution
             task={orchestratorState.task}
@@ -169,19 +206,20 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
             files={orchestratorState.files}
             logs={orchestratorState.logs}
             progress={orchestratorState.progress}
-            duration={orchestratorState.duration}
+            startTime={orchestratorState.startTime}
+            isRunning={orchestratorState.isRunning}
             onCancel={orchestratorActions.cancel}
             onComplete={handleBack}
           />
         );
 
-      case 'plan-review':
+      case "plan-review":
         return (
           <PlanReview
-            plan={orchestratorState.plan || 'No plan available'}
+            plan={orchestratorState.plan || "No plan available"}
             onApprove={() => {
               orchestratorActions.approvePlan();
-              setScreen('execution');
+              setScreen("execution");
             }}
             onReject={() => {
               orchestratorActions.rejectPlan();
@@ -193,7 +231,7 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
           />
         );
 
-      case 'history':
+      case "history":
         return (
           <History
             sessions={sessions}
@@ -208,20 +246,24 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
           />
         );
 
-      case 'settings':
+      case "settings":
         return (
           <Settings
             config={settings}
             onChange={setSettings}
-            onSave={() => {
-              // TODO: Persist settings
-              setScreen('dashboard');
+            onSave={async () => {
+              try {
+                await saveSettings(settings);
+              } catch {
+                // Failed to save, but continue anyway
+              }
+              setScreen("dashboard");
             }}
             onBack={handleBack}
           />
         );
 
-      case 'doctor':
+      case "doctor":
         return <Doctor onBack={handleBack} />;
 
       default:
@@ -231,8 +273,8 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
 
   return (
     <Box flexDirection="column" height="100%">
-      {screen === 'dashboard' && <Header />}
-      {screen !== 'dashboard' && screen !== 'execution' && <Header compact />}
+      {screen === "dashboard" && <Header />}
+      {screen !== "dashboard" && screen !== "execution" && <Header compact />}
       {renderScreen()}
     </Box>
   );

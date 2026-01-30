@@ -1,0 +1,131 @@
+name: Auto-Generate Changelog
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate-changelog:
+    name: Generate changelog
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: tag
+        run: |
+          # Get latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Latest tag: $LATEST_TAG"
+          else
+            echo "No tags found, using all commits"
+          fi
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          echo "# 📝 Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "> **Auto-generated** on $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          LATEST_TAG="${{ steps.tag.outputs.latest_tag }}"
+
+          if [ -n "$LATEST_TAG" ]; then
+            echo "## [Unreleased]" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+            echo "### Changes since $LATEST_TAG" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+
+            # Get commits since last tag
+            git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" >> CHANGELOG.md
+          else
+            echo "## [All Changes]" >> CHANGELOG.md
+            echo "" >> CHANGELOG.md
+
+            # Get all commits
+            git log --pretty=format:"- %s (%h)" -20 >> CHANGELOG.md
+          fi
+
+          echo "" >> CHANGELOG.md
+
+          # Categorize commits
+          echo "### 📊 Summary" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          if [ -n "$LATEST_TAG" ]; then
+            FEATS=$(git log ${LATEST_TAG}..HEAD --grep="^feat" --oneline | wc -l || echo "0")
+            FIXES=$(git log ${LATEST_TAG}..HEAD --grep="^fix" --oneline | wc -l || echo "0")
+            DOCS=$(git log ${LATEST_TAG}..HEAD --grep="^docs" --oneline | wc -l || echo "0")
+            REFACTOR=$(git log ${LATEST_TAG}..HEAD --grep="^refactor" --oneline | wc -l || echo "0")
+          else
+            FEATS=$(git log --grep="^feat" --oneline | wc -l || echo "0")
+            FIXES=$(git log --grep="^fix" --oneline | wc -l || echo "0")
+            DOCS=$(git log --grep="^docs" --oneline | wc -l || echo "0")
+            REFACTOR=$(git log --grep="^refactor" --oneline | wc -l || echo "0")
+          fi
+
+          echo "| Type | Count |" >> CHANGELOG.md
+          echo "|------|-------|" >> CHANGELOG.md
+          echo "| ✨ Features | $FEATS |" >> CHANGELOG.md
+          echo "| 🐛 Fixes | $FIXES |" >> CHANGELOG.md
+          echo "| 📚 Docs | $DOCS |" >> CHANGELOG.md
+          echo "| 🔨 Refactor | $REFACTOR |" >> CHANGELOG.md
+
+          cat CHANGELOG.md
+
+      - name: Update CHANGELOG.md in repo
+        run: |
+          # Backup existing changelog
+          if [ -f CHANGELOG.md ]; then
+            cp CHANGELOG.md CHANGELOG.old.md
+          fi
+
+          # Replace with new version
+          cp CHANGELOG.md CHANGELOG.new.md
+
+          # Append old content if exists
+          if [ -f CHANGELOG.old.md ]; then
+            # Skip header from old file
+            tail -n +5 CHANGELOG.old.md >> CHANGELOG.new.md
+          fi
+
+          mv CHANGELOG.new.md CHANGELOG.md
+
+      - name: Commit changelog
+        if: github.event_name == 'push'
+        run: |
+          git config --global user.name "Changelog Bot"
+          git config --global user.email "changelog-bot@users.noreply.github.com"
+
+          git add CHANGELOG.md
+          git diff --staged --quiet || git commit -m "docs: update changelog [skip ci]"
+
+      - name: Push changelog
+        if: github.event_name == 'push'
+        run: |
+          git push
+
+      - name: Upload changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md
+          retention-days: 90
+
+      - name: Add to summary
+        run: |
+          echo "### 📝 Changelog Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          cat CHANGELOG.md >> $GITHUB_STEP_SUMMARY

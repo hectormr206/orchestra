@@ -1,0 +1,264 @@
+name: Check Dependencies Health
+
+on:
+  schedule:
+    # Every Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      check_type:
+        description: 'Type of check'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - outdated
+          - abandoned
+          - security
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  check-dependencies:
+    name: Check dependencies health
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Check if project uses npm
+        id: check-npm
+        run: |
+          if [ -f package.json ] && [ -f package-lock.json ]; then
+            echo "uses_npm=true" >> $GITHUB_OUTPUT
+            echo "✅ npm detected"
+          elif [ -f package.json ]; then
+            echo "uses_npm=true" >> $GITHUB_OUTPUT
+            echo "⚠️  package.json found but no package-lock.json"
+          else
+            echo "uses_npm=false" >> $GITHUB_OUTPUT
+            echo "❌ No npm project found"
+          fi
+
+      - name: Install dependencies
+        if: steps.check-npm.outputs.uses_npm == 'true'
+        run: npm ci
+
+      - name: Check for outdated dependencies
+        if: steps.check-npm.outputs.uses_npm == 'true'
+        id: outdated
+        continue-on-error: true
+        run: |
+          echo "### 📦 Outdated Dependencies" > outdated-report.md
+          echo "" >> outdated-report.md
+          echo '```' >> outdated-report.md
+          npx npm-check-updates --json greatest > ncu-results.json 2>/dev/null || echo "{}" > ncu-results.json
+
+          # Format results
+          if [ -s ncu-results.json ] && [ "$(cat ncu-results.json)" != "{}" ]; then
+            npx npm-check-updates >> outdated-report.md || true
+          else
+            echo "✅ All dependencies are up to date!" >> outdated-report.md
+          fi
+          echo '```' >> outdated-report.md
+
+          # Count outdated
+          OUTDATED_COUNT=$(npx npm-check-updates --json greatest 2>/dev/null | jq 'length' || echo "0")
+          echo "outdated_count=$OUTDATED_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Check for abandoned libraries
+        if: steps.check-npm.outputs.uses_npm == 'true'
+        id: abandoned
+        continue-on-error: true
+        run: |
+          echo "### 🔍 Abandoned Libraries Check" > abandoned-report.md
+          echo "" >> abandoned-report.md
+
+          # Get list of dependencies
+          DEPS=$(cat package.json | jq -r '.dependencies, .devDependencies | keys[]' 2>/dev/null || echo "")
+
+          ABANDONED_COUNT=0
+          ABANDONED_PACKAGES=""
+
+          for pkg in $DEPS; do
+            # Skip if empty
+            [ -z "$pkg" ] && continue
+
+            # Get package info from npm registry
+            PKG_INFO=$(npm view "$pkg" --json 2>/dev/null || echo '{}')
+
+            # Check last publish date
+            LAST_PUBLISHED=$(echo "$PKG_INFO" | jq -r '.time | .[-1]' 2>/dev/null || echo "")
+            if [ -n "$LAST_PUBLISHED" ]; then
+              DAYS_SINCE=$(( ($(date +%s) - $(date -d "$LAST_PUBLISHED" +%s 2>/dev/null || echo "0")) / 86400 ))
+
+              # Check if abandoned (> 180 days with low activity)
+              if [ $DAYS_SINCE -gt 180 ]; then
+                # Check GitHub repo activity
+                REPO_URL=$(echo "$PKG_INFO" | jq -r '.repository.url // ""' 2>/dev/null | sed 's|git+https://github.com/||' | sed 's|git://github.com/||' | sed 's|https://github.com/||' | sed 's|.git$||')
+
+                if [ -n "$REPO_URL" ]; then
+                  # Get last commit date (requires gh cli or GitHub API)
+                  LAST_COMMIT=$(curl -s "https://api.github.com/repos/$REPO_URL/commits?per_page=1" | jq -r '.[0].commit.committer.date // ""' 2>/dev/null || echo "")
+                  OPEN_ISSUES=$(curl -s "https://api.github.com/repos/$REPO_URL" | jq -r '.open_issues_count // 0' 2>/dev/null || echo "0")
+
+                  if [ -n "$LAST_COMMIT" ]; then
+                    COMMITS_DAYS=$(( ($(date +%s) - $(date -d "$LAST_COMMIT" +%s 2>/dev/null || echo "0")) / 86400 ))
+
+                    # Classification
+                    if [ $COMMITS_DAYS -gt 180 ] && [ $OPEN_ISSUES -gt 50 ]; then
+                      STATUS="🔴 CRÍTICO - ABANDONADO"
+                      ABANDONED_COUNT=$((ABANDONED_COUNT + 1))
+                      ABANDONED_PACKAGES="$ABANDONED_PACKAGES\n- **$pkg**: $STATUS (último commit: $COMMITS_DAYS días, $OPEN_ISSUES issues)"
+                    elif [ $COMMITS_DAYS -gt 90 ] && [ $OPEN_ISSUES -gt 100 ]; then
+                      STATUS="🟡 ALERTA - ESTANCADO"
+                      ABANDONED_COUNT=$((ABANDONED_COUNT + 1))
+                      ABANDONED_PACKAGES="$ABANDONED_PACKAGES\n- **$pkg**: $STATUS (último commit: $COMMITS_DAYS días, $OPEN_ISSUES issues)"
+                    fi
+                  fi
+                fi
+              fi
+            fi
+          done
+
+          # Write report
+          if [ $ABANDONED_COUNT -gt 0 ]; then
+            echo "**Found $ABANDONED_COUNT potentially abandoned packages:**" >> abandoned-report.md
+            echo "$ABANDONED_PACKAGES" >> abandoned-report.md
+            echo "" >> abandoned-report.md
+            echo "**⚠️  Action Required:** Consider replacing these packages with actively maintained alternatives." >> abandoned-report.md
+          else
+            echo "✅ No abandoned libraries detected!" >> abandoned-report.md
+          fi
+
+          echo "abandoned_count=$ABANDONED_COUNT" >> $GITHUB_OUTPUT
+          cat abandoned-report.md
+
+      - name: Check for security vulnerabilities
+        if: steps.check-npm.outputs.uses_npm == 'true'
+        id: security
+        continue-on-error: true
+        run: |
+          echo "### 🔒 Security Vulnerabilities" > security-report.md
+          echo "" >> security-report.md
+
+          # Run npm audit
+          npm audit --json > audit-results.json 2>/dev/null || echo '{"vulnerabilities": {}}' > audit-results.json
+
+          # Parse results
+          VULN_COUNT=$(cat audit-results.json | jq '.vulnerabilities | length' 2>/dev/null || echo "0")
+
+          if [ $VULN_COUNT -gt 0 ]; then
+            echo "⚠️  Found $VULN_COUNT vulnerability(s)" >> security-report.md
+            echo "" >> security-report.md
+
+            # Categorize by severity
+            CRITICAL=$(cat audit-results.json | jq '.vulnerabilities | map(select(.severity == "critical")) | length' 2>/dev/null || echo "0")
+            HIGH=$(cat audit-results.json | jq '.vulnerabilities | map(select(.severity == "high")) | length' 2>/dev/null || echo "0")
+            MODERATE=$(cat audit-results.json | jq '.vulnerabilities | map(select(.severity == "moderate")) | length' 2>/dev/null || echo "0")
+            LOW=$(cat audit-results.json | jq '.vulnerabilities | map(select(.severity == "low")) | length' 2>/dev/null || echo "0")
+
+            echo "| Severity | Count |" >> security-report.md
+            echo "|----------|-------|" >> security-report.md
+            echo "| 🔴 Critical | $CRITICAL |" >> security-report.md
+            echo "| 🟠 High | $HIGH |" >> security-report.md
+            echo "| 🟡 Moderate | $MODERATE |" >> security-report.md
+            echo "| 🟢 Low | $LOW |" >> security-report.md
+
+            echo "" >> security-report.md
+            echo "Run \`npm audit fix\` to fix vulnerabilities automatically." >> security-report.md
+          else
+            echo "✅ No vulnerabilities found!" >> security-report.md
+          fi
+
+          echo "vuln_count=$VULN_COUNT" >> $GITHUB_OUTPUT
+          cat security-report.md
+
+      - name: Create combined report
+        if: steps.check-npm.outputs.uses_npm == 'true'
+        run: |
+          echo "# 📊 Dependencies Health Report" > combined-report.md
+          echo "" >> combined-report.md
+          echo "**Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> combined-report.md
+          echo "**Repository**: ${{ github.repository }}" >> combined-report.md
+          echo "" >> combined-report.md
+
+          # Add sections
+          if [ -f outdated-report.md ]; then
+            cat outdated-report.md >> combined-report.md
+            echo "" >> combined-report.md
+          fi
+
+          if [ -f abandoned-report.md ]; then
+            cat abandoned-report.md >> combined-report.md
+            echo "" >> combined-report.md
+          fi
+
+          if [ -f security-report.md ]; then
+            cat security-report.md >> combined-report.md
+            echo "" >> combined-report.md
+          fi
+
+          cat combined-report.md
+
+      - name: Create or update issue
+        if: steps.check-npm.outputs.uses_npm == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('combined-report.md', 'utf8');
+
+            // Check for existing issue
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'dependencies, automated',
+              state: 'open'
+            });
+
+            const issueTitle = '📊 Dependencies Health Report';
+            const existingIssue = issues.find(i => i.title === issueTitle);
+
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: report
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: report + '\n\n---\n*This issue will be updated weekly with the latest dependency health report.*',
+                labels: ['dependencies', 'automated', 'maintenance']
+              });
+            }
+
+      - name: Summary
+        if: steps.check-npm.outputs.uses_npm == 'true'
+        run: |
+          echo "### 📊 Dependencies Health Check Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f combined-report.md ]; then
+            cat combined-report.md >> $GITHUB_STEP_SUMMARY
+          fi

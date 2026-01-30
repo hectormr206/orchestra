@@ -10,18 +10,21 @@
  * - Consultor: Codex → Gemini → GLM 4.7 (ayuda con problemas algorítmicos)
  */
 
-import { readFile, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import { GLMAdapter } from '../adapters/GLMAdapter.js';
-import { CodexAdapter } from '../adapters/CodexAdapter.js';
-import { GeminiAdapter } from '../adapters/GeminiAdapter.js';
-import { FallbackAdapter, type Adapter } from '../adapters/FallbackAdapter.js';
-import { StateManager } from '../utils/StateManager.js';
-import { buildArchitectPrompt } from '../prompts/architect.js';
-import { buildExecutorPrompt, extractFilesFromPlan } from '../prompts/executor.js';
+import { readFile, writeFile, mkdir, unlink } from "fs/promises";
+import { existsSync } from "fs";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import path from "path";
+import { GLMAdapter } from "../adapters/GLMAdapter.js";
+import { CodexAdapter } from "../adapters/CodexAdapter.js";
+import { GeminiAdapter } from "../adapters/GeminiAdapter.js";
+import { FallbackAdapter, type Adapter } from "../adapters/FallbackAdapter.js";
+import { StateManager } from "../utils/StateManager.js";
+import { buildArchitectPrompt } from "../prompts/architect.js";
+import {
+  buildExecutorPrompt,
+  extractFilesFromPlan,
+} from "../prompts/executor.js";
 import {
   buildAuditorPrompt,
   buildSingleFileAuditorPrompt,
@@ -32,18 +35,27 @@ import {
   type AuditResult,
   type AuditIssue,
   type SingleFileAuditResult,
-} from '../prompts/auditor.js';
+} from "../prompts/auditor.js";
 import {
   buildSyntaxFixPrompt,
   buildCompleteCodePrompt,
   detectIncompleteCode,
   parseConsultantResponse,
-} from '../prompts/consultant.js';
-import { validateSyntax, detectLanguage } from '../utils/validators.js';
-import { runTests, detectTestFramework } from '../utils/testRunner.js';
-import { loadProjectConfig, mergeConfig } from '../utils/configLoader.js';
-import { autoCommit, getGitStatus, type CommitResult } from '../utils/gitIntegration.js';
-import type { OrchestratorConfig, AgentResult, TestResult, SyntaxValidationResult } from '../types.js';
+} from "../prompts/consultant.js";
+import { validateSyntax, detectLanguage } from "../utils/validators.js";
+import { runTests, detectTestFramework } from "../utils/testRunner.js";
+import { loadProjectConfig, mergeConfig } from "../utils/configLoader.js";
+import {
+  autoCommit,
+  getGitStatus,
+  type CommitResult,
+} from "../utils/gitIntegration.js";
+import type {
+  OrchestratorConfig,
+  AgentResult,
+  TestResult,
+  SyntaxValidationResult,
+} from "../types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -54,7 +66,7 @@ async function runWithConcurrency<T, R>(
   items: T[],
   fn: (item: T, index: number) => Promise<R>,
   maxConcurrency: number,
-  onProgress?: (completed: number, total: number, inProgress: number) => void
+  onProgress?: (completed: number, total: number, inProgress: number) => void,
 ): Promise<R[]> {
   const results: R[] = new Array(items.length);
   let currentIndex = 0;
@@ -91,7 +103,7 @@ async function runWithConcurrency<T, R>(
 
 export type PlanApprovalResult =
   | { approved: true }
-  | { approved: false; reason: 'rejected' | 'edit'; editedPlan?: string };
+  | { approved: false; reason: "rejected" | "edit"; editedPlan?: string };
 
 export interface OrchestratorCallbacks {
   onPhaseStart?: (phase: string, agent: string) => void;
@@ -102,17 +114,28 @@ export interface OrchestratorCallbacks {
   onConsultant?: (file: string, reason: string) => void;
   onResume?: (sessionId: string, phase: string, iteration: number) => void;
   /** Called when plan is ready for approval. Return approval result. */
-  onPlanReady?: (planContent: string, planFile: string) => Promise<PlanApprovalResult>;
+  onPlanReady?: (
+    planContent: string,
+    planFile: string,
+  ) => Promise<PlanApprovalResult>;
   /** Called when a file starts processing (parallel mode) */
   onFileStart?: (file: string, index: number, total: number) => void;
   /** Called when a file completes processing (parallel mode) */
   onFileComplete?: (file: string, success: boolean, duration: number) => void;
   /** Called with parallel execution progress */
-  onParallelProgress?: (completed: number, total: number, inProgress: string[]) => void;
+  onParallelProgress?: (
+    completed: number,
+    total: number,
+    inProgress: string[],
+  ) => void;
   /** Called when a file audit completes (pipeline mode) */
-  onFileAudit?: (file: string, status: 'APPROVED' | 'NEEDS_WORK', issues: number) => void;
+  onFileAudit?: (
+    file: string,
+    status: "APPROVED" | "NEEDS_WORK",
+    issues: number,
+  ) => void;
   /** Called when watch mode detects a change */
-  onWatchChange?: (file: string, event: 'add' | 'change' | 'unlink') => void;
+  onWatchChange?: (file: string, event: "add" | "change" | "unlink") => void;
   /** Called when watch mode triggers a re-run */
   onWatchRerun?: (trigger: string, runNumber: number) => void;
   /** Called when tests start running */
@@ -129,6 +152,24 @@ export interface OrchestratorCallbacks {
   onConfigLoaded?: (configPath: string) => void;
   /** Called when an adapter falls back to another due to rate limit */
   onAdapterFallback?: (from: string, to: string, reason: string) => void;
+  /** Called when recovery mode starts after normal audit loop fails */
+  onRecoveryStart?: (failedFiles: string[]) => void;
+  /** Called on each recovery attempt */
+  onRecoveryAttempt?: (
+    attempt: number,
+    maxAttempts: number,
+    remainingFiles: number,
+  ) => void;
+  /** Called when a file is reverted due to failed recovery */
+  onFileReverted?: (file: string) => void;
+  /** Called when a new file is deleted due to failed recovery */
+  onFileDeleted?: (file: string) => void;
+  /** Called when recovery mode completes */
+  onRecoveryComplete?: (
+    success: boolean,
+    recovered: string[],
+    failed: string[],
+  ) => void;
 }
 
 export class Orchestrator {
@@ -142,18 +183,18 @@ export class Orchestrator {
   private geminiAdapter: GeminiAdapter;
 
   // Adaptadores con fallback para cada agente
-  private architectAdapter: Adapter;  // Codex → Gemini → GLM 4.7
-  private executorAdapter: Adapter;   // GLM 4.7 (sin fallback)
-  private auditorAdapter: Adapter;    // Gemini → GLM 4.7
+  private architectAdapter: Adapter; // Codex → Gemini → GLM 4.7
+  private executorAdapter: Adapter; // GLM 4.7 (sin fallback)
+  private auditorAdapter: Adapter; // Gemini → GLM 4.7
   private consultantAdapter: Adapter; // Codex → Gemini → GLM 4.7
 
   constructor(
     config: Partial<OrchestratorConfig> = {},
-    callbacks: OrchestratorCallbacks = {}
+    callbacks: OrchestratorCallbacks = {},
   ) {
     this.config = {
-      orchestraDir: config.orchestraDir || '.orchestra',
-      aiCorePath: config.aiCorePath || './ai-core',
+      orchestraDir: config.orchestraDir || ".orchestra",
+      aiCorePath: config.aiCorePath || "./ai-core",
       timeout: config.timeout || 600000,
       maxIterations: config.maxIterations || 3,
       autoApprove: config.autoApprove ?? false,
@@ -163,11 +204,14 @@ export class Orchestrator {
       watch: config.watch ?? false,
       watchPatterns: config.watchPatterns || [],
       runTests: config.runTests ?? false,
-      testCommand: config.testCommand || '',
+      testCommand: config.testCommand || "",
       gitCommit: config.gitCommit ?? false,
-      commitMessage: config.commitMessage || '',
+      commitMessage: config.commitMessage || "",
       languages: config.languages || [],
       customPrompts: config.customPrompts || {},
+      maxRecoveryAttempts: config.maxRecoveryAttempts || 3,
+      recoveryTimeout: config.recoveryTimeout || 600000,
+      autoRevertOnFailure: config.autoRevertOnFailure ?? true,
     };
 
     this.callbacks = callbacks;
@@ -189,7 +233,7 @@ export class Orchestrator {
     // Arquitecto: Codex → Gemini → GLM 4.7
     this.architectAdapter = new FallbackAdapter(
       [this.codexAdapter, this.geminiAdapter, this.glmAdapter],
-      fallbackCallbacks
+      fallbackCallbacks,
     );
 
     // Ejecutor: GLM 4.7 (sin fallback, necesita consistencia)
@@ -198,13 +242,13 @@ export class Orchestrator {
     // Auditor: Gemini → GLM 4.7
     this.auditorAdapter = new FallbackAdapter(
       [this.geminiAdapter, this.glmAdapter],
-      fallbackCallbacks
+      fallbackCallbacks,
     );
 
     // Consultor: Codex → Gemini → GLM 4.7
     this.consultantAdapter = new FallbackAdapter(
       [this.codexAdapter, this.geminiAdapter, this.glmAdapter],
-      fallbackCallbacks
+      fallbackCallbacks,
     );
   }
 
@@ -216,7 +260,7 @@ export class Orchestrator {
     if (projectConfig) {
       const merged = mergeConfig(this.config, projectConfig);
       this.config = { ...this.config, ...merged };
-      this.callbacks.onConfigLoaded?.('.orchestrarc.json');
+      this.callbacks.onConfigLoaded?.(".orchestrarc.json");
     }
   }
 
@@ -232,8 +276,8 @@ export class Orchestrator {
       const state = await this.stateManager.load();
       if (state) {
         this.callbacks.onError?.(
-          'init',
-          `Sesión pendiente detectada: ${state.sessionId}\nUsa 'orchestra resume' para continuar o 'orchestra clean' para empezar de nuevo.`
+          "init",
+          `Sesión pendiente detectada: ${state.sessionId}\nUsa 'orchestra resume' para continuar o 'orchestra clean' para empezar de nuevo.`,
         );
         return false;
       }
@@ -293,14 +337,21 @@ export class Orchestrator {
       }
 
       return true;
-
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       await this.stateManager.setError(errorMessage);
-      await this.stateManager.setPhase('failed');
-      this.callbacks.onError?.('orchestration', errorMessage);
+      await this.stateManager.setPhase("failed");
+      this.callbacks.onError?.("orchestration", errorMessage);
       return false;
     }
+  }
+
+  /**
+   * Limpia la sesión actual
+   */
+  async clean(): Promise<void> {
+    await this.stateManager.clear();
   }
 
   /**
@@ -309,13 +360,19 @@ export class Orchestrator {
   async resume(): Promise<boolean> {
     // Verificar si hay sesión que retomar
     if (!(await this.stateManager.canResume())) {
-      this.callbacks.onError?.('resume', 'No hay sesión pendiente para retomar');
+      this.callbacks.onError?.(
+        "resume",
+        "No hay sesión pendiente para retomar",
+      );
       return false;
     }
 
     const state = await this.stateManager.load();
     if (!state) {
-      this.callbacks.onError?.('resume', 'No se pudo cargar el estado de la sesión');
+      this.callbacks.onError?.(
+        "resume",
+        "No se pudo cargar el estado de la sesión",
+      );
       return false;
     }
 
@@ -326,10 +383,11 @@ export class Orchestrator {
       // Determinar desde dónde continuar basándose en la fase y estado de agentes
       return await this.resumeFromPhase(state);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       await this.stateManager.setError(errorMessage);
-      await this.stateManager.setPhase('failed');
-      this.callbacks.onError?.('orchestration', errorMessage);
+      await this.stateManager.setPhase("failed");
+      this.callbacks.onError?.("orchestration", errorMessage);
       return false;
     }
   }
@@ -337,46 +395,48 @@ export class Orchestrator {
   /**
    * Continúa desde la fase apropiada
    */
-  private async resumeFromPhase(state: import('../types.js').SessionState): Promise<boolean> {
+  private async resumeFromPhase(
+    state: import("../types.js").SessionState,
+  ): Promise<boolean> {
     const { phase, iteration } = state;
 
     // Determinar punto de continuación
     switch (phase) {
-      case 'init':
-      case 'planning':
+      case "init":
+      case "planning":
         // Re-ejecutar desde el Arquitecto
         return this.resumeFromArchitect(state.task);
 
-      case 'awaiting_approval':
+      case "awaiting_approval":
         // Plan listo, esperando aprobación
         return this.resumeFromApproval(state.task);
 
-      case 'rejected':
+      case "rejected":
         // Plan fue rechazado, re-generar desde Arquitecto
         return this.resumeFromArchitect(state.task);
 
-      case 'executing':
+      case "executing":
         // El plan ya existe, continuar desde el Ejecutor
         return this.resumeFromExecutor(state.iteration);
 
-      case 'fixing':
+      case "fixing":
         // Hubo un error durante fixing, re-ejecutar el ciclo de auditoría
         return this.resumeFromAuditLoop(state.iteration);
 
-      case 'auditing':
+      case "auditing":
         // Re-ejecutar desde el ciclo de auditoría
         return this.resumeFromAuditLoop(state.iteration);
 
-      case 'failed':
+      case "failed":
         // Intentar recuperar desde el último checkpoint exitoso
         return this.resumeFromLastCheckpoint(state);
 
-      case 'completed':
-        this.callbacks.onError?.('resume', 'La sesión ya está completada');
+      case "completed":
+        this.callbacks.onError?.("resume", "La sesión ya está completada");
         return true;
 
       default:
-        this.callbacks.onError?.('resume', `Fase desconocida: ${phase}`);
+        this.callbacks.onError?.("resume", `Fase desconocida: ${phase}`);
         return false;
     }
   }
@@ -431,7 +491,7 @@ export class Orchestrator {
    * Retoma desde el último checkpoint exitoso
    */
   private async resumeFromLastCheckpoint(
-    state: import('../types.js').SessionState
+    state: import("../types.js").SessionState,
   ): Promise<boolean> {
     const checkpoints = state.checkpoints;
     if (checkpoints.length === 0) {
@@ -444,16 +504,19 @@ export class Orchestrator {
     const checkpointPhase = lastCheckpoint.phase;
 
     // Determinar desde dónde continuar basándose en el checkpoint
-    if (checkpointPhase.startsWith('plan')) {
+    if (checkpointPhase.startsWith("plan")) {
       return this.resumeFromExecutor(state.iteration);
-    } else if (checkpointPhase.startsWith('exec')) {
+    } else if (checkpointPhase.startsWith("exec")) {
       return this.runAuditLoop(state.iteration || 1);
-    } else if (checkpointPhase.startsWith('audit') || checkpointPhase.startsWith('fix')) {
+    } else if (
+      checkpointPhase.startsWith("audit") ||
+      checkpointPhase.startsWith("fix")
+    ) {
       return this.runAuditLoop(state.iteration || 1);
     }
 
     // Por defecto, ejecutar desde el ejecutor si el plan existe
-    const planFile = this.stateManager.getFilePath('plan.md');
+    const planFile = this.stateManager.getFilePath("plan.md");
     if (existsSync(planFile)) {
       return this.resumeFromExecutor(state.iteration);
     }
@@ -475,10 +538,10 @@ export class Orchestrator {
       return true;
     }
 
-    await this.stateManager.setPhase('awaiting_approval');
+    await this.stateManager.setPhase("awaiting_approval");
 
-    const planFile = this.stateManager.getFilePath('plan.md');
-    const planContent = await readFile(planFile, 'utf-8');
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
 
     // Solicitar aprobación del usuario
     const result = await this.callbacks.onPlanReady(planContent, planFile);
@@ -488,16 +551,16 @@ export class Orchestrator {
     }
 
     // Plan rechazado
-    if (result.reason === 'rejected') {
-      await this.stateManager.setPhase('rejected');
-      this.callbacks.onError?.('approval', 'Plan rechazado por el usuario');
+    if (result.reason === "rejected") {
+      await this.stateManager.setPhase("rejected");
+      this.callbacks.onError?.("approval", "Plan rechazado por el usuario");
       return false;
     }
 
     // Plan editado - guardar cambios y continuar
-    if (result.reason === 'edit' && result.editedPlan) {
-      await writeFile(planFile, result.editedPlan, 'utf-8');
-      await this.stateManager.createCheckpoint('plan-edited');
+    if (result.reason === "edit" && result.editedPlan) {
+      await writeFile(planFile, result.editedPlan, "utf-8");
+      await this.stateManager.createCheckpoint("plan-edited");
       return true;
     }
 
@@ -510,6 +573,7 @@ export class Orchestrator {
   private async runAuditLoop(startIteration: number): Promise<boolean> {
     let iteration = startIteration;
     let approved = false;
+    let lastAuditResult: AuditResult | null = null;
 
     while (iteration <= this.config.maxIterations && !approved) {
       this.callbacks.onIteration?.(iteration, this.config.maxIterations);
@@ -520,7 +584,9 @@ export class Orchestrator {
         return false;
       }
 
-      if (auditResult.status === 'APPROVED') {
+      lastAuditResult = auditResult;
+
+      if (auditResult.status === "APPROVED") {
         approved = true;
       } else {
         // Hay issues - corregir y re-auditar
@@ -529,20 +595,41 @@ export class Orchestrator {
           if (!fixSuccess) {
             return false;
           }
-        } else {
-          // Máximo de iteraciones alcanzado
-          this.callbacks.onError?.(
-            'auditing',
-            `Máximo de iteraciones alcanzado (${this.config.maxIterations}). Issues pendientes: ${auditResult.issues.length}`
-          );
         }
       }
 
       iteration++;
     }
 
+    // Si no fue aprobado después de las iteraciones normales, activar Recovery Mode
+    if (!approved && lastAuditResult) {
+      // Extraer archivos fallidos de los issues
+      const failedFiles = [
+        ...new Set(lastAuditResult.issues.map((issue) => issue.file)),
+      ];
+
+      this.callbacks.onRecoveryStart?.(failedFiles);
+
+      const recoverySuccess = await this.runRecoveryMode(failedFiles);
+
+      if (recoverySuccess) {
+        approved = true;
+      } else {
+        // Recovery falló - revertir archivos si está configurado
+        if (this.config.autoRevertOnFailure) {
+          await this.revertFailedFiles(failedFiles);
+        }
+
+        this.callbacks.onError?.(
+          "recovery",
+          `Recovery Mode falló. ${failedFiles.length} archivo(s) no pudieron ser completados y fueron revertidos.`,
+        );
+        return false;
+      }
+    }
+
     // Marcar como completado
-    await this.stateManager.setPhase('completed');
+    await this.stateManager.setPhase("completed");
     return approved;
   }
 
@@ -550,12 +637,12 @@ export class Orchestrator {
    * Ejecuta el Arquitecto
    */
   private async runArchitect(task: string): Promise<boolean> {
-    this.callbacks.onPhaseStart?.('planning', 'Arquitecto');
-    await this.stateManager.setPhase('planning');
-    await this.stateManager.setAgentStatus('architect', 'in_progress');
+    this.callbacks.onPhaseStart?.("planning", "Arquitecto");
+    await this.stateManager.setPhase("planning");
+    await this.stateManager.setAgentStatus("architect", "in_progress");
 
     const prompt = buildArchitectPrompt(task);
-    const planFile = this.stateManager.getFilePath('plan.md');
+    const planFile = this.stateManager.getFilePath("plan.md");
 
     const result = await this.architectAdapter.execute({
       prompt,
@@ -563,21 +650,25 @@ export class Orchestrator {
     });
 
     if (!result.success) {
-      await this.stateManager.setAgentStatus('architect', 'failed');
-      this.callbacks.onError?.('planning', result.error || 'Error desconocido');
+      await this.stateManager.setAgentStatus("architect", "failed");
+      this.callbacks.onError?.("planning", result.error || "Error desconocido");
       return false;
     }
 
     // Verificar que el plan fue creado
     if (!existsSync(planFile)) {
-      await this.stateManager.setAgentStatus('architect', 'failed');
-      this.callbacks.onError?.('planning', 'El Arquitecto no creó el plan');
+      await this.stateManager.setAgentStatus("architect", "failed");
+      this.callbacks.onError?.("planning", "El Arquitecto no creó el plan");
       return false;
     }
 
-    await this.stateManager.setAgentStatus('architect', 'completed', result.duration);
-    await this.stateManager.createCheckpoint('plan');
-    this.callbacks.onPhaseComplete?.('planning', 'Arquitecto', result);
+    await this.stateManager.setAgentStatus(
+      "architect",
+      "completed",
+      result.duration,
+    );
+    await this.stateManager.createCheckpoint("plan");
+    this.callbacks.onPhaseComplete?.("planning", "Arquitecto", result);
 
     return true;
   }
@@ -589,14 +680,16 @@ export class Orchestrator {
     file: { path: string; description: string },
     planContent: string,
     index: number,
-    total: number
+    total: number,
   ): Promise<{ success: boolean; duration: number; error?: string }> {
     const startTime = Date.now();
 
     this.callbacks.onFileStart?.(file.path, index, total);
 
     const prompt = buildExecutorPrompt(planContent, file.path, 1);
-    const tempFile = this.stateManager.getFilePath(`temp_${file.path.replace(/\//g, '_')}`);
+    const tempFile = this.stateManager.getFilePath(
+      `temp_${file.path.replace(/\//g, "_")}`,
+    );
 
     const result = await this.executorAdapter.execute({
       prompt,
@@ -611,13 +704,13 @@ export class Orchestrator {
     }
 
     try {
-      let code = await readFile(tempFile, 'utf-8');
+      let code = await readFile(tempFile, "utf-8");
       code = this.cleanGeneratedCode(code);
 
       const destPath = path.join(process.cwd(), file.path);
-      await writeFile(destPath, code, 'utf-8');
+      await writeFile(destPath, code, "utf-8");
 
-      if (file.path.endsWith('.py')) {
+      if (file.path.endsWith(".py")) {
         await this.validateAndFixPython(destPath, file.path, planContent);
       }
 
@@ -635,24 +728,27 @@ export class Orchestrator {
    * Ejecuta el Ejecutor
    */
   private async runExecutor(): Promise<boolean> {
-    const planFile = this.stateManager.getFilePath('plan.md');
-    const planContent = await readFile(planFile, 'utf-8');
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
 
     const filesToCreate = extractFilesFromPlan(planContent);
 
     if (filesToCreate.length === 0) {
-      this.callbacks.onError?.('executing', 'No se encontraron archivos a crear en el plan');
+      this.callbacks.onError?.(
+        "executing",
+        "No se encontraron archivos a crear en el plan",
+      );
       return false;
     }
 
     const agentName = this.config.parallel
       ? `Ejecutor (${filesToCreate.length} archivos en paralelo)`
-      : 'Ejecutor';
+      : "Ejecutor";
 
-    this.callbacks.onPhaseStart?.('executing', agentName);
-    await this.stateManager.setPhase('executing');
+    this.callbacks.onPhaseStart?.("executing", agentName);
+    await this.stateManager.setPhase("executing");
     await this.stateManager.setIteration(1);
-    await this.stateManager.setAgentStatus('executor', 'in_progress');
+    await this.stateManager.setAgentStatus("executor", "in_progress");
 
     let totalDuration = 0;
     let allSuccess = true;
@@ -666,15 +762,22 @@ export class Orchestrator {
         filesToCreate,
         async (file, index) => {
           inProgressFiles.push(file.path);
-          const result = await this.processFile(file, planContent, index, filesToCreate.length);
+          const result = await this.processFile(
+            file,
+            planContent,
+            index,
+            filesToCreate.length,
+          );
           const idx = inProgressFiles.indexOf(file.path);
           if (idx > -1) inProgressFiles.splice(idx, 1);
           return result;
         },
         this.config.maxConcurrency,
         (completed, total, inProgress) => {
-          this.callbacks.onParallelProgress?.(completed, total, [...inProgressFiles]);
-        }
+          this.callbacks.onParallelProgress?.(completed, total, [
+            ...inProgressFiles,
+          ]);
+        },
       );
 
       for (const result of results) {
@@ -682,7 +785,7 @@ export class Orchestrator {
         if (!result.success) {
           allSuccess = false;
           if (result.error) {
-            this.callbacks.onError?.('executing', result.error);
+            this.callbacks.onError?.("executing", result.error);
           }
         }
       }
@@ -692,13 +795,21 @@ export class Orchestrator {
       // ═══════════════════════════════════════════════════════════════
       for (let i = 0; i < filesToCreate.length; i++) {
         const file = filesToCreate[i];
-        const result = await this.processFile(file, planContent, i, filesToCreate.length);
+        const result = await this.processFile(
+          file,
+          planContent,
+          i,
+          filesToCreate.length,
+        );
 
         totalDuration += result.duration;
 
         if (!result.success) {
-          await this.stateManager.setAgentStatus('executor', 'failed');
-          this.callbacks.onError?.('executing', result.error || 'Error desconocido');
+          await this.stateManager.setAgentStatus("executor", "failed");
+          this.callbacks.onError?.(
+            "executing",
+            result.error || "Error desconocido",
+          );
           return false;
         }
       }
@@ -709,10 +820,14 @@ export class Orchestrator {
       const anySuccess = filesToCreate.some((_, i) => true); // Por ahora continuar
     }
 
-    await this.stateManager.setAgentStatus('executor', 'completed', totalDuration);
-    await this.stateManager.createCheckpoint('exec-1');
+    await this.stateManager.setAgentStatus(
+      "executor",
+      "completed",
+      totalDuration,
+    );
+    await this.stateManager.createCheckpoint("exec-1");
 
-    this.callbacks.onPhaseComplete?.('executing', agentName, {
+    this.callbacks.onPhaseComplete?.("executing", agentName, {
       success: true,
       duration: totalDuration,
     });
@@ -727,14 +842,16 @@ export class Orchestrator {
     file: { path: string; content: string },
     planContent: string,
     index: number,
-    total: number
+    total: number,
   ): Promise<SingleFileAuditResult> {
     const startTime = Date.now();
 
     this.callbacks.onFileStart?.(file.path, index, total);
 
     const prompt = buildSingleFileAuditorPrompt(planContent, file);
-    const auditFile = this.stateManager.getFilePath(`audit_${file.path.replace(/\//g, '_')}.json`);
+    const auditFile = this.stateManager.getFilePath(
+      `audit_${file.path.replace(/\//g, "_")}.json`,
+    );
 
     const result = await this.auditorAdapter.execute({
       prompt,
@@ -747,22 +864,32 @@ export class Orchestrator {
       this.callbacks.onFileComplete?.(file.path, false, duration);
       return {
         file: file.path,
-        status: 'NEEDS_WORK',
-        issues: [{
-          file: file.path,
-          severity: 'major',
-          description: result.error || 'Error del auditor',
-          suggestion: 'Revisar manualmente',
-        }],
-        summary: 'Error en auditoría',
+        status: "NEEDS_WORK",
+        issues: [
+          {
+            file: file.path,
+            severity: "major",
+            description: result.error || "Error del auditor",
+            suggestion: "Revisar manualmente",
+          },
+        ],
+        summary: "Error en auditoría",
       };
     }
 
-    const auditResponse = await readFile(auditFile, 'utf-8');
+    const auditResponse = await readFile(auditFile, "utf-8");
     const auditResult = parseSingleFileAuditResponse(auditResponse, file.path);
 
-    this.callbacks.onFileComplete?.(file.path, auditResult.status === 'APPROVED', duration);
-    this.callbacks.onFileAudit?.(file.path, auditResult.status, auditResult.issues.length);
+    this.callbacks.onFileComplete?.(
+      file.path,
+      auditResult.status === "APPROVED",
+      duration,
+    );
+    this.callbacks.onFileAudit?.(
+      file.path,
+      auditResult.status,
+      auditResult.issues.length,
+    );
 
     return auditResult;
   }
@@ -772,8 +899,8 @@ export class Orchestrator {
    */
   private async runAuditor(): Promise<AuditResult | null> {
     // Leer el plan
-    const planFile = this.stateManager.getFilePath('plan.md');
-    const planContent = await readFile(planFile, 'utf-8');
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
 
     // Extraer los archivos creados y leer su contenido
     const filesToCreate = extractFilesFromPlan(planContent);
@@ -782,25 +909,28 @@ export class Orchestrator {
     for (const file of filesToCreate) {
       const filePath = path.join(process.cwd(), file.path);
       if (existsSync(filePath)) {
-        const content = await readFile(filePath, 'utf-8');
+        const content = await readFile(filePath, "utf-8");
         files.push({ path: file.path, content });
       }
     }
 
     if (files.length === 0) {
-      this.callbacks.onError?.('auditing', 'No se encontraron archivos para auditar');
+      this.callbacks.onError?.(
+        "auditing",
+        "No se encontraron archivos para auditar",
+      );
       return null;
     }
 
-    await this.stateManager.setPhase('auditing');
-    await this.stateManager.setAgentStatus('auditor', 'in_progress');
+    await this.stateManager.setPhase("auditing");
+    await this.stateManager.setAgentStatus("auditor", "in_progress");
 
     // ═══════════════════════════════════════════════════════════════
     // MODO PARALELO: Auditar cada archivo por separado
     // ═══════════════════════════════════════════════════════════════
     if (this.config.parallel && files.length > 1) {
       const agentName = `Auditor (${files.length} archivos en paralelo)`;
-      this.callbacks.onPhaseStart?.('auditing', agentName);
+      this.callbacks.onPhaseStart?.("auditing", agentName);
 
       const inProgressFiles: string[] = [];
       const startTime = Date.now();
@@ -809,15 +939,22 @@ export class Orchestrator {
         files,
         async (file, index) => {
           inProgressFiles.push(file.path);
-          const result = await this.auditFile(file, planContent, index, files.length);
+          const result = await this.auditFile(
+            file,
+            planContent,
+            index,
+            files.length,
+          );
           const idx = inProgressFiles.indexOf(file.path);
           if (idx > -1) inProgressFiles.splice(idx, 1);
           return result;
         },
         this.config.maxConcurrency,
         (completed, total, inProgress) => {
-          this.callbacks.onParallelProgress?.(completed, total, [...inProgressFiles]);
-        }
+          this.callbacks.onParallelProgress?.(completed, total, [
+            ...inProgressFiles,
+          ]);
+        },
       );
 
       // Combinar resultados
@@ -825,7 +962,7 @@ export class Orchestrator {
       let allApproved = true;
 
       for (const result of results) {
-        if (result.status === 'NEEDS_WORK') {
+        if (result.status === "NEEDS_WORK") {
           allApproved = false;
         }
         allIssues.push(...result.issues);
@@ -833,16 +970,20 @@ export class Orchestrator {
 
       const totalDuration = Date.now() - startTime;
 
-      await this.stateManager.setAgentStatus('auditor', 'completed', totalDuration);
+      await this.stateManager.setAgentStatus(
+        "auditor",
+        "completed",
+        totalDuration,
+      );
       await this.stateManager.createCheckpoint(`audit-${Date.now()}`);
 
-      this.callbacks.onPhaseComplete?.('auditing', agentName, {
+      this.callbacks.onPhaseComplete?.("auditing", agentName, {
         success: true,
         duration: totalDuration,
       });
 
       return {
-        status: allApproved ? 'APPROVED' : 'NEEDS_WORK',
+        status: allApproved ? "APPROVED" : "NEEDS_WORK",
         issues: allIssues,
         summary: allApproved
           ? `Todos los ${files.length} archivos aprobados`
@@ -853,10 +994,10 @@ export class Orchestrator {
     // ═══════════════════════════════════════════════════════════════
     // MODO SECUENCIAL: Auditar todos los archivos en una sola llamada
     // ═══════════════════════════════════════════════════════════════
-    this.callbacks.onPhaseStart?.('auditing', 'Auditor');
+    this.callbacks.onPhaseStart?.("auditing", "Auditor");
 
     const prompt = buildAuditorPrompt(planContent, files);
-    const auditFile = this.stateManager.getFilePath('audit-result.json');
+    const auditFile = this.stateManager.getFilePath("audit-result.json");
 
     const result = await this.auditorAdapter.execute({
       prompt,
@@ -864,18 +1005,22 @@ export class Orchestrator {
     });
 
     if (!result.success) {
-      await this.stateManager.setAgentStatus('auditor', 'failed');
-      this.callbacks.onError?.('auditing', result.error || 'Error del Auditor');
+      await this.stateManager.setAgentStatus("auditor", "failed");
+      this.callbacks.onError?.("auditing", result.error || "Error del Auditor");
       return null;
     }
 
-    const auditResponse = await readFile(auditFile, 'utf-8');
+    const auditResponse = await readFile(auditFile, "utf-8");
     const auditResult = parseAuditResponse(auditResponse);
 
-    await this.stateManager.setAgentStatus('auditor', 'completed', result.duration);
+    await this.stateManager.setAgentStatus(
+      "auditor",
+      "completed",
+      result.duration,
+    );
     await this.stateManager.createCheckpoint(`audit-${Date.now()}`);
 
-    this.callbacks.onPhaseComplete?.('auditing', 'Auditor', {
+    this.callbacks.onPhaseComplete?.("auditing", "Auditor", {
       success: true,
       duration: result.duration,
     });
@@ -891,7 +1036,7 @@ export class Orchestrator {
     fileIssues: AuditIssue[],
     planContent: string,
     index: number,
-    total: number
+    total: number,
   ): Promise<{ success: boolean; duration: number; error?: string }> {
     const startTime = Date.now();
     const filePath = path.join(process.cwd(), fileName);
@@ -901,12 +1046,19 @@ export class Orchestrator {
     if (!existsSync(filePath)) {
       const duration = Date.now() - startTime;
       this.callbacks.onFileComplete?.(fileName, false, duration);
-      return { success: false, duration, error: 'Archivo no existe' };
+      return { success: false, duration, error: "Archivo no existe" };
     }
 
-    const originalCode = await readFile(filePath, 'utf-8');
-    const prompt = buildFixPrompt(originalCode, fileName, fileIssues, planContent);
-    const tempFile = this.stateManager.getFilePath(`fix_${fileName.replace(/\//g, '_')}`);
+    const originalCode = await readFile(filePath, "utf-8");
+    const prompt = buildFixPrompt(
+      originalCode,
+      fileName,
+      fileIssues,
+      planContent,
+    );
+    const tempFile = this.stateManager.getFilePath(
+      `fix_${fileName.replace(/\//g, "_")}`,
+    );
 
     const result = await this.executorAdapter.execute({
       prompt,
@@ -920,13 +1072,13 @@ export class Orchestrator {
       return { success: false, duration, error: result.error };
     }
 
-    let fixedCode = await readFile(tempFile, 'utf-8');
+    let fixedCode = await readFile(tempFile, "utf-8");
     fixedCode = this.cleanGeneratedCode(fixedCode);
 
     if (this.isValidCode(fixedCode, fileName)) {
-      await writeFile(filePath, fixedCode, 'utf-8');
+      await writeFile(filePath, fixedCode, "utf-8");
 
-      if (fileName.endsWith('.py')) {
+      if (fileName.endsWith(".py")) {
         await this.validateAndFixPython(filePath, fileName, planContent);
       }
 
@@ -936,7 +1088,7 @@ export class Orchestrator {
     } else {
       const duration = Date.now() - startTime;
       this.callbacks.onFileComplete?.(fileName, false, duration);
-      return { success: false, duration, error: 'Código generado no válido' };
+      return { success: false, duration, error: "Código generado no válido" };
     }
   }
 
@@ -945,8 +1097,8 @@ export class Orchestrator {
    */
   private async runFixes(issues: AuditIssue[]): Promise<boolean> {
     // Leer el plan para contexto
-    const planFile = this.stateManager.getFilePath('plan.md');
-    const planContent = await readFile(planFile, 'utf-8');
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
 
     // Agrupar issues por archivo
     const issuesByFile = new Map<string, AuditIssue[]>();
@@ -957,13 +1109,14 @@ export class Orchestrator {
     }
 
     const filesToFix = Array.from(issuesByFile.entries());
-    const agentName = this.config.parallel && filesToFix.length > 1
-      ? `Ejecutor (${filesToFix.length} archivos en paralelo)`
-      : 'Ejecutor';
+    const agentName =
+      this.config.parallel && filesToFix.length > 1
+        ? `Ejecutor (${filesToFix.length} archivos en paralelo)`
+        : "Ejecutor";
 
-    this.callbacks.onPhaseStart?.('fixing', agentName);
-    await this.stateManager.setPhase('fixing');
-    await this.stateManager.setAgentStatus('executor', 'in_progress');
+    this.callbacks.onPhaseStart?.("fixing", agentName);
+    await this.stateManager.setPhase("fixing");
+    await this.stateManager.setAgentStatus("executor", "in_progress");
 
     let totalDuration = 0;
     const inProgressFiles: string[] = [];
@@ -976,21 +1129,29 @@ export class Orchestrator {
         filesToFix,
         async ([fileName, fileIssues], index) => {
           inProgressFiles.push(fileName);
-          const result = await this.fixFile(fileName, fileIssues, planContent, index, filesToFix.length);
+          const result = await this.fixFile(
+            fileName,
+            fileIssues,
+            planContent,
+            index,
+            filesToFix.length,
+          );
           const idx = inProgressFiles.indexOf(fileName);
           if (idx > -1) inProgressFiles.splice(idx, 1);
           return result;
         },
         this.config.maxConcurrency,
         (completed, total, inProgress) => {
-          this.callbacks.onParallelProgress?.(completed, total, [...inProgressFiles]);
-        }
+          this.callbacks.onParallelProgress?.(completed, total, [
+            ...inProgressFiles,
+          ]);
+        },
       );
 
       for (const result of results) {
         totalDuration += result.duration;
         if (!result.success && result.error) {
-          this.callbacks.onError?.('fixing', result.error);
+          this.callbacks.onError?.("fixing", result.error);
         }
       }
     } else {
@@ -999,19 +1160,32 @@ export class Orchestrator {
       // ═══════════════════════════════════════════════════════════════
       for (let i = 0; i < filesToFix.length; i++) {
         const [fileName, fileIssues] = filesToFix[i];
-        const result = await this.fixFile(fileName, fileIssues, planContent, i, filesToFix.length);
+        const result = await this.fixFile(
+          fileName,
+          fileIssues,
+          planContent,
+          i,
+          filesToFix.length,
+        );
         totalDuration += result.duration;
 
         if (!result.success && result.error) {
-          this.callbacks.onError?.('fixing', `Error corrigiendo ${fileName}: ${result.error}`);
+          this.callbacks.onError?.(
+            "fixing",
+            `Error corrigiendo ${fileName}: ${result.error}`,
+          );
         }
       }
     }
 
-    await this.stateManager.setAgentStatus('executor', 'completed', totalDuration);
+    await this.stateManager.setAgentStatus(
+      "executor",
+      "completed",
+      totalDuration,
+    );
     await this.stateManager.createCheckpoint(`fix-${Date.now()}`);
 
-    this.callbacks.onPhaseComplete?.('fixing', agentName, {
+    this.callbacks.onPhaseComplete?.("fixing", agentName, {
       success: true,
       duration: totalDuration,
     });
@@ -1027,31 +1201,31 @@ export class Orchestrator {
       return false;
     }
 
-    const firstLine = code.trim().split('\n')[0].trim();
-    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+    const firstLine = code.trim().split("\n")[0].trim();
+    const extension = fileName.split(".").pop()?.toLowerCase() || "";
 
     // Patrones que indican código válido según extensión
-    if (extension === 'py') {
+    if (extension === "py") {
       const validPythonStarts = [
-        /^#/,                              // Comment or shebang
-        /^from\s+/,                        // from import
-        /^import\s+/,                      // import
-        /^class\s+/,                       // class definition
-        /^def\s+/,                         // function definition
-        /^@/,                              // decorator
-        /^"""/,                            // docstring
-        /^'''/,                            // docstring
-        /^[a-z_][a-z0-9_]*\s*=/i,          // assignment
+        /^#/, // Comment or shebang
+        /^from\s+/, // from import
+        /^import\s+/, // import
+        /^class\s+/, // class definition
+        /^def\s+/, // function definition
+        /^@/, // decorator
+        /^"""/, // docstring
+        /^'''/, // docstring
+        /^[a-z_][a-z0-9_]*\s*=/i, // assignment
       ];
-      return validPythonStarts.some(pattern => pattern.test(firstLine));
+      return validPythonStarts.some((pattern) => pattern.test(firstLine));
     }
 
-    if (extension === 'txt') {
+    if (extension === "txt") {
       // Para requirements.txt, debe contener nombres de paquetes
       return /^[a-zA-Z][a-zA-Z0-9_-]*/.test(firstLine);
     }
 
-    if (extension === 'js' || extension === 'ts') {
+    if (extension === "js" || extension === "ts") {
       const validJsStarts = [
         /^import\s+/,
         /^export\s+/,
@@ -1063,11 +1237,11 @@ export class Orchestrator {
         /^\/\//,
         /^\/\*/,
       ];
-      return validJsStarts.some(pattern => pattern.test(firstLine));
+      return validJsStarts.some((pattern) => pattern.test(firstLine));
     }
 
-    if (extension === 'json') {
-      return firstLine.startsWith('{') || firstLine.startsWith('[');
+    if (extension === "json") {
+      return firstLine.startsWith("{") || firstLine.startsWith("[");
     }
 
     // Por defecto, aceptar si no parece texto explicativo
@@ -1075,7 +1249,7 @@ export class Orchestrator {
       /^(El archivo|Aquí está|Este código|Based on|I need|Let me|Here's|The file)/i,
       /^(Necesito|Por favor|Este es|La implementación)/i,
     ];
-    return !textPatterns.some(pattern => pattern.test(firstLine));
+    return !textPatterns.some((pattern) => pattern.test(firstLine));
   }
 
   /**
@@ -1091,23 +1265,23 @@ export class Orchestrator {
     }
 
     // 2. Si hay texto antes del código, buscar la primera línea de código real
-    const lines = cleaned.split('\n');
+    const lines = cleaned.split("\n");
     let startIndex = 0;
 
     // Patrones que indican inicio de código Python
     const codePatterns = [
-      /^(from|import)\s+/,           // import statements
-      /^(class|def)\s+/,             // class or function definitions
-      /^#!.*python/,                 // shebang
-      /^#\s*(coding|-\*-)/,          // encoding declaration
-      /^"""[^"]*$/,                  // docstring start
-      /^'''[^']*$/,                  // docstring start
+      /^(from|import)\s+/, // import statements
+      /^(class|def)\s+/, // class or function definitions
+      /^#!.*python/, // shebang
+      /^#\s*(coding|-\*-)/, // encoding declaration
+      /^"""[^"]*$/, // docstring start
+      /^'''[^']*$/, // docstring start
       /^[a-zA-Z_][a-zA-Z0-9_]*\s*=/, // variable assignment
     ];
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line && codePatterns.some(pattern => pattern.test(line))) {
+      if (line && codePatterns.some((pattern) => pattern.test(line))) {
         startIndex = i;
         break;
       }
@@ -1115,12 +1289,12 @@ export class Orchestrator {
 
     // Si encontramos código, empezar desde ahí
     if (startIndex > 0) {
-      cleaned = lines.slice(startIndex).join('\n');
+      cleaned = lines.slice(startIndex).join("\n");
     }
 
     // 3. Remover texto basura al final (después del código)
     // Solo eliminar líneas si claramente son texto explicativo
-    const resultLines = cleaned.split('\n');
+    const resultLines = cleaned.split("\n");
     let endIndex = resultLines.length;
 
     // Buscar desde el final líneas que son claramente texto basura
@@ -1134,7 +1308,11 @@ export class Orchestrator {
       }
 
       // Si es claramente texto explicativo, excluirlo
-      if (/^(Based on|I need to|Let me|Here's|This|The|Please|Note:|El archivo|Aquí|Este código|Necesito)/i.test(line)) {
+      if (
+        /^(Based on|I need to|Let me|Here's|This|The|Please|Note:|El archivo|Aquí|Este código|Necesito)/i.test(
+          line,
+        )
+      ) {
         endIndex = i;
         continue;
       }
@@ -1146,7 +1324,7 @@ export class Orchestrator {
       }
     }
 
-    cleaned = resultLines.slice(0, endIndex).join('\n');
+    cleaned = resultLines.slice(0, endIndex).join("\n");
 
     // 4. Remover líneas vacías al inicio y final
     cleaned = cleaned.trim();
@@ -1158,16 +1336,16 @@ export class Orchestrator {
    * Valida sintaxis Python usando py_compile
    */
   private async validatePythonSyntax(
-    filePath: string
+    filePath: string,
   ): Promise<{ valid: boolean; error?: string }> {
     try {
-      await execFileAsync('python3', ['-m', 'py_compile', filePath]);
+      await execFileAsync("python3", ["-m", "py_compile", filePath]);
       return { valid: true };
     } catch (err: unknown) {
       const error = err as { stderr?: string; message?: string };
       return {
         valid: false,
-        error: error.stderr || error.message || 'Error de sintaxis desconocido',
+        error: error.stderr || error.message || "Error de sintaxis desconocido",
       };
     }
   }
@@ -1178,15 +1356,18 @@ export class Orchestrator {
   private async validateAndFixPython(
     filePath: string,
     fileName: string,
-    planContext: string
+    planContext: string,
   ): Promise<boolean> {
     // 1. Leer el código actual
-    const code = await readFile(filePath, 'utf-8');
+    const code = await readFile(filePath, "utf-8");
 
     // 2. Detectar código incompleto
     const incomplete = detectIncompleteCode(code);
     if (incomplete.isIncomplete) {
-      this.callbacks.onConsultant?.(fileName, `Código incompleto: ${incomplete.reason}`);
+      this.callbacks.onConsultant?.(
+        fileName,
+        `Código incompleto: ${incomplete.reason}`,
+      );
 
       // Usar Consultor para completar el código
       const prompt = buildCompleteCodePrompt(fileName, code, planContext);
@@ -1198,28 +1379,41 @@ export class Orchestrator {
       });
 
       if (result.success) {
-        let fixedCode = await readFile(tempFile, 'utf-8');
+        let fixedCode = await readFile(tempFile, "utf-8");
         fixedCode = parseConsultantResponse(fixedCode);
 
         if (fixedCode && this.isValidCode(fixedCode, fileName)) {
-          await writeFile(filePath, fixedCode, 'utf-8');
+          await writeFile(filePath, fixedCode, "utf-8");
         }
       }
     }
 
     // 3. Validar sintaxis Python
     const syntaxResult = await this.validatePythonSyntax(filePath);
-    this.callbacks.onSyntaxCheck?.(fileName, syntaxResult.valid, syntaxResult.error);
+    this.callbacks.onSyntaxCheck?.(
+      fileName,
+      syntaxResult.valid,
+      syntaxResult.error,
+    );
 
     if (!syntaxResult.valid) {
-      this.callbacks.onConsultant?.(fileName, `Error de sintaxis: ${syntaxResult.error}`);
+      this.callbacks.onConsultant?.(
+        fileName,
+        `Error de sintaxis: ${syntaxResult.error}`,
+      );
 
       // Leer el código actual (posiblemente corregido)
-      const currentCode = await readFile(filePath, 'utf-8');
+      const currentCode = await readFile(filePath, "utf-8");
 
       // Usar Consultor para corregir errores de sintaxis
-      const prompt = buildSyntaxFixPrompt(fileName, currentCode, syntaxResult.error || '');
-      const tempFile = this.stateManager.getFilePath(`consultant_fix_${fileName}`);
+      const prompt = buildSyntaxFixPrompt(
+        fileName,
+        currentCode,
+        syntaxResult.error || "",
+      );
+      const tempFile = this.stateManager.getFilePath(
+        `consultant_fix_${fileName}`,
+      );
 
       const result = await this.consultantAdapter.execute({
         prompt,
@@ -1227,11 +1421,11 @@ export class Orchestrator {
       });
 
       if (result.success) {
-        let fixedCode = await readFile(tempFile, 'utf-8');
+        let fixedCode = await readFile(tempFile, "utf-8");
         fixedCode = parseConsultantResponse(fixedCode);
 
         if (fixedCode && this.isValidCode(fixedCode, fileName)) {
-          await writeFile(filePath, fixedCode, 'utf-8');
+          await writeFile(filePath, fixedCode, "utf-8");
 
           // Re-validar después de la corrección
           const recheck = await this.validatePythonSyntax(filePath);
@@ -1252,7 +1446,7 @@ export class Orchestrator {
     const state = await this.stateManager.load();
 
     if (!state) {
-      return 'No hay sesión activa';
+      return "No hay sesión activa";
     }
 
     const lines = [
@@ -1262,21 +1456,21 @@ export class Orchestrator {
       `Iteration: ${state.iteration}/${this.config.maxIterations}`,
       `Started: ${state.startedAt}`,
       `Last Activity: ${state.lastActivity}`,
-      '',
-      'Agents:',
-      `  Arquitecto: ${state.agents.architect.status}${state.agents.architect.duration ? ` (${state.agents.architect.duration}ms)` : ''}`,
-      `  Ejecutor: ${state.agents.executor.status}${state.agents.executor.duration ? ` (${state.agents.executor.duration}ms)` : ''}`,
+      "",
+      "Agents:",
+      `  Arquitecto: ${state.agents.architect.status}${state.agents.architect.duration ? ` (${state.agents.architect.duration}ms)` : ""}`,
+      `  Ejecutor: ${state.agents.executor.status}${state.agents.executor.duration ? ` (${state.agents.executor.duration}ms)` : ""}`,
       `  Auditor: ${state.agents.auditor.status}`,
       `  Consultor: ${state.agents.consultant.status}`,
-      '',
+      "",
       `Checkpoints: ${state.checkpoints.length}`,
     ];
 
     if (state.lastError) {
-      lines.push('', `Last Error: ${state.lastError}`);
+      lines.push("", `Last Error: ${state.lastError}`);
     }
 
-    return lines.join('\n');
+    return lines.join("\n");
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1292,8 +1486,8 @@ export class Orchestrator {
       const state = await this.stateManager.load();
       if (state) {
         this.callbacks.onError?.(
-          'init',
-          `Sesión pendiente detectada: ${state.sessionId}\nUsa 'orchestra resume' o 'orchestra clean'.`
+          "init",
+          `Sesión pendiente detectada: ${state.sessionId}\nUsa 'orchestra resume' o 'orchestra clean'.`,
         );
         return false;
       }
@@ -1313,10 +1507,11 @@ export class Orchestrator {
       // Fase 2+3: Pipeline de ejecución y auditoría
       return this.runExecuteAuditPipeline();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       await this.stateManager.setError(errorMessage);
-      await this.stateManager.setPhase('failed');
-      this.callbacks.onError?.('orchestration', errorMessage);
+      await this.stateManager.setPhase("failed");
+      this.callbacks.onError?.("orchestration", errorMessage);
       return false;
     }
   }
@@ -1325,24 +1520,33 @@ export class Orchestrator {
    * Pipeline de ejecución y auditoría simultánea
    */
   private async runExecuteAuditPipeline(): Promise<boolean> {
-    const planFile = this.stateManager.getFilePath('plan.md');
-    const planContent = await readFile(planFile, 'utf-8');
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
     const filesToCreate = extractFilesFromPlan(planContent);
 
     if (filesToCreate.length === 0) {
-      this.callbacks.onError?.('pipeline', 'No se encontraron archivos a crear');
+      this.callbacks.onError?.(
+        "pipeline",
+        "No se encontraron archivos a crear",
+      );
       return false;
     }
 
-    this.callbacks.onPhaseStart?.('pipeline', `Pipeline (${filesToCreate.length} archivos)`);
-    await this.stateManager.setPhase('executing');
+    this.callbacks.onPhaseStart?.(
+      "pipeline",
+      `Pipeline (${filesToCreate.length} archivos)`,
+    );
+    await this.stateManager.setPhase("executing");
 
-    const fileResults = new Map<string, {
-      executed: boolean;
-      audited: boolean;
-      approved: boolean;
-      issues: AuditIssue[];
-    }>();
+    const fileResults = new Map<
+      string,
+      {
+        executed: boolean;
+        audited: boolean;
+        approved: boolean;
+        issues: AuditIssue[];
+      }
+    >();
 
     // Inicializar estado de cada archivo
     for (const file of filesToCreate) {
@@ -1361,7 +1565,7 @@ export class Orchestrator {
       this.callbacks.onIteration?.(iteration, this.config.maxIterations);
 
       // Obtener archivos que necesitan trabajo
-      const filesToProcess = filesToCreate.filter(f => {
+      const filesToProcess = filesToCreate.filter((f) => {
         const state = fileResults.get(f.path)!;
         return !state.approved;
       });
@@ -1376,7 +1580,12 @@ export class Orchestrator {
         async (file, index) => {
           // 1. Ejecutar
           this.callbacks.onFileStart?.(file.path, index, filesToProcess.length);
-          const execResult = await this.processFile(file, planContent, index, filesToProcess.length);
+          const execResult = await this.processFile(
+            file,
+            planContent,
+            index,
+            filesToProcess.length,
+          );
 
           if (!execResult.success) {
             return;
@@ -1387,30 +1596,38 @@ export class Orchestrator {
           // 2. Auditar inmediatamente después de ejecutar
           const filePath = path.join(process.cwd(), file.path);
           if (existsSync(filePath)) {
-            const content = await readFile(filePath, 'utf-8');
+            const content = await readFile(filePath, "utf-8");
             const auditResult = await this.auditFile(
               { path: file.path, content },
               planContent,
               index,
-              filesToProcess.length
+              filesToProcess.length,
             );
 
             const state = fileResults.get(file.path)!;
             state.audited = true;
-            state.approved = auditResult.status === 'APPROVED';
+            state.approved = auditResult.status === "APPROVED";
             state.issues = auditResult.issues;
 
             // Si no aprobado, corregir inmediatamente
             if (!state.approved && iteration < this.config.maxIterations) {
-              await this.fixFile(file.path, auditResult.issues, planContent, index, filesToProcess.length);
+              await this.fixFile(
+                file.path,
+                auditResult.issues,
+                planContent,
+                index,
+                filesToProcess.length,
+              );
             }
           }
         },
-        this.config.maxConcurrency
+        this.config.maxConcurrency,
       );
 
       // Verificar si todos están aprobados
-      const allApproved = Array.from(fileResults.values()).every(s => s.approved);
+      const allApproved = Array.from(fileResults.values()).every(
+        (s) => s.approved,
+      );
       if (allApproved) {
         break;
       }
@@ -1419,21 +1636,28 @@ export class Orchestrator {
     }
 
     const totalDuration = Date.now() - startTime;
-    const allApproved = Array.from(fileResults.values()).every(s => s.approved);
-    const totalIssues = Array.from(fileResults.values()).reduce((sum, s) => sum + s.issues.length, 0);
+    const allApproved = Array.from(fileResults.values()).every(
+      (s) => s.approved,
+    );
+    const totalIssues = Array.from(fileResults.values()).reduce(
+      (sum, s) => sum + s.issues.length,
+      0,
+    );
 
-    await this.stateManager.setPhase(allApproved ? 'completed' : 'max_iterations');
-    await this.stateManager.createCheckpoint('pipeline-complete');
+    await this.stateManager.setPhase(
+      allApproved ? "completed" : "max_iterations",
+    );
+    await this.stateManager.createCheckpoint("pipeline-complete");
 
-    this.callbacks.onPhaseComplete?.('pipeline', `Pipeline`, {
+    this.callbacks.onPhaseComplete?.("pipeline", `Pipeline`, {
       success: allApproved,
       duration: totalDuration,
     });
 
     if (!allApproved) {
       this.callbacks.onError?.(
-        'pipeline',
-        `Pipeline completado con ${totalIssues} issues pendientes`
+        "pipeline",
+        `Pipeline completado con ${totalIssues} issues pendientes`,
       );
     }
 
@@ -1451,24 +1675,25 @@ export class Orchestrator {
    * Inicia el modo watch
    */
   async watch(task: string): Promise<void> {
-    const { watch: fsWatch } = await import('fs');
+    const { watch: fsWatch } = await import("fs");
 
     // Primera ejecución
-    console.log('Ejecutando tarea inicial...');
+    console.log("Ejecutando tarea inicial...");
     await this.run(task);
 
     // Obtener archivos a observar
-    const planFile = this.stateManager.getFilePath('plan.md');
+    const planFile = this.stateManager.getFilePath("plan.md");
     if (!existsSync(planFile)) {
-      this.callbacks.onError?.('watch', 'No hay plan para observar archivos');
+      this.callbacks.onError?.("watch", "No hay plan para observar archivos");
       return;
     }
 
-    const planContent = await readFile(planFile, 'utf-8');
-    const filesToWatch = extractFilesFromPlan(planContent).map(f => f.path);
-    const patterns = this.config.watchPatterns.length > 0
-      ? this.config.watchPatterns
-      : filesToWatch;
+    const planContent = await readFile(planFile, "utf-8");
+    const filesToWatch = extractFilesFromPlan(planContent).map((f) => f.path);
+    const patterns =
+      this.config.watchPatterns.length > 0
+        ? this.config.watchPatterns
+        : filesToWatch;
 
     this.watchAbortController = new AbortController();
     const watchers: ReturnType<typeof fsWatch>[] = [];
@@ -1494,8 +1719,9 @@ export class Orchestrator {
             await this.runExecutor();
             await this.runAuditLoop(1);
           } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            this.callbacks.onError?.('watch', errorMessage);
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.callbacks.onError?.("watch", errorMessage);
           }
         }
       }, debounceMs);
@@ -1507,10 +1733,17 @@ export class Orchestrator {
 
       if (existsSync(filePath)) {
         try {
-          const watcher = fsWatch(filePath, { signal: this.watchAbortController.signal }, (event) => {
-            this.callbacks.onWatchChange?.(pattern, event as 'add' | 'change' | 'unlink');
-            triggerRerun(pattern);
-          });
+          const watcher = fsWatch(
+            filePath,
+            { signal: this.watchAbortController.signal },
+            (event) => {
+              this.callbacks.onWatchChange?.(
+                pattern,
+                event as "add" | "change" | "unlink",
+              );
+              triggerRerun(pattern);
+            },
+          );
           watchers.push(watcher);
         } catch {
           // Archivo no existe o no se puede observar
@@ -1521,12 +1754,22 @@ export class Orchestrator {
     // También observar el directorio de trabajo para nuevos archivos
     const cwd = process.cwd();
     try {
-      const dirWatcher = fsWatch(cwd, { signal: this.watchAbortController.signal }, (event, filename) => {
-        if (filename && patterns.some(p => filename === p || filename.endsWith(p))) {
-          this.callbacks.onWatchChange?.(filename, event as 'add' | 'change' | 'unlink');
-          triggerRerun(filename);
-        }
-      });
+      const dirWatcher = fsWatch(
+        cwd,
+        { signal: this.watchAbortController.signal },
+        (event, filename) => {
+          if (
+            filename &&
+            patterns.some((p) => filename === p || filename.endsWith(p))
+          ) {
+            this.callbacks.onWatchChange?.(
+              filename,
+              event as "add" | "change" | "unlink",
+            );
+            triggerRerun(filename);
+          }
+        },
+      );
       watchers.push(dirWatcher);
     } catch {
       // No se puede observar el directorio
@@ -1534,7 +1777,7 @@ export class Orchestrator {
 
     // Mantener el proceso vivo
     await new Promise<void>((resolve) => {
-      this.watchAbortController!.signal.addEventListener('abort', () => {
+      this.watchAbortController!.signal.addEventListener("abort", () => {
         for (const watcher of watchers) {
           watcher.close();
         }
@@ -1561,8 +1804,40 @@ export class Orchestrator {
    * Ejecuta la fase de tests
    */
   private async runTestPhase(): Promise<boolean> {
-    this.callbacks.onPhaseStart?.('testing', 'Test Runner');
-    await this.stateManager.setPhase('testing');
+    // Verificar si solo se generaron archivos de documentación
+    const planFile = this.stateManager.getFilePath("plan.md");
+    let planContent: string | null = null;
+    if (existsSync(planFile)) {
+      planContent = await readFile(planFile, "utf-8");
+    }
+    if (planContent) {
+      const filesToCreate = extractFilesFromPlan(planContent);
+      const hasTestableFiles = filesToCreate.some((file) =>
+        this.isTestableFile(file.path),
+      );
+
+      if (!hasTestableFiles) {
+        // Solo documentación/config, skip tests
+        this.callbacks.onPhaseStart?.("testing", "Test Runner");
+        this.callbacks.onPhaseComplete?.("testing", "Test Runner", {
+          success: true,
+          duration: 0,
+        });
+        this.callbacks.onTestComplete?.({
+          success: true,
+          passed: 0,
+          failed: 0,
+          skipped: 0,
+          duration: 0,
+          output: "Skipped: only documentation/config files generated",
+          command: "none",
+        });
+        return true;
+      }
+    }
+
+    this.callbacks.onPhaseStart?.("testing", "Test Runner");
+    await this.stateManager.setPhase("testing");
 
     const startTime = Date.now();
 
@@ -1571,8 +1846,11 @@ export class Orchestrator {
       ? null
       : await detectTestFramework(process.cwd());
 
-    const command = this.config.testCommand ||
-      (framework ? `${framework.command} ${framework.args.join(' ')}` : 'npm test');
+    const command =
+      this.config.testCommand ||
+      (framework
+        ? `${framework.command} ${framework.args.join(" ")}`
+        : "npm test");
 
     this.callbacks.onTestStart?.(command);
 
@@ -1580,31 +1858,87 @@ export class Orchestrator {
       const result = await runTests(
         process.cwd(),
         this.config.testCommand || undefined,
-        this.config.timeout
+        this.config.timeout,
       );
 
       const duration = Date.now() - startTime;
 
       this.callbacks.onTestComplete?.(result);
-      this.callbacks.onPhaseComplete?.('testing', 'Test Runner', {
+      this.callbacks.onPhaseComplete?.("testing", "Test Runner", {
         success: result.success,
         duration,
       });
 
       if (!result.success) {
         this.callbacks.onError?.(
-          'testing',
-          `Tests fallaron: ${result.failed} de ${result.passed + result.failed} tests`
+          "testing",
+          `Tests fallaron: ${result.failed} de ${result.passed + result.failed} tests`,
         );
         return false;
       }
 
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.callbacks.onError?.('testing', `Error ejecutando tests: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.callbacks.onError?.(
+        "testing",
+        `Error ejecutando tests: ${errorMessage}`,
+      );
       return false;
     }
+  }
+
+  /**
+   * Determina si un archivo es testeable (código que puede tener tests)
+   */
+  private isTestableFile(filePath: string): boolean {
+    const lowerPath = filePath.toLowerCase();
+    const fileName = lowerPath.split("/").pop() || lowerPath;
+
+    // Extensiones de documentación - NO testeable
+    const docExtensions = [
+      ".md",
+      ".txt",
+      ".rst",
+      ".adoc",
+      ".markdown",
+      ".doc",
+      ".docx",
+    ];
+    if (docExtensions.some((ext) => lowerPath.endsWith(ext))) {
+      return false;
+    }
+
+    // Archivos de configuración - NO testeable
+    const configFiles = [
+      "package.json",
+      "tsconfig.json",
+      "pyproject.toml",
+      ".eslintrc",
+      ".prettierrc",
+      ".gitignore",
+      ".dockerignore",
+      ".editorconfig",
+      ".env",
+      "dockerfile",
+      "docker-compose",
+      "makefile",
+      ".nvmrc",
+      ".node-version",
+    ];
+    if (configFiles.some((f) => fileName.includes(f))) {
+      return false;
+    }
+
+    // Archivos de datos - NO testeable directamente
+    const dataExtensions = [".csv", ".xml", ".sql", ".graphql", ".gql"];
+    if (dataExtensions.some((ext) => lowerPath.endsWith(ext))) {
+      return false;
+    }
+
+    // Todo lo demás (código) es testeable
+    return true;
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1615,14 +1949,14 @@ export class Orchestrator {
    * Ejecuta el auto-commit de archivos generados
    */
   private async runGitCommit(task: string): Promise<boolean> {
-    this.callbacks.onPhaseStart?.('committing', 'Git');
-    await this.stateManager.setPhase('committing');
+    this.callbacks.onPhaseStart?.("committing", "Git");
+    await this.stateManager.setPhase("committing");
 
     // Obtener archivos generados del plan
-    const planFile = this.stateManager.getFilePath('plan.md');
-    const planContent = await readFile(planFile, 'utf-8');
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
     const filesToCreate = extractFilesFromPlan(planContent);
-    const files = filesToCreate.map(f => f.path);
+    const files = filesToCreate.map((f) => f.path);
 
     this.callbacks.onCommitStart?.(files);
 
@@ -1631,24 +1965,28 @@ export class Orchestrator {
         task,
         files,
         process.cwd(),
-        this.config.commitMessage || undefined
+        this.config.commitMessage || undefined,
       );
 
       this.callbacks.onCommitComplete?.(result);
-      this.callbacks.onPhaseComplete?.('committing', 'Git', {
+      this.callbacks.onPhaseComplete?.("committing", "Git", {
         success: result.success,
         duration: 0,
       });
 
       if (!result.success) {
-        this.callbacks.onError?.('committing', result.error || 'Error al crear commit');
+        this.callbacks.onError?.(
+          "committing",
+          result.error || "Error al crear commit",
+        );
         return false;
       }
 
       return true;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      this.callbacks.onError?.('committing', `Error en git: ${errorMessage}`);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      this.callbacks.onError?.("committing", `Error en git: ${errorMessage}`);
       return false;
     }
   }
@@ -1661,19 +1999,23 @@ export class Orchestrator {
    * Valida la sintaxis de todos los archivos generados
    */
   async validateGeneratedFiles(): Promise<SyntaxValidationResult[]> {
-    const planFile = this.stateManager.getFilePath('plan.md');
-    const planContent = await readFile(planFile, 'utf-8');
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
     const filesToCreate = extractFilesFromPlan(planContent);
     const results: SyntaxValidationResult[] = [];
 
     for (const file of filesToCreate) {
       const filePath = path.join(process.cwd(), file.path);
       if (existsSync(filePath)) {
-        const content = await readFile(filePath, 'utf-8');
+        const content = await readFile(filePath, "utf-8");
         const lang = detectLanguage(file.path);
 
         // Skip if language filter is set and doesn't match
-        if (this.config.languages.length > 0 && lang && !this.config.languages.includes(lang)) {
+        if (
+          this.config.languages.length > 0 &&
+          lang &&
+          !this.config.languages.includes(lang)
+        ) {
           continue;
         }
 
@@ -1684,5 +2026,240 @@ export class Orchestrator {
     }
 
     return results;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // RECOVERY MODE: Recuperación persistente cuando el ciclo normal falla
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Ejecuta el modo de recuperación para archivos que no pasaron el auditor
+   * después del máximo de iteraciones normales
+   */
+  private async runRecoveryMode(failedFiles: string[]): Promise<boolean> {
+    this.callbacks.onPhaseStart?.("recovery", "Recovery Mode");
+    await this.stateManager.setPhase("consulting");
+
+    const planFile = this.stateManager.getFilePath("plan.md");
+    const planContent = await readFile(planFile, "utf-8");
+
+    const recoveredFiles: string[] = [];
+    let remainingFiles = [...failedFiles];
+
+    for (
+      let attempt = 1;
+      attempt <= this.config.maxRecoveryAttempts;
+      attempt++
+    ) {
+      this.callbacks.onRecoveryAttempt?.(
+        attempt,
+        this.config.maxRecoveryAttempts,
+        remainingFiles.length,
+      );
+
+      const stillFailing: string[] = [];
+
+      for (const file of remainingFiles) {
+        try {
+          // 1. Consultar al Consultant para análisis profundo del problema
+          const analysis = await this.consultFileForRecovery(file, planContent);
+
+          // 2. Re-generar el archivo desde cero con el feedback del Consultant
+          const regenerated = await this.regenerateFileFromScratch(
+            file,
+            planContent,
+            analysis,
+          );
+
+          if (!regenerated) {
+            stillFailing.push(file);
+            continue;
+          }
+
+          // 3. Re-auditar solo este archivo
+          const filePath = path.join(process.cwd(), file);
+          const content = await readFile(filePath, "utf-8");
+          const auditResult = await this.auditFile(
+            { path: file, content },
+            planContent,
+            0,
+            1,
+          );
+
+          if (auditResult.status === "APPROVED") {
+            recoveredFiles.push(file);
+          } else {
+            stillFailing.push(file);
+          }
+        } catch (error) {
+          stillFailing.push(file);
+        }
+      }
+
+      remainingFiles = stillFailing;
+
+      // Si todos los archivos fueron recuperados, salir exitosamente
+      if (remainingFiles.length === 0) {
+        this.callbacks.onRecoveryComplete?.(true, recoveredFiles, []);
+        return true;
+      }
+    }
+
+    // Aún hay archivos que fallaron después de todos los intentos
+    this.callbacks.onRecoveryComplete?.(false, recoveredFiles, remainingFiles);
+    return remainingFiles.length === 0;
+  }
+
+  /**
+   * Consulta al Consultant para analizar por qué un archivo está fallando
+   */
+  private async consultFileForRecovery(
+    file: string,
+    planContent: string,
+  ): Promise<string> {
+    const filePath = path.join(process.cwd(), file);
+
+    if (!existsSync(filePath)) {
+      return "El archivo no existe - necesita ser creado desde cero.";
+    }
+
+    const fileContent = await readFile(filePath, "utf-8");
+
+    // Construir un prompt especial para el Consultant
+    const consultPrompt = `Analiza el siguiente archivo que está fallando la auditoría después de múltiples intentos de corrección.
+
+ARCHIVO: ${file}
+CONTENIDO ACTUAL:
+\`\`\`
+${fileContent}
+\`\`\`
+
+PLAN ORIGINAL:
+${planContent}
+
+Por favor analiza:
+1. ¿Cuáles son los problemas fundamentales del archivo?
+2. ¿Por qué las correcciones anteriores no funcionaron?
+3. ¿Cuál sería la mejor estrategia para re-generar este archivo correctamente?
+4. Proporciona un esquema detallado de cómo debería ser el archivo corregido.
+
+Responde con un análisis detallado y recomendaciones específicas.`;
+
+    this.callbacks.onConsultant?.(file, "Recovery analysis");
+
+    const analysisFile = this.stateManager.getFilePath(
+      `recovery_analysis_${file.replace(/\//g, "_")}.md`,
+    );
+
+    const result = await this.consultantAdapter.execute({
+      prompt: consultPrompt,
+      outputFile: analysisFile,
+    });
+
+    if (result.success && existsSync(analysisFile)) {
+      return await readFile(analysisFile, "utf-8");
+    }
+
+    return "No se pudo obtener análisis del Consultant.";
+  }
+
+  /**
+   * Re-genera un archivo desde cero usando el análisis del Consultant
+   */
+  private async regenerateFileFromScratch(
+    file: string,
+    planContent: string,
+    consultantAnalysis: string,
+  ): Promise<boolean> {
+    // Construir un prompt mejorado con el análisis del Consultant
+    const regeneratePrompt = `REGENERACIÓN DE ARCHIVO - INTENTO DE RECUPERACIÓN
+
+El siguiente archivo ha fallado múltiples intentos de corrección. Debes regenerarlo COMPLETAMENTE desde cero, prestando especial atención a los problemas identificados.
+
+ARCHIVO A GENERAR: ${file}
+
+PLAN ORIGINAL:
+${planContent}
+
+ANÁLISIS DEL CONSULTANT (problemas identificados):
+${consultantAnalysis}
+
+INSTRUCCIONES IMPORTANTES:
+1. Genera el archivo COMPLETO, no solo fragmentos
+2. Presta especial atención a los problemas mencionados en el análisis
+3. Asegúrate de que el código sea sintácticamente correcto
+4. Incluye todos los imports y dependencias necesarios
+5. El archivo debe ser funcional y cumplir con el plan original
+
+Genera SOLO el código del archivo, sin explicaciones adicionales.`;
+
+    this.callbacks.onFileStart?.(file, 0, 1);
+
+    const tempFile = this.stateManager.getFilePath(
+      `recovery_${file.replace(/\//g, "_")}`,
+    );
+
+    const result = await this.executorAdapter.execute({
+      prompt: regeneratePrompt,
+      outputFile: tempFile,
+      workingDir: process.cwd(),
+    });
+
+    if (!result.success) {
+      this.callbacks.onFileComplete?.(file, false, result.duration);
+      return false;
+    }
+
+    try {
+      let newCode = await readFile(tempFile, "utf-8");
+      newCode = this.cleanGeneratedCode(newCode);
+
+      if (!this.isValidCode(newCode, file)) {
+        this.callbacks.onFileComplete?.(file, false, result.duration);
+        return false;
+      }
+
+      const destPath = path.join(process.cwd(), file);
+
+      // Crear directorio si no existe
+      const dir = path.dirname(destPath);
+      if (!existsSync(dir)) {
+        await mkdir(dir, { recursive: true });
+      }
+
+      await writeFile(destPath, newCode, "utf-8");
+      this.callbacks.onFileComplete?.(file, true, result.duration);
+      return true;
+    } catch (error) {
+      this.callbacks.onFileComplete?.(file, false, result.duration);
+      return false;
+    }
+  }
+
+  /**
+   * Revierte los archivos que no pudieron ser recuperados
+   */
+  private async revertFailedFiles(files: string[]): Promise<void> {
+    for (const file of files) {
+      const filePath = path.join(process.cwd(), file);
+
+      try {
+        // Intentar revertir usando git
+        await execFileAsync("git", ["checkout", "HEAD", "--", file], {
+          cwd: process.cwd(),
+        });
+        this.callbacks.onFileReverted?.(file);
+      } catch {
+        // Si git falla (archivo nuevo o no hay git), eliminar el archivo
+        try {
+          if (existsSync(filePath)) {
+            await unlink(filePath);
+            this.callbacks.onFileDeleted?.(file);
+          }
+        } catch {
+          // No se pudo eliminar, ignorar
+        }
+      }
+    }
   }
 }

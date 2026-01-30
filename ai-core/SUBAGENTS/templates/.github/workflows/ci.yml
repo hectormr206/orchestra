@@ -1,0 +1,228 @@
+# ============================================================================
+# CI PIPELINE
+# ============================================================================
+# Continuous Integration pipeline for {{PROJECT_NAME}}
+#
+# Triggers: Push to main, Pull Requests
+# Jobs: Lint, Test, Build, Security Scan
+# ============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [{{MAIN_BRANCH}}]
+  pull_request:
+    branches: [{{MAIN_BRANCH}}]
+  workflow_dispatch:
+
+env:
+  {{NODE_VERSION}}: ${{ vars.NODE_VERSION || '20' }}
+  CACHE_VERSION: v1
+
+jobs:
+  # ============================================================================
+  # JOB 1: Lint
+  # ============================================================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install dependencies
+        run: {{INSTALL_DEPENDENCIES_CMD}}
+
+      - name: Run linter
+        run: {{LINT_COMMAND}}
+
+      - name: Run type check
+        run: {{TYPE_CHECK_COMMAND}}
+
+  # ============================================================================
+  # JOB 2: Test
+  # ============================================================================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [{{NODE_VERSION_MATRIX}}]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install dependencies
+        run: {{INSTALL_DEPENDENCIES_CMD}}
+
+      - name: Run unit tests
+        run: {{TEST_UNIT_COMMAND}}
+
+      - name: Run integration tests
+        run: {{TEST_INTEGRATION_COMMAND}}
+
+      - name: Generate coverage report
+        run: {{TEST_COVERAGE_COMMAND}}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.node-version == '{{NODE_VERSION}}'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: {{COVERAGE_FILE}}
+          fail_ci_if_error: {{COVERAGE_FAIL_ON_ERROR}}
+
+      - name: Check coverage thresholds
+        run: {{COVERAGE_CHECK_COMMAND}}
+
+      - name: Upload coverage artifacts
+        uses: actions/upload-artifact@v4
+        if: matrix.node-version == '{{NODE_VERSION}}'
+        with:
+          name: coverage-report
+          path: {{COVERAGE_REPORT_DIR}}
+          retention-days: 7
+
+  # ============================================================================
+  # JOB 3: Build
+  # ============================================================================
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Install dependencies
+        run: {{INSTALL_DEPENDENCIES_CMD}}
+
+      - name: Build project
+        run: {{BUILD_COMMAND}}
+        env:
+          {{BUILD_ENV_VAR_1}}: ${{ secrets.{{BUILD_ENV_SECRET_1}} }}
+          {{BUILD_ENV_VAR_2}}: ${{ secrets.{{BUILD_ENV_SECRET_2}} }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: {{BUILD_OUTPUT_DIR}}
+          retention-days: 7
+
+  # ============================================================================
+  # JOB 4: Security Scan
+  # ============================================================================
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    needs: lint
+
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: '{{PACKAGE_MANAGER}}'
+
+      - name: Run dependency audit
+        run: {{AUDIT_COMMAND}}
+        continue-on-error: true
+
+      - name: Run npm audit
+        run: {{NPM_AUDIT_COMMAND}}
+        continue-on-error: true
+
+      - name: CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          languages: {{CODEQL_LANGUAGES}}
+
+      - name: Run security scanner
+        uses: {{SECURITY_SCANNER_ACTION}}@v1
+        with:
+          scan-type: '{{SCAN_TYPE}}'
+          fail-on-severity: '{{FAIL_ON_SEVERITY}}'
+
+  # ============================================================================
+  # JOB 5: Quality Gates
+  # ============================================================================
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: [lint, test, build, security]
+    if: always()
+
+    steps:
+      - name: Check job results
+        run: |
+          if [[ "${{ needs.lint.result }}" != "success" ]] || \
+             [[ "${{ needs.test.result }}" != "success" ]] || \
+             [[ "${{ needs.build.result }}" != "success" ]] || \
+             [[ "${{ needs.security.result }}" != "success" ]]; then
+            echo "❌ Quality gate failed"
+            exit 1
+          fi
+          echo "✅ Quality gate passed"
+
+      - name: Summary
+        run: |
+          echo "## CI Summary 📊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # JOB 6: Notify (Optional)
+  # ============================================================================
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [quality-gate]
+    if: always() && github.event_name == 'pull_request'
+
+    steps:
+      - name: Send notification
+        uses: {{NOTIFICATION_ACTION}}@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          status: ${{ needs.quality-gate.result }}
+          job-name: "CI"
+          url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

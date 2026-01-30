@@ -1,10 +1,9 @@
-import React from 'react';
-import { Box, Text } from 'ink';
-import Spinner from 'ink-spinner';
+import React from "react";
+import { Box, Text } from "ink";
 
 export interface FileStatus {
   path: string;
-  status: 'pending' | 'processing' | 'complete' | 'error';
+  status: "pending" | "processing" | "complete" | "error";
   duration?: number;
   error?: string;
 }
@@ -14,22 +13,33 @@ interface FileListProps {
   maxVisible?: number;
 }
 
-export const FileList: React.FC<FileListProps> = ({ files, maxVisible = 10 }) => {
-  const getStatusIcon = (status: FileStatus['status']) => {
+export const FileList: React.FC<FileListProps> = ({
+  files,
+  maxVisible = 10,
+}) => {
+  const getStatusIcon = (status: FileStatus["status"]) => {
     switch (status) {
-      case 'pending': return <Text color="gray">◯</Text>;
-      case 'processing': return <Text color="yellow"><Spinner type="dots" /></Text>;
-      case 'complete': return <Text color="green">✓</Text>;
-      case 'error': return <Text color="red">✗</Text>;
+      case "pending":
+        return "◯";
+      case "processing":
+        return "◈";
+      case "complete":
+        return "✓";
+      case "error":
+        return "✗";
     }
   };
 
-  const getStatusColor = (status: FileStatus['status']) => {
+  const getStatusColor = (status: FileStatus["status"]) => {
     switch (status) {
-      case 'pending': return 'gray';
-      case 'processing': return 'yellow';
-      case 'complete': return 'green';
-      case 'error': return 'red';
+      case "pending":
+        return "gray";
+      case "processing":
+        return "yellow";
+      case "complete":
+        return "green";
+      case "error":
+        return "red";
     }
   };
 
@@ -39,12 +49,18 @@ export const FileList: React.FC<FileListProps> = ({ files, maxVisible = 10 }) =>
   return (
     <Box flexDirection="column">
       {hiddenCount > 0 && (
-        <Text color="gray" dimColor>... and {hiddenCount} more files above</Text>
+        <Text color="gray" dimColor>
+          ... and {hiddenCount} more files above
+        </Text>
       )}
       {visibleFiles.map((file, index) => (
         <Box key={file.path + index}>
-          {getStatusIcon(file.status)}
-          <Text color={getStatusColor(file.status)}> {file.path}</Text>
+          <Box width={3}>
+            <Text color={getStatusColor(file.status)}>
+              {getStatusIcon(file.status)}
+            </Text>
+          </Box>
+          <Text color={getStatusColor(file.status)}>{file.path}</Text>
           {file.duration && (
             <Text color="gray"> ({(file.duration / 1000).toFixed(1)}s)</Text>
           )}

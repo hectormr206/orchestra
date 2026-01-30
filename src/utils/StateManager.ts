@@ -2,20 +2,20 @@
  * Maneja el estado de la sesión de orquestación
  */
 
-import { readFile, writeFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
-import type { SessionState, Phase, Checkpoint } from '../types.js';
+import { readFile, writeFile, mkdir } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import type { SessionState, Phase, Checkpoint } from "../types.js";
 
 export class StateManager {
   private orchestraDir: string;
   private stateFile: string;
   private checkpointsDir: string;
 
-  constructor(orchestraDir: string = '.orchestra') {
+  constructor(orchestraDir: string = ".orchestra") {
     this.orchestraDir = orchestraDir;
-    this.stateFile = path.join(orchestraDir, 'state.json');
-    this.checkpointsDir = path.join(orchestraDir, 'checkpoints');
+    this.stateFile = path.join(orchestraDir, "state.json");
+    this.checkpointsDir = path.join(orchestraDir, "checkpoints");
   }
 
   /**
@@ -32,15 +32,15 @@ export class StateManager {
     const state: SessionState = {
       sessionId,
       task,
-      phase: 'init',
+      phase: "init",
       iteration: 0,
       startedAt: now,
       lastActivity: now,
       agents: {
-        architect: { status: 'pending', duration: null },
-        executor: { status: 'pending', duration: null },
-        auditor: { status: 'pending', duration: null },
-        consultant: { status: 'not_needed', duration: null },
+        architect: { status: "pending", duration: null },
+        executor: { status: "pending", duration: null },
+        auditor: { status: "pending", duration: null },
+        consultant: { status: "not_needed", duration: null },
       },
       checkpoints: [],
       canResume: true,
@@ -60,7 +60,7 @@ export class StateManager {
     }
 
     try {
-      const content = await readFile(this.stateFile, 'utf-8');
+      const content = await readFile(this.stateFile, "utf-8");
       return JSON.parse(content) as SessionState;
     } catch {
       return null;
@@ -72,7 +72,7 @@ export class StateManager {
    */
   async save(state: SessionState): Promise<void> {
     state.lastActivity = new Date().toISOString();
-    await writeFile(this.stateFile, JSON.stringify(state, null, 2), 'utf-8');
+    await writeFile(this.stateFile, JSON.stringify(state, null, 2), "utf-8");
   }
 
   /**
@@ -101,9 +101,9 @@ export class StateManager {
    * Actualiza el estado de un agente
    */
   async setAgentStatus(
-    agent: 'architect' | 'executor' | 'auditor' | 'consultant',
-    status: 'pending' | 'in_progress' | 'completed' | 'failed',
-    duration?: number
+    agent: "architect" | "executor" | "auditor" | "consultant",
+    status: "pending" | "in_progress" | "completed" | "failed",
+    duration?: number,
   ): Promise<void> {
     const state = await this.load();
     if (state) {
@@ -133,7 +133,7 @@ export class StateManager {
     // Asegurar que el directorio de checkpoints exista
     await this.ensureDirectories();
 
-    const id = String(state.checkpoints.length + 1).padStart(3, '0');
+    const id = String(state.checkpoints.length + 1).padStart(3, "0");
     const timestamp = new Date().toISOString();
     const file = `checkpoints/${id}-${phase}.json`;
 
@@ -142,7 +142,7 @@ export class StateManager {
 
     // Guardar snapshot del estado
     const checkpointPath = path.join(this.orchestraDir, file);
-    await writeFile(checkpointPath, JSON.stringify(state, null, 2), 'utf-8');
+    await writeFile(checkpointPath, JSON.stringify(state, null, 2), "utf-8");
 
     await this.save(state);
   }
@@ -164,7 +164,7 @@ export class StateManager {
    */
   async canResume(): Promise<boolean> {
     const state = await this.load();
-    return state !== null && state.canResume && state.phase !== 'completed';
+    return state !== null && state.canResume && state.phase !== "completed";
   }
 
   /**
@@ -179,5 +179,15 @@ export class StateManager {
    */
   getFilePath(filename: string): string {
     return path.join(this.orchestraDir, filename);
+  }
+
+  /**
+   * Limpia el estado actual (borra el directorio de sesión)
+   */
+  async clear(): Promise<void> {
+    const { rm } = await import("fs/promises");
+    if (existsSync(this.orchestraDir)) {
+      await rm(this.orchestraDir, { recursive: true, force: true });
+    }
   }
 }

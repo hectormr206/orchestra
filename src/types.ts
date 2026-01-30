@@ -31,6 +31,12 @@ export interface OrchestratorConfig {
   languages: SupportedLanguage[];
   /** Custom prompts for agents */
   customPrompts: CustomPrompts;
+  /** Maximum recovery attempts per file when normal audit loop fails (default: 3) */
+  maxRecoveryAttempts: number;
+  /** Timeout for recovery mode in milliseconds (default: 600000 = 10 min) */
+  recoveryTimeout: number;
+  /** Auto-revert failed files when recovery mode fails (default: true) */
+  autoRevertOnFailure: boolean;
 }
 
 /** Custom prompt templates */
@@ -46,7 +52,14 @@ export interface CustomPrompts {
 }
 
 /** Supported languages for syntax validation */
-export type SupportedLanguage = 'python' | 'javascript' | 'typescript' | 'go' | 'rust' | 'json' | 'yaml';
+export type SupportedLanguage =
+  | "python"
+  | "javascript"
+  | "typescript"
+  | "go"
+  | "rust"
+  | "json"
+  | "yaml";
 
 /** Test execution result */
 export interface TestResult {
@@ -104,6 +117,16 @@ export interface ProjectConfig {
     executor?: string;
     auditor?: string;
   };
+  /** TUI-specific settings */
+  tui?: {
+    autoApprove?: boolean;
+    notifications?: boolean;
+    cacheEnabled?: boolean;
+    // Recovery Mode settings
+    maxRecoveryAttempts?: number;
+    recoveryTimeoutMinutes?: number;
+    autoRevertOnFailure?: boolean;
+  };
 }
 
 export interface AgentResult {
@@ -132,7 +155,7 @@ export interface SessionState {
 }
 
 export interface AgentStatus {
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'not_needed';
+  status: "pending" | "in_progress" | "completed" | "failed" | "not_needed";
   duration: number | null;
 }
 
@@ -144,19 +167,20 @@ export interface Checkpoint {
 }
 
 export type Phase =
-  | 'init'
-  | 'planning'
-  | 'awaiting_approval'
-  | 'executing'
-  | 'fixing'
-  | 'consulting'
-  | 'auditing'
-  | 'testing'
-  | 'committing'
-  | 'completed'
-  | 'failed'
-  | 'rejected'
-  | 'max_iterations';
+  | "init"
+  | "planning"
+  | "awaiting_approval"
+  | "executing"
+  | "fixing"
+  | "consulting"
+  | "auditing"
+  | "recovery"
+  | "testing"
+  | "committing"
+  | "completed"
+  | "failed"
+  | "rejected"
+  | "max_iterations";
 
 export interface AdapterConfig {
   command: string;

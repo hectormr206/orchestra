@@ -1,0 +1,296 @@
+name: Weekly Maintenance Report
+
+on:
+  schedule:
+    # Every Friday at 5:00 PM UTC
+    - cron: '0 17 * * 5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  generate-report:
+    name: Generate weekly report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get week date range
+        id: dates
+        run: |
+          # Get current date
+          CURRENT_DATE=$(date -u +"%Y-%m-%d")
+
+          # Get start of week (Monday)
+          WEEK_START=$(date -u -d "monday" +"%Y-%m-%d" 2>/dev/null || date -u -d "last monday" +"%Y-%m-%d")
+
+          # Get end of week (Sunday)
+          WEEK_END=$(date -u -d "sunday" +"%Y-%m-%d" 2>/dev/null || date -u -d "next sunday" +"%Y-%m-%d")
+
+          echo "current_date=$CURRENT_DATE" >> $GITHUB_OUTPUT
+          echo "week_start=$WEEK_START" >> $GITHUB_OUTPUT
+          echo "week_end=$WEEK_END" >> $GITHUB_OUTPUT
+
+          echo "Week: $WEEK_START to $WEEK_END"
+
+      - name: Gather commit statistics
+        id: commits
+        run: |
+          echo "### 📊 Commit Activity" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          # Get commits from this week
+          WEEK_START="${{ steps.dates.outputs.week_start }}"
+          COMMITS_THIS_WEEK=$(git log --since="$WEEK_START" --oneline | wc -l)
+
+          echo "**Week**: $WEEK_START to ${{ steps.dates.outputs.week_end }}" >> weekly-report.md
+          echo "**Commits this week**: $COMMITS_THIS_WEEK" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          # Top contributors
+          echo "#### Top Contributors" >> weekly-report.md
+          echo '```' >> weekly-report.md
+          git log --since="$WEEK_START" --pretty=format:"%an" | sort | uniq -c | sort -rn | head -5 >> weekly-report.md || echo "No commits this week" >> weekly-report.md
+          echo '```' >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          echo "commits_count=$COMMITS_THIS_WEEK" >> $GITHUB_OUTPUT
+
+      - name: Check for issues and PRs
+        id: activity
+        run: |
+          echo "### 🎯 Issues & Pull Requests" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          # Count opened issues this week
+          WEEK_START="${{ steps.dates.outputs.week_start }}"
+
+          # Get issues created this week (requires GH token)
+          if [ -n "${{ secrets.GITHUB_TOKEN }}" ]; then
+            ISSUES_OPENED=$(gh issue list --search "created:>$WEEK_START" --json title --jq 'length' 2>/dev/null || echo "0")
+            ISSUES_CLOSED=$(gh issue list --search "closed:>$WEEK_START" --json title --jq 'length' 2>/dev/null || echo "0")
+            PRS_OPENED=$(gh pr list --search "created:>$WEEK_START" --json title --jq 'length' 2>/dev/null || echo "0")
+            PRS_MERGED=$(gh pr list --search "merged:>$WEEK_START" --json title --jq 'length' 2>/dev/null || echo "0")
+
+            echo "| Metric | Count |" >> weekly-report.md
+            echo "|--------|-------|" >> weekly-report.md
+            echo "| ✨ Issues Opened | $ISSUES_OPENED |" >> weekly-report.md
+            echo "| ✅ Issues Closed | $ISSUES_CLOSED |" >> weekly-report.md
+            echo "| 🔀 PRs Opened | $PRS_OPENED |" >> weekly-report.md
+            echo "| 🎉 PRs Merged | $PRS_MERGED |" >> weekly-report.md
+          else
+            echo "⚠️  Could not fetch issue/PR metrics" >> weekly-report.md
+          fi
+
+          echo "" >> weekly-report.md
+
+      - name: Check dependency status
+        id: dependencies
+        run: |
+          echo "### 📦 Dependency Status" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          if [ -f package.json ]; then
+            # Check for outdated packages
+            npx npm-check-updates --json greatest > ncu-report.json 2>/dev/null || echo "{}" > ncu-report.json
+
+            OUTDATED=$(cat ncu-report.json | jq 'length' 2>/dev/null || echo "0")
+
+            echo "**Outdated packages**: $OUTDATED" >> weekly-report.md
+
+            if [ "$OUTDATED" -gt 0 ]; then
+              echo "" >> weekly-report.md
+              echo "⚠️  Consider running dependency updates" >> weekly-report.md
+            else
+              echo "✅ All packages up to date" >> weekly-report.md
+            fi
+          else
+            echo "ℹ️  Not an npm project" >> weekly-report.md
+          fi
+
+          echo "" >> weekly-report.md
+
+      - name: Check for technical debt
+        id: debt
+        run: |
+          echo "### 🏗️ Technical Debt" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          # Count TODO/FIXME comments (excluding educational examples)
+          TODO_COUNT=$(git grep -i "TODO" -- '*.js' '*.ts' '*.jsx' '*.tsx' '*.py' '*.go' '*.rs' 2>/dev/null | grep -v "EXAMPLE:" | wc -l || echo "0")
+          FIXME_COUNT=$(git grep -i "FIXME" -- '*.js' '*.ts' '*.jsx' '*.tsx' '*.py' '*.go' '*.rs' 2>/dev/null | grep -v "EXAMPLE:" | wc -l || echo "0")
+
+          echo "| Type | Count |" >> weekly-report.md
+          echo "|------|-------|" >> weekly-report.md
+          echo "| 📝 TODO | $TODO_COUNT |" >> weekly-report.md
+          echo "| 🔧 FIXME | $FIXME_COUNT |" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          if [ "$TODO_COUNT" -gt 10 ] || [ "$FIXME_COUNT" -gt 5 ]; then
+            echo "⚠️  High technical debt detected. Consider dedicating time to address these items." >> weekly-report.md
+          fi
+
+          echo "" >> weekly-report.md
+
+      - name: Check AI-Core sync status
+        id: ai-core
+        run: |
+          echo "### 🤖 AI-Core Status" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          # Check if ai-core is present
+          if [ -d "ai-core" ]; then
+            echo "✅ AI-Core installed" >> weekly-report.md
+            echo "" >> weekly-report.md
+
+            # Get last sync date
+            if [ -f "ai-core/.git/FETCH_HEAD" ]; then
+              LAST_SYNC=$(stat -c %y "ai-core/.git/FETCH_HEAD" 2>/dev/null | cut -d'.' -f1 || echo "Unknown")
+              echo "**Last sync**: $LAST_SYNC" >> weekly-report.md
+            fi
+
+            # Check if ai-core needs updates
+            cd ai-core
+            git fetch > /dev/null 2>&1 || true
+            LOCAL=$(git rev-parse HEAD)
+            REMOTE=$(git rev-parse @{u} 2>/dev/null || echo "$LOCAL")
+
+            if [ "$LOCAL" != "$REMOTE" ]; then
+              echo "" >> ../weekly-report.md
+              echo "⚠️  AI-Core updates available!" >> ../weekly-report.md
+              echo "Run: \`cd ai-core && git pull\`" >> ../weekly-report.md
+            else
+              echo "✅ AI-Core up to date" >> ../weekly-report.md
+            fi
+          else
+            echo "ℹ️  AI-Core not installed" >> weekly-report.md
+          fi
+
+          echo "" >> weekly-report.md
+
+      - name: Download previous metrics
+        id: metrics
+        run: |
+          echo "### 📈 Metrics Trend" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          # Try to download latest metrics artifact
+          echo "Checking for recent metrics..." >> weekly-report.md
+          echo "📊 Detailed metrics available in [Actions](https://github.com/${{ github.repository }}/actions/workflows/metrics.yml)" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+      - name: Add recommendations
+        id: recommendations
+        run: |
+          echo "### 💡 Recommendations" >> weekly-report.md
+          echo "" >> weekly-report.md
+
+          RECOMMENDATIONS=0
+
+          # Check if there are many outdated dependencies
+          if [ "${{ steps.dependencies.outputs.outdated_count }}" -gt 5 ]; then
+            echo "- 🔧 Run dependency updates: \`npx npm-check-updates -u && npm install\`" >> weekly-report.md
+            RECOMMENDATIONS=$((RECOMMENDATIONS + 1))
+          fi
+
+          # Check if there are many TODOs
+          if [ "${{ steps.debt.outputs.todo_count }}" -gt 20 ]; then
+            echo "- 📝 Address outstanding TODO items (currently ${{ steps.debt.outputs.todo_count }})" >> weekly-report.md
+            RECOMMENDATIONS=$((RECOMMENDATIONS + 1))
+          fi
+
+          # Check if ai-core needs updates
+          if [ "${{ steps.ai-core.outputs.needs_update }}" == "true" ]; then
+            echo "- 🤖 Update ai-core: \`cd ai-core && git pull\`" >> weekly-report.md
+            RECOMMENDATIONS=$((RECOMMENDATIONS + 1))
+          fi
+
+          if [ $RECOMMENDATIONS -eq 0 ]; then
+            echo "✅ No immediate actions required. Great job keeping the project healthy!" >> weekly-report.md
+          fi
+
+          echo "" >> weekly-report.md
+
+      - name: Generate report footer
+        run: |
+          echo "---" >> weekly-report.md
+          echo "" >> weekly-report.md
+          echo "*This report is automatically generated every Friday.*" >> weekly-report.md
+          echo "*View [maintenance workflows](https://github.com/${{ github.repository }}/actions)* for more details.*" >> weekly-report.md
+
+      - name: Create or update weekly issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('weekly-report.md', 'utf8');
+
+            const weekStart = '${{ steps.dates.outputs.week_start }}';
+            const weekEnd = '${{ steps.dates.outputs.week_end }}';
+            const issueTitle = `📊 Weekly Maintenance Report: ${weekStart} to ${weekEnd}`;
+
+            // Close last week's report
+            const { data: oldIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'weekly-report, automated',
+              state: 'open'
+            });
+
+            for (const issue of oldIssues) {
+              if (issue.title !== issueTitle) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed'
+                });
+              }
+            }
+
+            // Create or update this week's report
+            const { data: existingIssues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'weekly-report, automated',
+              state: 'open'
+            });
+
+            const existingIssue = existingIssues.find(i => i.title === issueTitle);
+
+            if (existingIssue) {
+              // Update existing
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: report
+              });
+            } else {
+              // Create new
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: report,
+                labels: ['weekly-report', 'automated', 'maintenance']
+              });
+            }
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report
+          path: weekly-report.md
+          retention-days: 90
+
+      - name: Add to GitHub summary
+        run: |
+          cat weekly-report.md >> $GITHUB_STEP_SUMMARY

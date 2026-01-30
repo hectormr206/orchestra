@@ -1,0 +1,18 @@
+{
+  "execution": {
+    "parallel": true,
+    "maxConcurrency": 3
+  },
+  "test": {
+    "command": "npm test",
+    "runAfterGeneration": true
+  },
+  "git": {
+    "autoCommit": true
+  },
+  "tui": {
+    "autoApprove": true,
+    "notifications": true,
+    "cacheEnabled": true
+  }
+}

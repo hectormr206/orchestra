@@ -1,0 +1,125 @@
+name: AI-Core Self-Update
+
+on:
+  schedule:
+    # Every Sunday at 8:00 AM UTC
+    - cron: '0 8 * * 0'
+  workflow_dispatch:
+    inputs:
+      force_update:
+        description: 'Force update even if no changes'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-for-updates:
+    name: Check for ai-core updates
+    runs-on: ubuntu-latest
+    if: github.repository == 'hectormr206/ai-core'
+
+    outputs:
+      has_updates: ${{ steps.check.outputs.has_updates }}
+      commit_sha: ${{ steps.check.outputs.commit_sha }}
+
+    steps:
+      - name: Checkout ai-core
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch from remote
+        run: |
+          git fetch origin main
+          LOCAL=$(git rev-parse HEAD)
+          REMOTE=$(git rev-parse origin/main)
+
+          if [ "$LOCAL" != "$REMOTE" ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "commit_sha=$REMOTE" >> $GITHUB_OUTPUT
+            echo "✅ Updates available"
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "commit_sha=$LOCAL" >> $GITHUB_OUTPUT
+            echo "✅ Already up to date"
+          fi
+
+      - name: Get changelog
+        if: steps.check.outputs.has_updates == 'true' || inputs.force_update == true
+        id: changelog
+        run: |
+          echo "### 🔄 ai-core Changes" > changelog.md
+          echo "" >> changelog.md
+          echo '```' >> changelog.md
+          git log HEAD..origin/main --oneline >> changelog.md
+          echo '```' >> changelog.md
+
+          cat changelog.md
+
+      - name: Upload changelog
+        if: steps.changelog.outputs.changelog != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: changelog.md
+          retention-days: 7
+
+  auto-update:
+    name: Auto-update ai-core
+    runs-on: ubuntu-latest
+    needs: check-for-updates
+    if: needs.check-for-updates.outputs.has_updates == 'true' || inputs.force_update == true
+
+    steps:
+      - name: Checkout ai-core
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config --global user.name "AI-Core Bot"
+          git config --global user.email "ai-core-bot@users.noreply.github.com"
+
+      - name: Pull latest changes
+        run: |
+          git pull origin main
+          echo "COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Create summary
+        run: |
+          echo "### ✅ ai-core Updated Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**New Commit**: \`${COMMIT_SHA}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Updated at**: $(date -u)" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify registered projects
+        run: |
+          echo "🔔 Notifying registered projects about updates..."
+          # This will trigger the notify-projects workflow
+          echo "Projects will be notified via notify-projects.yml workflow"
+
+  create-pr-if-needed:
+    name: Create PR if conflicts detected
+    runs-on: ubuntu-latest
+    needs: check-for-updates
+    if: failure()
+
+    steps:
+      - name: Create issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '⚠️ AI-Core Self-Update Failed',
+              body: 'The automated ai-core update failed. Please review the logs and manually update.',
+              labels: ['ai-core', 'bug', 'automated']
+            });
