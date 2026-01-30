@@ -335,13 +335,13 @@ Proyecto-A  Proyecto-B  Proyecto-C
 
 ### Para Usuarios de AI-Core
 
-| Documento     | Para Qué                | Cuándo Leerlo                 |
-| ------------- | ----------------------- | ----------------------------- |
-| **README.md** | Introducción general    | Ahora mismo                   |
-| **AGENTS.md** | Guía maestra de agentes | Cuando configures tu proyecto |
-| **CLAUDE.md** | Configuración Claude    | Cuando uses Claude Code       |
-| **GEMINI.md** | Configuración Gemini    | Cuando uses Gemini CLI        |
-| **.cursorrules** | Configuración Cursor  | Cuando uses Cursor Editor     |
+| Documento        | Para Qué                | Cuándo Leerlo                 |
+| ---------------- | ----------------------- | ----------------------------- |
+| **README.md**    | Introducción general    | Ahora mismo                   |
+| **AGENTS.md**    | Guía maestra de agentes | Cuando configures tu proyecto |
+| **CLAUDE.md**    | Configuración Claude    | Cuando uses Claude Code       |
+| **GEMINI.md**    | Configuración Gemini    | Cuando uses Gemini CLI        |
+| **.cursorrules** | Configuración Cursor    | Cuando uses Cursor Editor     |
 
 ### Para Desarrolladores de AI-Core
 
@@ -432,6 +432,7 @@ cat SKILLS/learning/SKILL.md    ← NUEVO: Sistema de aprendizaje
 - **dangerous-mode-guard** - Protección en modo --dangerously-skip-permissions
 
 ### Testing & Quality Assurance (2)
+
 - **testing** - Test Pyramid, TDD, unit/integration/E2E, mocking, coverage
 - **e2e-testing** - ⭐ NUEVO: Enterprise-grade E2E patterns (POM, data-driven, visual regression, cross-browser)
 
@@ -472,10 +473,62 @@ cd ai-core
 **El instalador crea:**
 
 - ✅ `AGENTS.md` en tu proyecto raíz
-- ✅ `CLAUDE.md` en tu proyecto raíz (si no existe)
-- ✅ `GEMINI.md` en tu proyecto raíz (si no existe)
+- ✅ `CLAUDE.md` en tu proyecto raíz
+- ✅ `GEMINI.md` en tu proyecto raíz
+- ✅ `.github/copilot-instructions.md`
 - ✅ Symlinks a skills y subagentes
 - ✅ Soporte para Windows (usa copias en lugar de symlinks)
+
+### ⚠️ Comportamiento de los Archivos de Instrucciones
+
+El instalador usa un **merge inteligente** para no sobrescribir tu contenido:
+
+| Situación                         | Qué hace el instalador                                         |
+| --------------------------------- | -------------------------------------------------------------- |
+| **Archivo NO existe**             | ✅ Crea el archivo desde template (tú debes llenarlo)          |
+| **Archivo YA existe SIN ai-core** | 🔄 Agrega header al inicio + tu contenido + footer de recursos |
+| **Archivo YA existe CON ai-core** | ⏭️ Sin cambios (evita duplicar)                                |
+
+**Ejemplo de merge:**
+
+Si ya tienes un `CLAUDE.md` personalizado:
+
+```markdown
+# My Project Instructions
+
+My custom rules here...
+```
+
+Después de `./run.sh`, se convierte en:
+
+```markdown
+<!-- AI-CORE INTEGRATION - CLAUDE CODE -->
+
+> **Orden de lectura** para Claude Code:
+>
+> 1. ai-core/SUBAGENTS/AGENTS.md ← Guía central
+> 2. Este archivo ← Tu proyecto
+
+---
+
+# My Project Instructions ← Tu contenido original
+
+My custom rules here...
+
+---
+
+## Recursos de ai-core ← Footer agregado
+
+| Recurso | Ubicación | ... |
+```
+
+### 📝 Si es tu Primera Instalación
+
+Los templates incluyen **estructura de ejemplo** que debes personalizar:
+
+1. Abre `CLAUDE.md`, `GEMINI.md` o `AGENTS.md`
+2. Reemplaza los placeholders como `[Project Name]`, `[Add your test command]`
+3. Llena las secciones: Project Overview, Commands, Architecture, Critical Rules
 
 ### Paso 3: Verificar Instalación
 
@@ -559,14 +612,17 @@ code .claude/skills/my-custom-skill/SKILL.md
 **Solución:**
 
 ```bash
-# 1. Haz backup
-cp CLAUDE.md CLAUDE.md.backup
+# El instalador NO sobrescribe tu contenido.
+# Si tu archivo existe, AGREGA:
+#   - Header de ai-core al inicio
+#   - Tu contenido se preserva
+#   - Footer con recursos al final
 
-# 2. Ejecuta el instalador
+# Simplemente ejecuta:
 cd ai-core && ./run.sh
 
-# 3. El instalador ADICIONA contenido, no sobrescribe
-# Revisa CLAUDE.md y combina con tu backup si es necesario
+# Si ya tiene ai-core integrado, no hace cambios
+# Verás: "⚠️ CLAUDE.md ya tiene ai-core integrado (sin cambios)"
 ```
 
 ---
@@ -654,12 +710,14 @@ ai-core (repo central) → Push a main
 ```
 
 **Trigger manual:**
+
 ```bash
 # Desde tu proyecto
 gh workflow run receive-ai-core-updates.yml
 ```
 
 **Trigger automático:**
+
 - Cada lunes a las 9am (configurable en el workflow)
 - Cuando ai-core hace dispatch a tus proyectos registrados
 
@@ -672,6 +730,7 @@ No necesitas `.git` para actualizar. Tienes 3 opciones:
    - O trigger manual: `gh workflow run receive-ai-core-updates.yml`
 
 2. **Eliminar y clonar nuevamente**
+
    ```bash
    rm -rf ai-core
    git clone git@github.com:hectormr206/ai-core.git ai-core
@@ -697,6 +756,7 @@ git push
 ```
 
 Esto permite:
+
 - Versionar qué versión de ai-core usa tu proyecto
 - Que el workflow de actualizaciones cree PRs con los cambios
 - Que tu equipo tenga los mismos archivos
