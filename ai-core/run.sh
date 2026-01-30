@@ -163,42 +163,69 @@ link_or_copy() {
 echo -e "${BLUE}Instalando ai-core en $PROJECT_ROOT...${NC}"
 echo ""
 
-# 1. AGENTS.md (solo si no existe - preservar contenido del proyecto)
+# Función para merge inteligente de archivos
+# Si el archivo existe y no tiene header de ai-core, agrega header + contenido + footer
+merge_ai_core_content() {
+    local target_file="$1"
+    local header_file="$2"
+    local footer_file="$3"
+    local template_file="$4"
+    local file_name="$5"
+    
+    if [ ! -f "$target_file" ]; then
+        # Archivo no existe: crear desde template completo
+        cp "$template_file" "$target_file"
+        echo -e "  ✓ ${GREEN}$file_name creado (desde plantilla)${NC}"
+    elif grep -q "AI-CORE INTEGRATION" "$target_file" 2>/dev/null; then
+        # Ya tiene integración de ai-core: no modificar
+        echo -e "  ${YELLOW}⚠️  $file_name ya tiene ai-core integrado (sin cambios)${NC}"
+    else
+        # Archivo existe pero sin ai-core: hacer merge
+        local temp_file=$(mktemp)
+        cat "$header_file" > "$temp_file"
+        cat "$target_file" >> "$temp_file"
+        cat "$footer_file" >> "$temp_file"
+        mv "$temp_file" "$target_file"
+        echo -e "  ✓ ${GREEN}$file_name actualizado (header + contenido + footer)${NC}"
+    fi
+}
+
+# 1. AGENTS.md
 echo -e "${CYAN}[1/6]${NC} Configurando ${GREEN}AGENTS.md${NC}..."
-if [ ! -f "$PROJECT_ROOT/AGENTS.md" ]; then
-    cp "$AI_CORE_DIR/templates/AGENTS.template.md" "$PROJECT_ROOT/AGENTS.md"
-    echo -e "  ✓ ${GREEN}AGENTS.md creado (desde plantilla)${NC}"
-else
-    echo -e "  ${YELLOW}⚠️  AGENTS.md ya existe (preservado)${NC}"
-fi
+merge_ai_core_content \
+    "$PROJECT_ROOT/AGENTS.md" \
+    "$AI_CORE_DIR/templates/partials/AGENTS.header.md" \
+    "$AI_CORE_DIR/templates/partials/AGENTS.footer.md" \
+    "$AI_CORE_DIR/templates/AGENTS.template.md" \
+    "AGENTS.md"
 
-# 2. CLAUDE.md (solo si no existe - preservar contenido del proyecto)
+# 2. CLAUDE.md
 echo -e "${CYAN}[2/6]${NC} Configurando ${GREEN}CLAUDE.md${NC}..."
-if [ ! -f "$PROJECT_ROOT/CLAUDE.md" ]; then
-    cp "$AI_CORE_DIR/templates/CLAUDE.template.md" "$PROJECT_ROOT/CLAUDE.md"
-    echo -e "  ✓ ${GREEN}CLAUDE.md creado (desde plantilla)${NC}"
-else
-    echo -e "  ${YELLOW}⚠️  CLAUDE.md ya existe (preservado)${NC}"
-fi
+merge_ai_core_content \
+    "$PROJECT_ROOT/CLAUDE.md" \
+    "$AI_CORE_DIR/templates/partials/CLAUDE.header.md" \
+    "$AI_CORE_DIR/templates/partials/CLAUDE.footer.md" \
+    "$AI_CORE_DIR/templates/CLAUDE.template.md" \
+    "CLAUDE.md"
 
-# 3. GEMINI.md (solo si no existe - preservar contenido del proyecto)
+# 3. GEMINI.md
 echo -e "${CYAN}[3/6]${NC} Configurando ${GREEN}GEMINI.md${NC}..."
-if [ ! -f "$PROJECT_ROOT/GEMINI.md" ]; then
-    cp "$AI_CORE_DIR/templates/GEMINI.template.md" "$PROJECT_ROOT/GEMINI.md"
-    echo -e "  ✓ ${GREEN}GEMINI.md creado (desde plantilla)${NC}"
-else
-    echo -e "  ${YELLOW}⚠️  GEMINI.md ya existe (preservado)${NC}"
-fi
+merge_ai_core_content \
+    "$PROJECT_ROOT/GEMINI.md" \
+    "$AI_CORE_DIR/templates/partials/GEMINI.header.md" \
+    "$AI_CORE_DIR/templates/partials/GEMINI.footer.md" \
+    "$AI_CORE_DIR/templates/GEMINI.template.md" \
+    "GEMINI.md"
 
-# 4. .github/copilot-instructions.md (solo si no existe)
+# 4. .github/copilot-instructions.md
 echo -e "${CYAN}[4/6]${NC} Configurando ${GREEN}.github/copilot-instructions.md${NC}..."
 mkdir -p "$PROJECT_ROOT/.github"
-if [ ! -f "$PROJECT_ROOT/.github/copilot-instructions.md" ]; then
-    cp "$AI_CORE_DIR/templates/copilot-instructions.template.md" "$PROJECT_ROOT/.github/copilot-instructions.md"
-    echo -e "  ✓ ${GREEN}copilot-instructions.md creado (desde plantilla)${NC}"
-else
-    echo -e "  ${YELLOW}⚠️  copilot-instructions.md ya existe (preservado)${NC}"
-fi
+merge_ai_core_content \
+    "$PROJECT_ROOT/.github/copilot-instructions.md" \
+    "$AI_CORE_DIR/templates/partials/copilot.header.md" \
+    "$AI_CORE_DIR/templates/partials/copilot.footer.md" \
+    "$AI_CORE_DIR/templates/copilot-instructions.template.md" \
+    "copilot-instructions.md"
 
 # 5. .claude/skills (symlink)
 echo -e "${CYAN}[5/20]${NC} Creando ${GREEN}.claude/skills → ai-core/SKILLS/${NC}..."
