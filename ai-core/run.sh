@@ -164,7 +164,10 @@ echo -e "${BLUE}Instalando ai-core en $PROJECT_ROOT...${NC}"
 echo ""
 
 # Función para merge inteligente de archivos
-# Si el archivo existe y no tiene header de ai-core, agrega header + contenido + footer
+# Comportamiento:
+# - Si no existe: crear desde template
+# - Si existe SIN ai-core: agregar header + contenido + footer
+# - Si existe CON ai-core: actualizar header y footer, preservar contenido del usuario
 merge_ai_core_content() {
     local target_file="$1"
     local header_file="$2"
@@ -172,15 +175,58 @@ merge_ai_core_content() {
     local template_file="$4"
     local file_name="$5"
     
+    # Verificar que existan los archivos de partials
+    if [ ! -f "$header_file" ]; then
+        echo -e "  ${RED}✗ Error: No se encontró $header_file${NC}"
+        return 1
+    fi
+    if [ ! -f "$footer_file" ]; then
+        echo -e "  ${RED}✗ Error: No se encontró $footer_file${NC}"
+        return 1
+    fi
+    
     if [ ! -f "$target_file" ]; then
         # Archivo no existe: crear desde template completo
         cp "$template_file" "$target_file"
         echo -e "  ✓ ${GREEN}$file_name creado (desde plantilla)${NC}"
     elif grep -q "AI-CORE INTEGRATION" "$target_file" 2>/dev/null; then
-        # Ya tiene integración de ai-core: no modificar
-        echo -e "  ${YELLOW}⚠️  $file_name ya tiene ai-core integrado (sin cambios)${NC}"
+        # Ya tiene integración de ai-core: actualizar solo header y footer
+        # Extraer contenido del usuario (entre los separadores ---)
+        local temp_file=$(mktemp)
+        local user_content_file=$(mktemp)
+        
+        # Buscar el contenido entre el primer "---" después del header y el último "---" antes del footer
+        # El patrón es: HEADER --- CONTENIDO_USUARIO --- FOOTER
+        # Usamos awk para extraer el contenido del usuario
+        awk '
+            BEGIN { in_user_content = 0; first_separator = 0 }
+            /^---$/ {
+                if (first_separator == 0) {
+                    first_separator = 1
+                    in_user_content = 1
+                    next
+                }
+            }
+            /^## Recursos de ai-core/ { in_user_content = 0 }
+            in_user_content == 1 { print }
+        ' "$target_file" > "$user_content_file"
+        
+        # Si no encontramos contenido de usuario, mantener todo excepto header/footer conocidos
+        if [ ! -s "$user_content_file" ]; then
+            # Fallback: copiar todo el contenido actual
+            cat "$target_file" > "$user_content_file"
+        fi
+        
+        # Reconstruir el archivo: header + contenido usuario + footer
+        cat "$header_file" > "$temp_file"
+        cat "$user_content_file" >> "$temp_file"
+        cat "$footer_file" >> "$temp_file"
+        mv "$temp_file" "$target_file"
+        rm -f "$user_content_file"
+        
+        echo -e "  ✓ ${GREEN}$file_name actualizado (header/footer renovados)${NC}"
     else
-        # Archivo existe pero sin ai-core: hacer merge
+        # Archivo existe pero sin ai-core: hacer merge completo
         local temp_file=$(mktemp)
         cat "$header_file" > "$temp_file"
         cat "$target_file" >> "$temp_file"
