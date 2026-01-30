@@ -20,6 +20,28 @@ Este proyecto utiliza **ai-core** para patrones universales.
 - Subagentes para tareas específicas
 
 ---
+# GitHub Copilot Instructions
+
+<!-- ============================================================================
+     AI-CORE INTEGRATION - GITHUB COPILOT
+     ============================================================================
+     Este proyecto usa ai-core para patrones universales de desarrollo.
+
+     📖 REFERENCIA CENTRAL: ai-core/SUBAGENTS/AGENTS.md
+        Contiene: Working Agreements, Subagentes, Skills, Estructura del proyecto
+     ============================================================================ -->
+
+## Referencia a ai-core
+
+Este proyecto utiliza **ai-core** para patrones universales.
+
+📖 **Guía Central**: `ai-core/SUBAGENTS/AGENTS.md`
+
+- Working Agreements (estándares de calidad, seguridad)
+- 30+ Skills especializados
+- Subagentes para tareas específicas
+
+---
 # Repository Guidelines
 
 ## Project Structure & Module Organization
@@ -65,6 +87,30 @@ Este proyecto utiliza **ai-core** para patrones universales.
 - Config files: `.orchestrarc.json`, `.orchestrarc`, `orchestra.config.json`, `.orchestra/config.json`.
 - Do not commit secrets. For GLM usage, provide `ZAI_API_KEY` via environment variables.
 - Runtime artifacts are stored in `.orchestra/`; avoid checking them into Git.
+---
+
+## Reglas de ai-core (Siempre Aplicar)
+
+### Seguridad
+
+- Validar inputs en servidor (nunca confiar en cliente)
+- Usar queries parametrizadas (prevenir SQL injection)
+- Hash passwords con bcrypt/argon2
+- Nunca commitear secretos
+
+### Calidad
+
+- Usar TypeScript con tipos estrictos
+- Escribir tests para funcionalidad crítica
+- Usar conventional commits: `feat:`, `fix:`, `docs:`
+
+### APIs
+
+- Métodos HTTP correctos: GET, POST, PUT, DELETE
+- Estructura de respuesta consistente
+- Paginación para listas
+
+Para reglas completas, ver: **`ai-core/SUBAGENTS/AGENTS.md`**
 ---
 
 ## Reglas de ai-core (Siempre Aplicar)

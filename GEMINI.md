@@ -17,6 +17,25 @@
 > **Precedencia**: Este archivo > ai-core
 
 ---
+<!-- ============================================================================
+     AI-CORE INTEGRATION - GEMINI CLI
+     ============================================================================
+     Este proyecto usa ai-core para patrones universales de desarrollo.
+
+     📖 REFERENCIA CENTRAL: ai-core/SUBAGENTS/AGENTS.md
+        Contiene: Working Agreements, Subagentes, Skills, Estructura del proyecto
+
+     PRIORIDAD: Las instrucciones de este archivo tienen precedencia sobre ai-core
+     ============================================================================ -->
+
+> **Orden de lectura** para Gemini CLI:
+>
+> 1. `ai-core/SUBAGENTS/AGENTS.md` ← 📖 Guía central (skills, subagentes, working agreements)
+> 2. Este archivo ← Instrucciones específicas de TU proyecto
+>
+> **Precedencia**: Este archivo > ai-core
+
+---
 ## Project Overview
 
 This project, `@ai-core/orchestra`, is a "Meta-Orchestrator" for AI development tools. It coordinates multiple AI agents (Claude, Codex, Gemini, and GLM) to perform complex development tasks. The project is a Node.js application written in TypeScript and includes both a command-line interface (CLI) and a text-based user interface (TUI).
@@ -110,6 +129,37 @@ npm run lint
 *   **User Interface:** The project includes both a CLI and a TUI. The TUI is built with React and the `ink` library.
 *   **State Management:** The `StateManager` class is used to manage the state of the orchestration process.
 *   **AI Integration:** The project uses an adapter pattern to integrate with different AI agents. The `FallbackAdapter` provides a resilient way to interact with the agents.
+---
+
+## Recursos de ai-core
+
+| Recurso          | Ubicación                     | Descripción                                        |
+| ---------------- | ----------------------------- | -------------------------------------------------- |
+| **Guía Central** | `ai-core/SUBAGENTS/AGENTS.md` | Working agreements, subagentes, skills disponibles |
+| **Skills**       | `.gemini/skills/`             | Symlink a `ai-core/SKILLS/`                        |
+| **Subagentes**   | `.gemini/agents/`             | Symlink a `ai-core/SUBAGENTS/`                     |
+
+### Auto-Detección de Skills
+
+Gemini detecta automáticamente qué skill usar según tu solicitud:
+
+| Si mencionas...           | Skill a consultar |
+| ------------------------- | ----------------- |
+| auth, login, JWT, secrets | `security`        |
+| test, spec, mock, TDD     | `testing`         |
+| API, endpoint, REST       | `backend`         |
+| component, UI, React      | `frontend`        |
+| database, SQL, migration  | `database`        |
+| deploy, CI/CD, pipeline   | `ci-cd`           |
+
+### Subagentes Principales
+
+- `ai-core-guardian` - Guardian de producción (siempre activo)
+- `security-specialist` - OWASP, Zero Trust, OAuth2
+- `testing-specialist` - TDD, coverage, mocking
+- `code-reviewer` - Revisión de PRs
+
+Para lista completa y working agreements, ver: **`ai-core/SUBAGENTS/AGENTS.md`**
 ---
 
 ## Recursos de ai-core

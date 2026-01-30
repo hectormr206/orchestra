@@ -17,11 +17,6 @@
 > **Precedencia**: Este archivo > ai-core
 
 ---
-# CLAUDE.md
-
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
----
 
 ## Project Overview
 
@@ -349,6 +344,8 @@ Override with `test.command` in config.
 - Run `orchestra clean` to reset session
 - Delete `.orchestra/` directory manually
 - Resume with `orchestra resume` if possible
+---
+
 ---
 
 ## Recursos de ai-core
