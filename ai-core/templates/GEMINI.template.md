@@ -3,59 +3,117 @@
      ============================================================================
      Este proyecto usa ai-core para patrones universales de desarrollo.
 
-     CÓMO FUNCIONA:
-     1. Lee primero ai-core/GEMINI.md para patrones universales de Gemini
-     2. Luego aplica las instrucciones específicas de este archivo (abajo)
-     3. Para skills específicos, consulta ai-core/SKILLS/{skill}/SKILL.md
+     📖 REFERENCIA CENTRAL: ai-core/SUBAGENTS/AGENTS.md
+        Contiene: Working Agreements, Subagentes, Skills, Estructura del proyecto
 
      PRIORIDAD: Las instrucciones de este archivo tienen precedencia sobre ai-core
      ============================================================================ -->
 
 > **Orden de lectura** para Gemini CLI:
 >
-> 1. `ai-core/GEMINI.md` ← Patrones universales para Gemini
+> 1. `ai-core/SUBAGENTS/AGENTS.md` ← 📖 Guía central (skills, subagentes, working agreements)
 > 2. Este archivo ← Instrucciones específicas de TU proyecto
 >
 > **Precedencia**: Este archivo > ai-core
 
 ---
 
-# Instrucciones del Proyecto para Gemini CLI
+## Gemini Project Development Context
 
-<!--
-  ╔════════════════════════════════════════════════════════════╗
-  ║  AGREGA AQUÍ LAS INSTRUCCIONES ESPECÍFICAS DE TU PROYECTO  ║
-  ╚════════════════════════════════════════════════════════════╝
--->
+This document provides the necessary context for Gemini to effectively assist in the development and maintenance of this project.
 
-## Stack Tecnológico
+### 1. Project Overview
 
-<!-- Describe tu stack aquí -->
+[Project Name] is [brief description of what your project does].
 
-## Reglas del Proyecto
+- **Core Idea:** [Explain the main purpose and value proposition]
+- **Technology Stack:** [List main technologies: languages, frameworks, databases]
+- **Architecture:** [Brief description of the system architecture. See `ARCHITECTURE.md` if exists]
 
-<!-- Agrega reglas específicas para Gemini -->
+### 2. Building, Running, and Testing
 
-## Estructura del Proyecto
+- **Installation:**
 
-<!-- Describe la estructura de directorios -->
+  ```bash
+  # Installation commands
+  [Add your installation commands here]
+  ```
+
+- **Running the Application:**
+
+  ```bash
+  # Development mode
+  [Add dev command]
+
+  # Production mode
+  [Add prod command]
+  ```
+
+- **Running Tests:**
+
+  ```bash
+  # Run all tests
+  [Add test command]
+
+  # Run specific test suite
+  [Add suite-specific commands]
+  ```
+
+### 3. Development Conventions
+
+All contributions **must** adhere to the project conventions.
+
+#### Code Structure
+
+- **[Directory 1]:** Description of what goes here
+- **[Directory 2]:** Description of what goes here
+- **[Directory 3]:** Description of what goes here
+
+#### Coding Principles
+
+- **[Principle 1]:** Brief explanation
+- **[Principle 2]:** Brief explanation
+- **Write for an LLM:** Be specific, direct, and action-oriented
+- **Use Structured Formats:** Employ tables, bold keywords, and lists
+- **Validate Rigorously:** [Add validation requirements]
+
+### 4. Key Files & Directories
+
+- `src/`: Main source code directory
+- `tests/`: Contains all test scripts
+- `docs/`: Documentation files
+- `.github/workflows/`: GitHub Actions for CI/CD
+- `[config file]`: Main configuration file
+- `[other important files]`: Brief descriptions
 
 ---
 
-## Skills Disponibles (via ai-core)
+## Recursos de ai-core
 
-Los skills están en: `.gemini/skills/` (symlink a `ai-core/SKILLS/`)
+| Recurso          | Ubicación                     | Descripción                                        |
+| ---------------- | ----------------------------- | -------------------------------------------------- |
+| **Guía Central** | `ai-core/SUBAGENTS/AGENTS.md` | Working agreements, subagentes, skills disponibles |
+| **Skills**       | `.gemini/skills/`             | Symlink a `ai-core/SKILLS/`                        |
+| **Subagentes**   | `.gemini/agents/`             | Symlink a `ai-core/SUBAGENTS/`                     |
 
 ### Auto-Detección de Skills
 
-Gemini detectará automáticamente qué skill usar según palabras clave:
+Gemini detecta automáticamente qué skill usar según tu solicitud:
 
-| Si mencionas...      | Skill a usar |
-| -------------------- | ------------ |
-| auth, login, JWT     | `security`   |
-| test, spec, mock     | `testing`    |
-| API, endpoint, REST  | `backend`    |
-| component, UI, React | `frontend`   |
-| database, SQL, query | `database`   |
+| Si mencionas...           | Skill a consultar |
+| ------------------------- | ----------------- |
+| auth, login, JWT, secrets | `security`        |
+| test, spec, mock, TDD     | `testing`         |
+| API, endpoint, REST       | `backend`         |
+| component, UI, React      | `frontend`        |
+| database, SQL, migration  | `database`        |
+| deploy, CI/CD, pipeline   | `ci-cd`           |
 
-Para lista completa, ver `ai-core/GEMINI.md`.
+### Subagentes Principales
+
+- `ai-core-guardian` - Guardian de producción (siempre activo)
+- `security-specialist` - OWASP, Zero Trust, OAuth2
+- `testing-specialist` - TDD, coverage, mocking
+- `code-reviewer` - Revisión de PRs
+
+Para lista completa y working agreements, ver: **`ai-core/SUBAGENTS/AGENTS.md`**
