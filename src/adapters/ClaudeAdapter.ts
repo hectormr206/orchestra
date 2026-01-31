@@ -33,12 +33,22 @@ export class ClaudeAdapter {
       // Note: If Claude CLI supports output file directly, use it.
       // Otherwise capture stdout.
 
+      // Prepare environment:
+      // We strictly exclude global ANTHROPIC_* variables (often set for z.ai/GLM)
+      // to ensure the official Claude CLI relies solely on its local 'claude login' credentials.
+      const env: NodeJS.ProcessEnv = {};
+      for (const key in process.env) {
+        if (!key.startsWith("ANTHROPIC_")) {
+          env[key] = process.env[key];
+        }
+      }
+
+      // Apply any adapter-specific overrides (usually empty for official Claude)
+      Object.assign(env, this.config.env);
+
       const proc = spawn(this.config.command, args, {
         cwd: options.workingDir || process.cwd(),
-        env: {
-          ...process.env,
-          ...this.config.env,
-        },
+        env: env,
         stdio: ["pipe", "pipe", "pipe"],
       });
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Box, Text, useInput } from "ink";
 
 interface PlanReviewProps {
@@ -6,6 +6,60 @@ interface PlanReviewProps {
   onApprove: () => void;
   onReject: () => void;
   onEdit: () => void;
+}
+
+/**
+ * Cleans up plan content by removing AI conversation text
+ * and extracting only the actual Markdown plan
+ */
+function cleanPlanContent(rawPlan: string): string {
+  if (!rawPlan) return "";
+
+  // Find the first Markdown heading (# or ##)
+  const headingMatch = rawPlan.match(/^(#{1,3}\s.+)/m);
+
+  if (headingMatch && headingMatch.index !== undefined) {
+    // Return everything from the first heading onwards
+    return rawPlan.substring(headingMatch.index);
+  }
+
+  // If no heading found, try to find "PLAN" or "IMPLEMENTACION" or similar
+  const planMarkers = [
+    /^PLAN\s/im,
+    /^IMPLEMENTATION\s/im,
+    /^IMPLEMENTACION\s/im,
+    /^Archivos\s/im,
+    /^Files\s/im,
+    /^\*\*[A-Z]/m, // Bold text at start of line
+  ];
+
+  for (const marker of planMarkers) {
+    const match = rawPlan.match(marker);
+    if (match && match.index !== undefined) {
+      return rawPlan.substring(match.index);
+    }
+  }
+
+  // As last resort, remove common AI conversation prefixes
+  const cleanedLines = rawPlan.split("\n").filter((line, index) => {
+    // Skip lines that look like AI conversation at the start
+    if (index < 3) {
+      const lower = line.toLowerCase();
+      if (
+        lower.includes("puedo escribir") ||
+        lower.includes("here's") ||
+        lower.includes("i'll") ||
+        lower.includes("let me") ||
+        lower.includes("voy a") ||
+        lower.includes("aquí está")
+      ) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  return cleanedLines.join("\n").trim();
 }
 
 export const PlanReview: React.FC<PlanReviewProps> = ({
@@ -23,7 +77,9 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
     { label: "Edit", color: "blue", icon: "✎", action: onEdit },
   ];
 
-  const planLines = plan.split("\n");
+  // Clean the plan content before displaying
+  const cleanedPlan = useMemo(() => cleanPlanContent(plan), [plan]);
+  const planLines = cleanedPlan.split("\n");
   const visibleLines = 20;
 
   useInput((input, key) => {
@@ -54,9 +110,9 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
     scrollOffset + visibleLines,
   );
   const scrollPercent =
-    planLines.length > visibleLines
+    planLines.length > visibleLines && planLines.length - visibleLines > 0
       ? Math.round((scrollOffset / (planLines.length - visibleLines)) * 100)
-      : 100;
+      : 0;
 
   return (
     <Box flexDirection="column" padding={1}>
@@ -157,9 +213,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
       {/* Scroll indicator */}
       <Box justifyContent="flex-end">
         <Text color="gray">
-          Scroll: {scrollPercent}% │ Lines: {scrollOffset + 1}-
-          {Math.min(scrollOffset + visibleLines, planLines.length)}/
-          {planLines.length}
+          {`Scroll: ${scrollPercent}% │ Lines: ${scrollOffset + 1}-${Math.min(scrollOffset + visibleLines, planLines.length)}/${planLines.length}`}
         </Text>
       </Box>
 

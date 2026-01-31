@@ -79,9 +79,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       </Box>
       <Box>
         {progress && (
-          <Text color="cyan">
-            [{progress.current}/{progress.total}]
-          </Text>
+          <Text color="cyan">{`[${progress.current}/${progress.total}]`}</Text>
         )}
         {sessionId && (
           <Text color="gray"> │ Session: {sessionId.substring(0, 8)}</Text>

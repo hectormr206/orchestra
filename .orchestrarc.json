@@ -19,7 +19,7 @@
     "autoRevertOnFailure": true,
     "agents": {
       "architect": [
-        "Claude (Opus 4.5)",
+        "Claude (GLM 4.7)",
         "Gemini",
         "Claude (GLM 4.7)",
         "Codex"
@@ -38,7 +38,7 @@
       ],
       "consultant": [
         "Codex",
-        "Claude (Opus 4.5)",
+        "Claude (GLM 4.7)",
         "Gemini",
         "Claude (GLM 4.7)"
       ]

@@ -38,6 +38,7 @@ seguir paso a paso sin ambigüedad.
 3. Incluye NOMBRES EXACTOS de archivos y funciones
 4. Cada paso debe ser ACCIONABLE
 5. Lista TODAS las dependencias necesarias
+6. 🛑 NO INTENTES CREAR ARCHIVOS. Solo imprime el contenido del plan. Yo me encargaré de guardarlo.
 ─────────────────────────────────────────────────────────────────────────────
 
 ═══════════════════════════════════════════════════════════════════════════════

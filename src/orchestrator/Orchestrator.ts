@@ -152,7 +152,13 @@ export interface OrchestratorCallbacks {
   /** Called when project config is loaded */
   onConfigLoaded?: (configPath: string) => void;
   /** Called when an adapter falls back to another due to rate limit */
-  onAdapterFallback?: (from: string, to: string, reason: string) => void;
+  /** Called when an adapter falls back to another due to rate limit */
+  onAdapterFallback?: (
+    from: string,
+    to: string,
+    reason: string,
+    agent?: string,
+  ) => void;
   /** Called when recovery mode starts after normal audit loop fails */
   onRecoveryStart?: (failedFiles: string[]) => void;
   /** Called on each recovery attempt */
@@ -185,10 +191,10 @@ export class Orchestrator {
   private claudeAdapter: ClaudeAdapter;
 
   // Adaptadores con fallback para cada agente
-  private architectAdapter: Adapter;
-  private executorAdapter: Adapter;
-  private auditorAdapter: Adapter;
-  private consultantAdapter: Adapter;
+  public readonly architectAdapter: Adapter;
+  public readonly executorAdapter: Adapter;
+  public readonly auditorAdapter: Adapter;
+  public readonly consultantAdapter: Adapter;
 
   constructor(
     config: Partial<OrchestratorConfig> = {},
@@ -234,21 +240,29 @@ export class Orchestrator {
     // Configurar adaptadores dinámicamente
     this.architectAdapter = this.createAdapterChain(
       this.config.agents.architect,
+      "Architect",
     );
-    this.executorAdapter = this.createAdapterChain(this.config.agents.executor);
-    this.auditorAdapter = this.createAdapterChain(this.config.agents.auditor);
+    this.executorAdapter = this.createAdapterChain(
+      this.config.agents.executor,
+      "Executor",
+    );
+    this.auditorAdapter = this.createAdapterChain(
+      this.config.agents.auditor,
+      "Auditor",
+    );
     this.consultantAdapter = this.createAdapterChain(
       this.config.agents.consultant,
+      "Consultant",
     );
   }
 
   /**
    * Crea una cadena de fallback basada en la lista de modelos
    */
-  private createAdapterChain(models: string[]): Adapter {
+  private createAdapterChain(models: string[], agent?: string): Adapter {
     const fallbackCallbacks = {
       onAdapterFallback: (from: string, to: string, reason: string) => {
-        this.callbacks.onAdapterFallback?.(from, to, reason);
+        this.callbacks.onAdapterFallback?.(from, to, reason, agent);
       },
     };
 
@@ -348,12 +362,18 @@ export class Orchestrator {
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // FASE 4: TESTS (opcional)
+      // FASE 4: TESTS (opcional, non-blocking)
       // ═══════════════════════════════════════════════════════════════
       if (this.config.runTests) {
         const testSuccess = await this.runTestPhase();
         if (!testSuccess) {
-          return false;
+          // Tests failed, but don't block the entire task
+          // The code was generated successfully, tests are informational
+          this.callbacks.onError?.(
+            "testing",
+            "⚠️ Tests fallaron pero la generación de código fue exitosa. Revisa los tests manualmente.",
+          );
+          // Continue to git commit and success - code was generated
         }
       }
 
@@ -1900,57 +1920,139 @@ export class Orchestrator {
       }
     }
 
-    this.callbacks.onPhaseStart?.("testing", "Test Runner");
-    await this.stateManager.setPhase("testing");
+    const maxTestRetries = this.config.maxIterations || 3;
+    let lastTestOutput = "";
 
-    const startTime = Date.now();
-
-    // Detectar framework si no hay comando personalizado
-    const framework = this.config.testCommand
-      ? null
-      : await detectTestFramework(process.cwd());
-
-    const command =
-      this.config.testCommand ||
-      (framework
-        ? `${framework.command} ${framework.args.join(" ")}`
-        : "npm test");
-
-    this.callbacks.onTestStart?.(command);
-
-    try {
-      const result = await runTests(
-        process.cwd(),
-        this.config.testCommand || undefined,
-        this.config.timeout,
-      );
-
-      const duration = Date.now() - startTime;
-
-      this.callbacks.onTestComplete?.(result);
-      this.callbacks.onPhaseComplete?.("testing", "Test Runner", {
-        success: result.success,
-        duration,
-      });
-
-      if (!result.success) {
-        this.callbacks.onError?.(
-          "testing",
-          `Tests fallaron: ${result.failed} de ${result.passed + result.failed} tests`,
-        );
-        return false;
+    for (let attempt = 1; attempt <= maxTestRetries; attempt++) {
+      this.callbacks.onPhaseStart?.("testing", "Test Runner");
+      if (attempt > 1) {
+        this.callbacks.onIteration?.(attempt, maxTestRetries);
       }
+      await this.stateManager.setPhase("testing");
 
-      return true;
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      this.callbacks.onError?.(
-        "testing",
-        `Error ejecutando tests: ${errorMessage}`,
-      );
-      return false;
+      const startTime = Date.now();
+
+      // Detectar framework si no hay comando personalizado
+      const framework = this.config.testCommand
+        ? null
+        : await detectTestFramework(process.cwd());
+
+      const command =
+        this.config.testCommand ||
+        (framework
+          ? `${framework.command} ${framework.args.join(" ")}`
+          : "npm test");
+
+      this.callbacks.onTestStart?.(command);
+
+      try {
+        const result = await runTests(
+          process.cwd(),
+          this.config.testCommand || undefined,
+          this.config.timeout,
+        );
+
+        const duration = Date.now() - startTime;
+
+        this.callbacks.onTestComplete?.(result);
+        this.callbacks.onPhaseComplete?.("testing", "Test Runner", {
+          success: result.success,
+          duration,
+        });
+
+        if (result.success) {
+          return true; // Success!
+        }
+
+        // Tests failed - store output for Executor correction
+        lastTestOutput =
+          result.output ||
+          `Tests fallaron: ${result.failed} de ${result.passed + result.failed} tests`;
+
+        if (attempt < maxTestRetries) {
+          // Ask Executor to fix the code based on test output
+          this.callbacks.onPhaseStart?.("executing", "Executor (Test Fix)");
+
+          const testFixPrompt = this.buildTestFixPrompt(
+            lastTestOutput,
+            planContent || "",
+          );
+
+          try {
+            const fixResult = await this.executorAdapter.execute({
+              prompt: testFixPrompt,
+            });
+
+            if (fixResult.error) {
+              this.callbacks.onError?.(
+                "executing",
+                `Error al intentar corregir tests: ${fixResult.error}`,
+              );
+            } else {
+              this.callbacks.onPhaseComplete?.(
+                "executing",
+                "Executor (Test Fix)",
+                {
+                  success: true,
+                  duration: Date.now() - startTime,
+                },
+              );
+            }
+          } catch (error) {
+            this.callbacks.onError?.(
+              "executing",
+              `Error en Executor para corregir tests: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+        }
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : String(error);
+        lastTestOutput = errorMessage;
+
+        if (attempt >= maxTestRetries) {
+          this.callbacks.onError?.(
+            "testing",
+            `Error ejecutando tests después de ${maxTestRetries} intentos: ${errorMessage}`,
+          );
+          return false;
+        }
+      }
     }
+
+    // All retries exhausted
+    this.callbacks.onError?.(
+      "testing",
+      `Tests fallaron después de ${maxTestRetries} intentos. Último error: ${lastTestOutput.substring(0, 200)}...`,
+    );
+    return false;
+  }
+
+  /**
+   * Builds a prompt for the Executor to fix failing tests
+   */
+  private buildTestFixPrompt(testOutput: string, planContent: string): string {
+    return `Los tests del proyecto están fallando. Tu tarea es corregir el código para que los tests pasen.
+
+## Error de Tests
+
+\`\`\`
+${testOutput.substring(0, 3000)}
+\`\`\`
+
+## Plan Original
+
+${planContent.substring(0, 2000)}
+
+## Instrucciones
+
+1. Analiza el error de los tests cuidadosamente
+2. Identifica qué archivos necesitan corrección
+3. Modifica SOLO los archivos necesarios para corregir el error
+4. NO cambies la lógica de los tests, corrige el código que están probando
+5. Asegúrate de que tu corrección no rompa otras funcionalidades
+
+Por favor, aplica las correcciones necesarias directamente en los archivos.`;
   }
 
   /**

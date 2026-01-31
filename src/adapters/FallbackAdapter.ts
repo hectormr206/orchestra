@@ -4,7 +4,7 @@
  * Encadena múltiples adaptadores con fallback automático por límite de uso
  */
 
-import type { ExecuteOptions, AgentResult } from '../types.js';
+import type { ExecuteOptions, AgentResult } from "../types.js";
 
 export interface Adapter {
   execute(options: ExecuteOptions): Promise<AgentResult>;
@@ -26,7 +26,7 @@ export class FallbackAdapter implements Adapter {
 
   constructor(adapters: Adapter[], callbacks: FallbackAdapterCallbacks = {}) {
     if (adapters.length === 0) {
-      throw new Error('FallbackAdapter requiere al menos un adapter');
+      throw new Error("FallbackAdapter requiere al menos un adapter");
     }
     this.adapters = adapters;
     this.callbacks = callbacks;
@@ -56,13 +56,17 @@ export class FallbackAdapter implements Adapter {
           this.callbacks.onAdapterFallback?.(
             adapterInfo.model,
             nextAdapter.model,
-            'No disponible'
+            "No disponible",
           );
         }
         continue;
       }
 
-      this.callbacks.onAdapterStart?.(adapterInfo.model, i, this.adapters.length);
+      this.callbacks.onAdapterStart?.(
+        adapterInfo.model,
+        i,
+        this.adapters.length,
+      );
 
       const result = await adapter.execute(options);
 
@@ -73,28 +77,30 @@ export class FallbackAdapter implements Adapter {
       }
 
       // Verificar si es error de límite de uso
-      if (result.error?.startsWith('RATE_LIMIT:')) {
-        this.rateLimitedAdapters.add(adapterInfo.name);
-        lastError = result.error;
+      const isRateLimit =
+        result.error?.startsWith("RATE_LIMIT:") ||
+        result.error?.toLowerCase().includes("rate limit") ||
+        result.error?.toLowerCase().includes("limit") ||
+        result.error?.toLowerCase().includes("quota");
 
-        if (i < this.adapters.length - 1) {
-          const nextAdapter = this.adapters[i + 1].getInfo();
-          this.callbacks.onAdapterFallback?.(
-            adapterInfo.model,
-            nextAdapter.model,
-            'Límite de uso alcanzado'
-          );
-          continue; // Intentar con el siguiente
-        }
+      if (isRateLimit) {
+        this.rateLimitedAdapters.add(adapterInfo.name);
       }
 
-      // Otro tipo de error
       lastError = result.error;
-      
-      // Si no es rate limit, no hacer fallback automático
-      // (podría ser un error legítimo del prompt)
-      if (!result.error?.startsWith('RATE_LIMIT:')) {
-        return result;
+
+      // Try next adapter if available (for ANY failure, not just rate limits)
+      if (i < this.adapters.length - 1) {
+        const nextAdapter = this.adapters[i + 1].getInfo();
+        const reason = isRateLimit
+          ? "Límite de uso alcanzado"
+          : `Error: ${(result.error || "desconocido").substring(0, 50)}`;
+        this.callbacks.onAdapterFallback?.(
+          adapterInfo.model,
+          nextAdapter.model,
+          reason,
+        );
+        continue; // Try next adapter
       }
     }
 
@@ -102,7 +108,8 @@ export class FallbackAdapter implements Adapter {
     return {
       success: false,
       duration: 0,
-      error: lastError || 'Todos los adaptadores fallaron o alcanzaron su límite',
+      error:
+        lastError || "Todos los adaptadores fallaron o alcanzaron su límite",
     };
   }
 
@@ -125,7 +132,7 @@ export class FallbackAdapter implements Adapter {
     const activeAdapter = this.adapters[this.currentAdapterIndex];
     const info = activeAdapter.getInfo();
     return {
-      name: 'FallbackAdapter',
+      name: "FallbackAdapter",
       model: info.model,
       provider: `${info.provider} (con fallback)`,
     };
@@ -135,7 +142,7 @@ export class FallbackAdapter implements Adapter {
    * Obtiene la cadena completa de adaptadores
    */
   getChain(): string[] {
-    return this.adapters.map(a => a.getInfo().model);
+    return this.adapters.map((a) => a.getInfo().model);
   }
 
   /**

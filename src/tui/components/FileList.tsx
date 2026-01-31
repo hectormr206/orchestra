@@ -50,7 +50,7 @@ export const FileList: React.FC<FileListProps> = ({
     <Box flexDirection="column">
       {hiddenCount > 0 && (
         <Text color="gray" dimColor>
-          ... and {hiddenCount} more files above
+          {`... and ${hiddenCount} more files above`}
         </Text>
       )}
       {visibleFiles.map((file, index) => (

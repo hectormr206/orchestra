@@ -168,6 +168,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
         },
         {
           onPhaseStart: (phase, agent) => {
+            // ... (keep existing callbacks)
             addLog("info", "Phase started: " + phase, agent);
 
             if (phase === "planning") {
@@ -184,6 +185,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
               addLog("info", "Running tests...");
             }
           },
+          // ... (keep other callbacks)
           onPhaseComplete: (phase, agent, result) => {
             addLog(
               "success",
@@ -283,11 +285,38 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
             addLog("info", "Consultant helping with " + file, "Consultant");
             updateAgent("Consultant", { status: "working" });
           },
-          onAdapterFallback: (from, to, reason) => {
+          onAdapterFallback: (from, to, reason, agentName) => {
             addLog(
               "warning",
               "Fallback: " + from + " → " + to + " (" + reason + ")",
+              agentName,
             );
+
+            // Update the UI to show the new active model
+            setState((prev) => ({
+              ...prev,
+              agents: prev.agents.map((agent) => {
+                // If agentName is provided, update only that agent
+                if (agentName && agent.name === agentName) {
+                  return {
+                    ...agent,
+                    adapter: to,
+                    status: "fallback",
+                    fallbackFrom: from,
+                  };
+                }
+                // Fallback for older behavior (shouldn't happen with new orchestrator)
+                if (!agentName && agent.adapter === from) {
+                  return {
+                    ...agent,
+                    adapter: to,
+                    status: "fallback",
+                    fallbackFrom: from,
+                  };
+                }
+                return agent;
+              }),
+            }));
           },
           onRecoveryStart: (failedFiles) => {
             addLog(
@@ -346,6 +375,33 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
       );
 
       orchestratorRef.current = orchestrator;
+
+      // Update agents with configured models
+      setState((prev) => ({
+        ...prev,
+        agents: [
+          {
+            name: "Architect",
+            adapter: orchestrator.architectAdapter.getInfo().model,
+            status: "idle",
+          },
+          {
+            name: "Executor",
+            adapter: orchestrator.executorAdapter.getInfo().model,
+            status: "idle",
+          },
+          {
+            name: "Auditor",
+            adapter: orchestrator.auditorAdapter.getInfo().model,
+            status: "idle",
+          },
+          {
+            name: "Consultant",
+            adapter: orchestrator.consultantAdapter.getInfo().model,
+            status: "idle",
+          },
+        ],
+      }));
 
       try {
         // En TUI, al iniciar una nueva tarea explícitamente, limpiamos cualquier sesión anterior pendiente

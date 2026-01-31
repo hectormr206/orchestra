@@ -148,7 +148,7 @@ export const Execution: React.FC<ExecutionProps> = ({
           <Box borderStyle="round" borderColor="yellow" padding={1} height={12}>
             <Box flexDirection="column">
               <Text bold color="yellow">
-                Files ({progress.current}/{progress.total})
+                {`Files (${progress.current}/${progress.total})`}
               </Text>
               <Text color="cyan">─────────────────────────────────</Text>
               <FileList files={files} maxVisible={8} />
