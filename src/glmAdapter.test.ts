@@ -1,12 +1,12 @@
 /**
- * Tests for Codex Adapter
+ * Tests for GLM Adapter
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CodexAdapter } from './adapters/CodexAdapter.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { GLMAdapter } from './adapters/GLMAdapter.js';
 import type { ExecuteOptions } from './types.js';
 
-// Create mock spawn function - shared across all adapter tests
+// Create mock spawn function
 const mockSpawnFn = vi.fn();
 vi.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawnFn(...args),
@@ -19,31 +19,48 @@ vi.mock('fs/promises', () => ({
   writeFile: (...args: unknown[]) => mockWriteFile(...args),
 }));
 
-describe('CodexAdapter', () => {
-  let adapter: CodexAdapter;
-
+describe('GLMAdapter', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSpawnFn.mockReset();
-    adapter = new CodexAdapter();
+    // Set required env var
+    process.env.ZAI_API_KEY = 'test-api-key';
+  });
+
+  afterEach(() => {
+    delete process.env.ZAI_API_KEY;
   });
 
   describe('initialization', () => {
-    it('should initialize with default config', () => {
+    it('should initialize with ZAI_API_KEY set', () => {
+      const adapter = new GLMAdapter();
       expect(adapter).toBeDefined();
     });
 
     it('should have correct info', () => {
+      const adapter = new GLMAdapter();
       const info = adapter.getInfo();
 
-      expect(info.name).toBe('CodexAdapter');
-      expect(info.model).toBe('Codex CLI');
-      expect(info.provider).toBe('OpenAI');
+      expect(info.name).toBe('GLMAdapter');
+      expect(info.model).toBe('Claude (GLM 4.7)');
+      expect(info.provider).toBe('z.ai');
+    });
+
+    it('should throw error when ZAI_API_KEY is not set', () => {
+      delete process.env.ZAI_API_KEY;
+
+      expect(() => new GLMAdapter()).toThrow('ZAI_API_KEY no está configurada');
     });
   });
 
   describe('execute', () => {
-    it('should spawn codex command with correct args', async () => {
+    let adapter: GLMAdapter;
+
+    beforeEach(() => {
+      adapter = new GLMAdapter();
+    });
+
+    it('should spawn claude command with correct args', async () => {
       const mockProc: any = {
         stdout: { on: vi.fn() },
         stderr: { on: vi.fn() },
@@ -74,14 +91,13 @@ describe('CodexAdapter', () => {
       const result = await adapter.execute(options);
 
       expect(mockSpawnFn).toHaveBeenCalledWith(
-        'codex',
-        [
-          'exec',
-          '--dangerously-bypass-approvals-and-sandbox',
-          'Test prompt',
-        ],
+        'claude',
+        ['--print', '-p', 'Test prompt'],
         expect.objectContaining({
-          env: expect.any(Object),
+          env: expect.objectContaining({
+            ANTHROPIC_API_KEY: 'test-api-key',
+            ANTHROPIC_BASE_URL: 'https://api.z.ai/api/anthropic',
+          }),
           stdio: ['pipe', 'pipe', 'pipe'],
         })
       );
@@ -108,7 +124,7 @@ describe('CodexAdapter', () => {
           ([event]: [string]) => event === 'close'
         )?.[1] as ((code: number) => void) | undefined;
 
-        stderrHandler?.(Buffer.from('Rate limit exceeded'));
+        stderrHandler?.(Buffer.from('rate limit exceeded'));
         closeHandler?.(1);
       });
 
@@ -226,7 +242,8 @@ describe('CodexAdapter', () => {
   });
 
   describe('availability', () => {
-    it('should check if codex command is available', async () => {
+    it('should check if claude command is available', async () => {
+      const adapter = new GLMAdapter();
       const mockWhichProc: any = { on: vi.fn() };
 
       mockSpawnFn.mockReturnValueOnce(mockWhichProc);
@@ -243,7 +260,8 @@ describe('CodexAdapter', () => {
       expect(available).toBe(true);
     });
 
-    it('should return false when codex is not found', async () => {
+    it('should return false when claude is not found', async () => {
+      const adapter = new GLMAdapter();
       const mockWhichProc: any = { on: vi.fn() };
 
       mockSpawnFn.mockReturnValueOnce(mockWhichProc);
@@ -263,6 +281,7 @@ describe('CodexAdapter', () => {
 
   describe('rate limit detection', () => {
     it('should detect various rate limit patterns', async () => {
+      const adapter = new GLMAdapter();
       const patterns = [
         'rate limit exceeded',
         'quota exceeded',

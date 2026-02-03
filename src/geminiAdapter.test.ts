@@ -1,12 +1,12 @@
 /**
- * Tests for Codex Adapter
+ * Tests for Gemini Adapter
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CodexAdapter } from './adapters/CodexAdapter.js';
+import { GeminiAdapter } from './adapters/GeminiAdapter.js';
 import type { ExecuteOptions } from './types.js';
 
-// Create mock spawn function - shared across all adapter tests
+// Create mock spawn function
 const mockSpawnFn = vi.fn();
 vi.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawnFn(...args),
@@ -19,13 +19,13 @@ vi.mock('fs/promises', () => ({
   writeFile: (...args: unknown[]) => mockWriteFile(...args),
 }));
 
-describe('CodexAdapter', () => {
-  let adapter: CodexAdapter;
+describe('GeminiAdapter', () => {
+  let adapter: GeminiAdapter;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockSpawnFn.mockReset();
-    adapter = new CodexAdapter();
+    adapter = new GeminiAdapter();
   });
 
   describe('initialization', () => {
@@ -36,14 +36,15 @@ describe('CodexAdapter', () => {
     it('should have correct info', () => {
       const info = adapter.getInfo();
 
-      expect(info.name).toBe('CodexAdapter');
-      expect(info.model).toBe('Codex CLI');
-      expect(info.provider).toBe('OpenAI');
+      expect(info.name).toBe('GeminiAdapter');
+      expect(info.model).toBe('Gemini Pro');
+      expect(info.provider).toBe('Google');
     });
   });
 
   describe('execute', () => {
-    it('should spawn codex command with correct args', async () => {
+    it('should spawn gemini command with correct args', async () => {
+      // Create a mock process
       const mockProc: any = {
         stdout: { on: vi.fn() },
         stderr: { on: vi.fn() },
@@ -74,12 +75,8 @@ describe('CodexAdapter', () => {
       const result = await adapter.execute(options);
 
       expect(mockSpawnFn).toHaveBeenCalledWith(
-        'codex',
-        [
-          'exec',
-          '--dangerously-bypass-approvals-and-sandbox',
-          'Test prompt',
-        ],
+        'gemini',
+        ['-y', 'Test prompt'],
         expect.objectContaining({
           env: expect.any(Object),
           stdio: ['pipe', 'pipe', 'pipe'],
@@ -226,7 +223,7 @@ describe('CodexAdapter', () => {
   });
 
   describe('availability', () => {
-    it('should check if codex command is available', async () => {
+    it('should check if gemini command is available', async () => {
       const mockWhichProc: any = { on: vi.fn() };
 
       mockSpawnFn.mockReturnValueOnce(mockWhichProc);
@@ -243,7 +240,7 @@ describe('CodexAdapter', () => {
       expect(available).toBe(true);
     });
 
-    it('should return false when codex is not found', async () => {
+    it('should return false when gemini is not found', async () => {
       const mockWhichProc: any = { on: vi.fn() };
 
       mockSpawnFn.mockReturnValueOnce(mockWhichProc);
@@ -271,6 +268,7 @@ describe('CodexAdapter', () => {
         'resource exhausted',
         'limit reached',
         'usage limit',
+        'RESOURCE_EXHAUSTED',
       ];
 
       for (const pattern of patterns) {

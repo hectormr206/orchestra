@@ -1,12 +1,12 @@
 /**
- * Tests for Codex Adapter
+ * Tests for Claude Adapter
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { CodexAdapter } from './adapters/CodexAdapter.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { ClaudeAdapter } from './adapters/ClaudeAdapter.js';
 import type { ExecuteOptions } from './types.js';
 
-// Create mock spawn function - shared across all adapter tests
+// Create mock spawn function
 const mockSpawnFn = vi.fn();
 vi.mock('child_process', () => ({
   spawn: (...args: unknown[]) => mockSpawnFn(...args),
@@ -19,13 +19,22 @@ vi.mock('fs/promises', () => ({
   writeFile: (...args: unknown[]) => mockWriteFile(...args),
 }));
 
-describe('CodexAdapter', () => {
-  let adapter: CodexAdapter;
+describe('ClaudeAdapter', () => {
+  let adapter: ClaudeAdapter;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockSpawnFn.mockReset();
-    adapter = new CodexAdapter();
+    adapter = new ClaudeAdapter();
+  });
+
+  afterEach(() => {
+    // Clean up any ANTHROPIC_* env vars we might have set
+    for (const key in process.env) {
+      if (key.startsWith('ANTHROPIC_')) {
+        delete process.env[key];
+      }
+    }
   });
 
   describe('initialization', () => {
@@ -36,14 +45,18 @@ describe('CodexAdapter', () => {
     it('should have correct info', () => {
       const info = adapter.getInfo();
 
-      expect(info.name).toBe('CodexAdapter');
-      expect(info.model).toBe('Codex CLI');
-      expect(info.provider).toBe('OpenAI');
+      expect(info.name).toBe('ClaudeAdapter');
+      expect(info.model).toBe('Claude Opus 4.5');
+      expect(info.provider).toBe('Anthropic');
     });
   });
 
   describe('execute', () => {
-    it('should spawn codex command with correct args', async () => {
+    it('should spawn claude command and filter ANTHROPIC_* env vars', async () => {
+      // Set some ANTHROPIC_* env vars that should be filtered out
+      process.env.ANTHROPIC_API_KEY = 'should-be-filtered';
+      process.env.ANTHROPIC_BASE_URL = 'should-be-filtered';
+
       const mockProc: any = {
         stdout: { on: vi.fn() },
         stderr: { on: vi.fn() },
@@ -74,14 +87,13 @@ describe('CodexAdapter', () => {
       const result = await adapter.execute(options);
 
       expect(mockSpawnFn).toHaveBeenCalledWith(
-        'codex',
-        [
-          'exec',
-          '--dangerously-bypass-approvals-and-sandbox',
-          'Test prompt',
-        ],
+        'claude',
+        ['Test prompt'],
         expect.objectContaining({
-          env: expect.any(Object),
+          env: expect.not.objectContaining({
+            ANTHROPIC_API_KEY: 'should-be-filtered',
+            ANTHROPIC_BASE_URL: 'should-be-filtered',
+          }),
           stdio: ['pipe', 'pipe', 'pipe'],
         })
       );
@@ -108,7 +120,7 @@ describe('CodexAdapter', () => {
           ([event]: [string]) => event === 'close'
         )?.[1] as ((code: number) => void) | undefined;
 
-        stderrHandler?.(Buffer.from('Rate limit exceeded'));
+        stderrHandler?.(Buffer.from('rate limit exceeded'));
         closeHandler?.(1);
       });
 
@@ -223,10 +235,44 @@ describe('CodexAdapter', () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain('Command not found');
     });
+
+    it('should accept successful execution with non-zero exit code but output', async () => {
+      const mockProc: any = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        stdin: { end: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+      };
+
+      mockSpawnFn.mockReturnValueOnce(mockProc);
+
+      // Simulate successful execution with stdout but non-zero exit
+      process.nextTick(() => {
+        const stdoutHandler = mockProc.stdout.on.mock.calls.find(
+          ([event]: [string]) => event === 'data'
+        )?.[1] as ((data: Buffer) => void) | undefined;
+        const closeHandler = mockProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+
+        stdoutHandler?.(Buffer.from('Test response'));
+        closeHandler?.(1); // Non-zero exit code
+      });
+
+      const options: ExecuteOptions = {
+        prompt: 'Test prompt',
+      };
+
+      const result = await adapter.execute(options);
+
+      // ClaudeAdapter accepts stdout.length > 0 as success
+      expect(result.success).toBe(true);
+    });
   });
 
   describe('availability', () => {
-    it('should check if codex command is available', async () => {
+    it('should check if claude command is available', async () => {
       const mockWhichProc: any = { on: vi.fn() };
 
       mockSpawnFn.mockReturnValueOnce(mockWhichProc);
@@ -243,7 +289,7 @@ describe('CodexAdapter', () => {
       expect(available).toBe(true);
     });
 
-    it('should return false when codex is not found', async () => {
+    it('should return false when claude is not found', async () => {
       const mockWhichProc: any = { on: vi.fn() };
 
       mockSpawnFn.mockReturnValueOnce(mockWhichProc);
@@ -269,8 +315,7 @@ describe('CodexAdapter', () => {
         'too many requests',
         '429',
         'resource exhausted',
-        'limit reached',
-        'usage limit',
+        'overloaded',
       ];
 
       for (const pattern of patterns) {
