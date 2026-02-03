@@ -1,5 +1,8 @@
 # Runtime files
 .orchestra/
+# But track plugins
+!.orchestra/plugins/
+!.orchestra/plugins/**/
 dist/
 node_modules/
 
