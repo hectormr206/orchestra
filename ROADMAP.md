@@ -171,7 +171,7 @@
 
 - [x] Mejorar `githubIntegration.ts` con manejo robusto de errores ✓
 - [x] Soporte para crear multiples issues/PRs en batch ✓ (createBatchIssues, createBatchPRs implementadas)
-- [ ] Integración con Checks de GitHub (status checks)
+- [x] Integración con Checks de GitHub (status checks) ✓ (createCheckRun, updateCheckRun, check annotations)
 - [ ] Tests E2E para CLI con mocking de APIs
 - [x] Alcanzar 80% de cobertura de tests ✓ (actual: 91.2%)
 - [x] Performance profiling y optimización de cuellos de botella ✓
