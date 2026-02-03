@@ -108,7 +108,7 @@
 - [x] Optimización de Recovery Mode (reducir tiempo de recuperación)
 - [x] Caché distribuido entre sesiones
 - [x] Paralelización a nivel de agente (no solo archivos)
-- [ ] Soporte para proyectos TypeScript con paths aliases
+- [x] Soporte para proyectos TypeScript con paths aliases
 - [x] Detección automática de frameworks (Express, FastAPI, etc.)
 
 #### Integraciones
