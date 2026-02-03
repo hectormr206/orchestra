@@ -103,13 +103,15 @@
 ### 🚧 En Progreso
 
 #### Pruebas
-- [x] Tests unitarios para `src/` (securityAudit, export, pluginManager, frameworkDetector, fallbackAdapter)
-- [x] Tests de integración para el flujo completo (integration.test.ts)
-- [x] Tests unitarios para adapters (fallbackAdapter.test.ts)
-- [x] Tests E2E para CLI (e2e.test.ts - infrastructure creada)
-- [ ] Tests unitarios para orchestrator/
+- [x] Tests unitarios para `src/` (securityAudit, export, pluginManager, frameworkDetector, fallbackAdapter, stateManager) ✓
+- [x] Tests de integración para el flujo completo (integration.test.ts) ✓
+- [x] Tests unitarios para adapters (fallbackAdapter.test.ts) ✓
+- [x] Tests unitarios para orchestrator (stateManager.test.ts) ✓
+- [x] Tests E2E para CLI (e2e.test.ts - infrastructure creada) ✓
 - [ ] Tests para componentes TUI
 - [ ] Cobertura mínima del 80%
+
+**Total: 96 tests passing** ✓
 
 ### 📋 Pendiente
 
