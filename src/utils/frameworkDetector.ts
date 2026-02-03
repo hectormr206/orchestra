@@ -14,6 +14,16 @@ import { existsSync, readFileSync } from 'fs';
 import path from 'path';
 import { glob } from 'glob';
 
+export interface OrchestrationRecommendations {
+  agentPreference: string[];
+  maxConcurrency: number;
+  useCache: boolean;
+  testCommand?: string;
+  buildCommand?: string;
+  lintCommand?: string;
+  customPrompts?: Record<string, string>;
+}
+
 export interface FrameworkInfo {
   name: string;
   type: 'frontend' | 'backend' | 'mobile' | 'desktop' | 'test' | 'build' | 'language';
@@ -32,6 +42,7 @@ export interface ProjectDetection {
   buildTool?: string;
   monorepo: boolean;
   monorepoType?: 'nx' | 'turborepo' | 'lerna' | 'pnpm-workspace' | 'yarn-workspace' | undefined;
+  recommendations: OrchestrationRecommendations;
 }
 
 /**
@@ -496,9 +507,28 @@ export function detectProject(cwd: string = process.cwd()): ProjectDetection {
     hasTypeScript,
     hasTests,
     testFramework,
-    buildTool,
+    buildTool: buildTool || 'unknown',
     monorepo: monorepoInfo.monorepo,
     monorepoType: monorepoInfo.type,
+    recommendations: generateRecommendations(language, packageManager, frameworks),
+  };
+}
+
+/**
+ * Generate orchestration recommendations
+ */
+function generateRecommendations(
+  language: string,
+  packageManager: string,
+  frameworks: FrameworkInfo[]
+): OrchestrationRecommendations {
+  return {
+    agentPreference: ['Claude (Opus 4.5)', 'Gemini', 'Claude (GLM 4.7)'],
+    maxConcurrency: 3,
+    useCache: true,
+    testCommand: getTestCommandForLanguage(language, packageManager),
+    buildCommand: getBuildCommandForLanguage(language, packageManager),
+    lintCommand: getLintCommandForLanguage(language, packageManager),
   };
 }
 
@@ -559,5 +589,144 @@ export function getBuildCommand(detection: ProjectDetection): string | undefined
     return 'npm run build';
   }
 
+  // Language-specific defaults
+  if (detection.language === 'python') {
+    return undefined; // Python typically doesn't have build commands
+  }
+  if (detection.language === 'go') {
+    return 'go build ./...';
+  }
+  if (detection.language === 'rust') {
+    return 'cargo build --release';
+  }
+
+  return undefined;
+}
+
+/**
+ * Get recommended lint command based on detected framework
+ */
+export function getLintCommand(detection: ProjectDetection): string | undefined {
+  // Node.js/JavaScript/TypeScript
+  if (detection.language === 'typescript' || detection.language === 'javascript') {
+    if (detection.packageManager === 'npm') {
+      return 'npm run lint || npm run eslint';
+    }
+    if (detection.packageManager === 'yarn') {
+      return 'yarn lint || yarn eslint';
+    }
+    if (detection.packageManager === 'pnpm') {
+      return 'pnpm lint || pnpm eslint';
+    }
+    if (detection.packageManager === 'bun') {
+      return 'bun run lint || bun run eslint';
+    }
+  }
+
+  // Python
+  if (detection.language === 'python') {
+    return 'flake8 . || pylint . || ruff check .';
+  }
+
+  // Go
+  if (detection.language === 'go') {
+    return 'go fmt ./... && go vet ./...';
+  }
+
+  // Rust
+  if (detection.language === 'rust') {
+    return 'cargo clippy -- -D warnings';
+  }
+
+  return undefined;
+}
+
+/**
+ * Get recommended test command based on language and package manager
+ */
+function getTestCommandForLanguage(language: string, packageManager: string): string | undefined {
+  if (language === 'python') {
+    return 'pytest || python -m pytest';
+  }
+  if (language === 'go') {
+    return 'go test ./...';
+  }
+  if (language === 'rust') {
+    return 'cargo test';
+  }
+  if (language === 'typescript' || language === 'javascript') {
+    if (packageManager === 'npm') {
+      return 'npm test';
+    }
+    if (packageManager === 'yarn') {
+      return 'yarn test';
+    }
+    if (packageManager === 'pnpm') {
+      return 'pnpm test';
+    }
+    if (packageManager === 'bun') {
+      return 'bun test';
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Get recommended build command based on language and package manager
+ */
+function getBuildCommandForLanguage(language: string, packageManager: string): string | undefined {
+  if (language === 'python') {
+    return undefined; // Python typically doesn't have build commands
+  }
+  if (language === 'go') {
+    return 'go build ./...';
+  }
+  if (language === 'rust') {
+    return 'cargo build --release';
+  }
+  if (language === 'typescript' || language === 'javascript') {
+    if (packageManager === 'npm') {
+      return 'npm run build';
+    }
+    if (packageManager === 'yarn') {
+      return 'yarn build';
+    }
+    if (packageManager === 'pnpm') {
+      return 'pnpm build';
+    }
+    if (packageManager === 'bun') {
+      return 'bun run build';
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Get recommended lint command based on language and package manager
+ */
+function getLintCommandForLanguage(language: string, packageManager: string): string | undefined {
+  if (language === 'python') {
+    return 'flake8 . || pylint . || ruff check .';
+  }
+  if (language === 'go') {
+    return 'go fmt ./... && go vet ./...';
+  }
+  if (language === 'rust') {
+    return 'cargo clippy -- -D warnings';
+  }
+  if (language === 'typescript' || language === 'javascript') {
+    if (packageManager === 'npm') {
+      return 'npm run lint || npm run eslint';
+    }
+    if (packageManager === 'yarn') {
+      return 'yarn lint || yarn eslint';
+    }
+    if (packageManager === 'pnpm') {
+      return 'pnpm lint || pnpm eslint';
+    }
+    if (packageManager === 'bun') {
+      return 'bun run lint || bun run eslint';
+    }
+  }
   return undefined;
 }

@@ -89,7 +89,7 @@
 - [ ] Pantalla de configuración avanzada
 
 #### Pruebas
-- [ ] Tests unitarios para `src/` (actualmente sin `*.test.ts`)
+- [x] Tests unitarios para `src/` (securityAudit, export, pluginManager, frameworkDetector)
 - [ ] Tests de integración para el flujo completo
 - [ ] Tests E2E para CLI
 - [ ] Cobertura mínima del 80%
@@ -98,30 +98,30 @@
 
 #### Nuevas Features
 - [ ] Adaptadores para más proveedores (Claude Opus, Llama 3, Mistral)
-- [ ] Sistema de plugins para extensibilidad
-- [ ] Soporte para monorepos (multi-package)
+- [x] Sistema de plugins para extensibilidad
+- [x] Soporte para monorepos (multi-package)
 - [ ] Contexto multi-archivo inteligente (entender dependencias)
 - [ ] Interfaz web alternativa al TUI
 - [ ] Modo servidor/orquestación distribuida
 
 #### Mejoras de Core
-- [ ] Optimización de Recovery Mode (reducir tiempo de recuperación)
-- [ ] Caché distribuido entre sesiones
+- [x] Optimización de Recovery Mode (reducir tiempo de recuperación)
+- [x] Caché distribuido entre sesiones
 - [ ] Paralelización a nivel de agente (no solo archivos)
 - [ ] Soporte para proyectos TypeScript con paths aliases
-- [ ] Detección automática de frameworks (Express, FastAPI, etc.)
+- [x] Detección automática de frameworks (Express, FastAPI, etc.)
 
 #### Integraciones
-- [ ] Integración con Jira para crear tickets
-- [ ] Integración con Slack/Discord para notificaciones
-- [ ] Integración con CI/CD (GitHub Actions, GitLab CI)
-- [ ] Exportación a formatos adicionales (PDF, HTML)
+- [x] Integración con Jira para crear tickets
+- [x] Integración con Slack/Discord para notificaciones
+- [x] Integración con CI/CD (GitHub Actions, GitLab CI)
+- [x] Exportación a formatos adicionales (PDF, HTML)
 
 #### DevEx
-- [ ] Scripts de desarrollo con hot-reload
-- [ ] Mejor debugging con logs estructurados
-- [ ] Perfiles de configuración para diferentes entornos
-- [ ] Completado automático en shell (bash/zsh)
+- [x] Scripts de desarrollo con hot-reload
+- [x] Mejor debugging con logs estructurados
+- [x] Perfiles de configuración para diferentes entornos
+- [x] Completado automático en shell (bash/zsh)
 
 ---
 
@@ -133,12 +133,12 @@
 - [x] Validar sintaxis en todos los lenguajes soportados
 - [x] Implementar Recovery Mode con checkpoints
 - [x] Completar integración GitHub básica
-- [ ] Completar pantallas pendientes de TUI (dry-run, edición de planes)
-- [ ] Implementar tests unitarios para `src/adapters/` y `src/utils/`
+- [x] Completar pantallas pendientes de TUI (dry-run, edición de planes)
+- [x] Implementar tests unitarios para `src/adapters/` y `src/utils/`
 - [ ] Implementar tests de integración para el flujo básico
 - [ ] Alcanzar 60% de cobertura de tests
-- [ ] Documentación completa de API en `docs/api/`
-- [ ] Guías de uso en `docs/guides/`
+- [x] Documentación completa de API en `docs/api/`
+- [x] Guías de uso en `docs/guides/`
 
 **Entregables:**
 - Versión 0.2.0 con TUI completa
@@ -148,13 +148,13 @@
 ### Q2 2026 (Abr - Jun) - Calidad v0.3
 **Objetivo:** Hardening de GitHub integration, mejoras en testing
 
-- [ ] Mejorar `githubIntegration.ts` con manejo robusto de errores
+- [x] Mejorar `githubIntegration.ts` con manejo robusto de errores
 - [ ] Soporte para crear multiples issues/PRs en batch
 - [ ] Integración con Checks de GitHub (status checks)
 - [ ] Tests E2E para CLI con mocking de APIs
 - [ ] Alcanzar 80% de cobertura de tests
-- [ ] Performance profiling y optimización de cuellos de botella
-- [ ] Mejorar mensajes de error y UX de recovery
+- [x] Performance profiling y optimización de cuellos de botella
+- [x] Mejorar mensajes de error y UX de recovery
 
 **Entregables:**
 - Versión 0.3.0 con integración GitHub robusta
@@ -166,11 +166,11 @@
 
 - [ ] Adaptador para Claude Opus 4.5
 - [ ] Adaptador para Llama 3 (local y API)
-- [ ] Arquitectura de plugins con carga dinámica
+- [x] Arquitectura de plugins con carga dinámica
 - [ ] Plugin oficial para soporte Express.js
 - [ ] Plugin oficial para soporte FastAPI
-- [ ] Documentación para crear plugins personalizados
-- [ ] Sistema de configuración por proyecto con herencia
+- [x] Documentación para crear plugins personalizados
+- [x] Sistema de configuración por proyecto con herencia
 
 **Entregables:**
 - Versión 0.4.0 con 2 nuevos adaptadores
