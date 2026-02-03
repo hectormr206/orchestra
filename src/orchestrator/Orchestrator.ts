@@ -346,18 +346,23 @@ export class Orchestrator {
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // FASE 2: EJECUTOR
+      // FASE 2+3: EJECUCIÓN Y AUDITORÍA
       // ═══════════════════════════════════════════════════════════════
-      const execSuccess = await this.runExecutor();
-      if (!execSuccess) {
-        return false;
+      // Pipeline mode: execute and audit files in parallel for better performance
+      // Standard mode: execute all files, then audit all files
+      let execAuditSuccess: boolean;
+      if (this.config.pipeline) {
+        execAuditSuccess = await this.runExecuteAuditPipeline();
+      } else {
+        // Standard sequential flow
+        const execSuccess = await this.runExecutor();
+        if (!execSuccess) {
+          return false;
+        }
+        execAuditSuccess = await this.runAuditLoop(1);
       }
 
-      // ═══════════════════════════════════════════════════════════════
-      // FASE 3: AUDITOR (con posibles iteraciones)
-      // ═══════════════════════════════════════════════════════════════
-      const auditSuccess = await this.runAuditLoop(1);
-      if (!auditSuccess) {
+      if (!execAuditSuccess) {
         return false;
       }
 
@@ -1604,6 +1609,16 @@ export class Orchestrator {
 
   /**
    * Pipeline de ejecución y auditoría simultánea
+   *
+   * Agent-level parallelization: Executes and audits files in parallel.
+   * As soon as a file is executed, it's immediately audited.
+   * This is more efficient than the standard mode which waits for all
+   * files to complete execution before starting the audit phase.
+   *
+   * Flow:
+   * - Multiple files are processed concurrently (up to maxConcurrency)
+   * - For each file: Execute → Audit → Fix (if needed) → Repeat
+   * - Continues until all files are approved or maxIterations is reached
    */
   private async runExecuteAuditPipeline(): Promise<boolean> {
     const planFile = this.stateManager.getFilePath("plan.md");
