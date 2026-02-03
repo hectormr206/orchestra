@@ -100,7 +100,7 @@
 - [ ] Adaptadores para más proveedores (Claude Opus, Llama 3, Mistral)
 - [x] Sistema de plugins para extensibilidad
 - [x] Soporte para monorepos (multi-package)
-- [ ] Contexto multi-archivo inteligente (entender dependencias)
+- [x] Contexto multi-archivo inteligente (entender dependencias)
 - [ ] Interfaz web alternativa al TUI
 - [ ] Modo servidor/orquestación distribuida
 
