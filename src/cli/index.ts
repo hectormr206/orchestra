@@ -21,7 +21,7 @@ import { Orchestrator, type PlanApprovalResult } from '../orchestrator/Orchestra
 import { StateManager } from '../utils/StateManager.js';
 import { createDefaultConfig } from '../utils/configLoader.js';
 import { readFile, writeFile } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import type { TestResult } from '../types.js';
 import type { CommitResult } from '../utils/gitIntegration.js';
@@ -1260,6 +1260,338 @@ program
   });
 
 // ============================================================================
+// COMANDO: completion
+// ============================================================================
+program
+  .command('completion')
+  .description('Shell completion setup')
+  .option('--bash', 'Install bash completion')
+  .option('--zsh', 'Install zsh completion')
+  .option('--fish', 'Install fish completion')
+  .option('--install', 'Install to shell config')
+  .option('--uninstall', 'Uninstall completion')
+  .action(async (options: {
+    bash?: boolean;
+    zsh?: boolean;
+    fish?: boolean;
+    install?: boolean;
+    uninstall?: boolean;
+  }) => {
+    const { execSync } = await import('child_process');
+    const os = await import('os');
+
+    // Detect shell
+    const shell = process.env.SHELL || '';
+    const isBash = shell.includes('bash') || options.bash;
+    const isZsh = shell.includes('zsh') || options.zsh;
+    const isFish = shell.includes('fish') || options.fish;
+
+    if (options.uninstall) {
+      console.log(chalk.yellow('Uninstalling orchestra completion...'));
+
+      const homeDir = os.homedir();
+      const configFiles = [
+        path.join(homeDir, '.bashrc'),
+        path.join(homeDir, '.bash_profile'),
+        path.join(homeDir, '.zshrc'),
+        path.join(homeDir, '.config/fish/config.fish'),
+      ];
+
+      for (const configFile of configFiles) {
+        try {
+          let content = await readFileSync(configFile, 'utf-8');
+          const completionLine = '# orchestra completion';
+
+          if (content.includes(completionLine)) {
+            // Remove completion block
+            content = content.replace(
+              /# orchestra completion[\s\S]*?# end orchestra completion\n?/,
+              ''
+            );
+            await writeFileSync(configFile, content, 'utf-8');
+            console.log(chalk.green(`✓ Removed from ${path.basename(configFile)}`));
+          }
+        } catch (e) {
+          // File doesn't exist or can't be read
+        }
+      }
+
+      console.log(chalk.green('✓ Completion uninstalled'));
+      console.log(chalk.gray('  Restart your shell for changes to take effect'));
+      return;
+    }
+
+    // Determine which shell to install for
+    let targetShell = isBash ? 'bash' : isZsh ? 'zsh' : isFish ? 'fish' : 'bash';
+    if (options.bash) targetShell = 'bash';
+    if (options.zsh) targetShell = 'zsh';
+    if (options.fish) targetShell = 'fish';
+
+    const completionFile = `orchestra-completion.${targetShell}`;
+    const sourceLine = `source "${path.resolve(__dirname, '../../', completionFile)}"`;
+
+    console.log(chalk.blue(`Installing ${targetShell} completion for orchestra...`));
+
+    if (targetShell === 'bash') {
+      const bashrc = path.join(os.homedir(), '.bashrc');
+      try {
+        let content = '';
+        try {
+          content = await readFileSync(bashrc, 'utf-8');
+        } catch (e) {}
+
+        if (!content.includes('# orchestra completion')) {
+          content += `\n# orchestra completion\n${sourceLine} 2>/dev/null || true\n# end orchestra completion\n`;
+          await writeFileSync(bashrc, content, 'utf-8');
+          console.log(chalk.green(`✓ Added to ~/.bashrc`));
+        } else {
+          console.log(chalk.yellow('  Already installed in ~/.bashrc'));
+        }
+      } catch (e) {
+        console.log(chalk.red(`✗ Failed to update ~/.bashrc: ${e}`));
+        console.log(chalk.gray(`  Add this line to ~/.bashrc:`));
+        console.log(chalk.gray(`  ${sourceLine}`));
+      }
+    } else if (targetShell === 'zsh') {
+      const zshrc = path.join(os.homedir(), '.zshrc');
+      try {
+        let content = '';
+        try {
+          content = await readFileSync(zshrc, 'utf-8');
+        } catch (e) {}
+
+        if (!content.includes('# orchestra completion')) {
+          content += `\n# orchestra completion\nfpath=("${path.dirname(__dirname)}/share/zsh/site-functions"); \nsource "${path.resolve(__dirname, '../../', completionFile)}"\n# end orchestra completion\n`;
+          await writeFileSync(zshrc, content, 'utf-8');
+          console.log(chalk.green(`✓ Added to ~/.zshrc`));
+        } else {
+          console.log(chalk.yellow('  Already installed in ~/.zshrc'));
+        }
+      } catch (e) {
+        console.log(chalk.red(`✗ Failed to update ~/.zshrc: ${e}`));
+        console.log(chalk.gray(`  Add these lines to ~/.zshrc:`));
+        console.log(chalk.gray(`  fpath=("${path.dirname(__dirname)}/share/zsh/site-functions");`));
+        console.log(chalk.gray(`  ${sourceLine}`));
+      }
+    } else if (targetShell === 'fish') {
+      const fishConfigDir = path.join(os.homedir(), '.config/fish');
+      const fishConfig = path.join(fishConfigDir, 'config.fish');
+
+      try {
+        await execSync(`mkdir -p "${fishConfigDir}"`);
+        let content = '';
+        try {
+          content = await readFileSync(fishConfig, 'utf-8');
+        } catch (e) {}
+
+        if (!content.includes('# orchestra completion')) {
+          content += `\n# orchestra completion\n${sourceLine}\n# end orchestra completion\n`;
+          await writeFileSync(fishConfig, content, 'utf-8');
+          console.log(chalk.green(`✓ Added to ~/.config/fish/config.fish`));
+        } else {
+          console.log(chalk.yellow('  Already installed in ~/.config/fish/config.fish'));
+        }
+      } catch (e) {
+        console.log(chalk.red(`✗ Failed to update config.fish: ${e}`));
+        console.log(chalk.gray(`  Add this line to ~/.config/fish/config.fish:`));
+        console.log(chalk.gray(`  ${sourceLine}`));
+      }
+    }
+
+    console.log();
+    console.log(chalk.cyan('Next steps:'));
+    console.log(chalk.gray('  1. Restart your shell or run:'));
+    console.log(chalk.gray(`     source ${targetShell === 'bash' ? '~/.bashrc' : targetShell === 'zsh' ? '~/.zshrc' : '~/.config/fish/config.fish'}`));
+    console.log(chalk.gray('  2. Type: orchestra <command> and press Tab to see completions'));
+    console.log();
+  });
+
+// ============================================================================
+// COMANDO: profile
+// ============================================================================
+program
+  .command('profile')
+  .description('Manage configuration profiles')
+  .argument('[action]', 'Action: list, show, apply, create, delete')
+  .argument('[name]', 'Profile name')
+  .option('--inherit <profile>', 'Parent profile to inherit from')
+  .action(async (action: string | undefined, name: string | undefined, options: {
+    inherit?: string;
+  }) => {
+    const { getProfileManager } = await import('../utils/profiles.js');
+
+    if (!action || action === 'list') {
+      const profiles = getProfileManager().listProfiles();
+      console.log(chalk.cyan('Available profiles:'));
+      for (const profile of profiles) {
+        console.log(`  ${chalk.green('•')} ${profile}`);
+      }
+      return;
+    }
+
+    if (action === 'show' && name) {
+      const profile = getProfileManager().loadProfile(name);
+      if (!profile) {
+        console.log(chalk.red(`Profile "${name}" not found`));
+        process.exit(1);
+      }
+      console.log(chalk.cyan(`Profile: ${profile.name}`));
+      if (profile.inherits) {
+        console.log(chalk.gray(`Inherits: ${profile.inherits}`));
+      }
+      console.log(chalk.gray('Settings:'));
+      console.log(JSON.stringify(profile.settings, null, 2));
+      if (profile.environment) {
+        console.log(chalk.gray('Environment:'));
+        console.log(JSON.stringify(profile.environment, null, 2));
+      }
+      return;
+    }
+
+    if (action === 'apply' && name) {
+      try {
+        const settings = getProfileManager().applyProfile(name);
+        console.log(chalk.green(`✓ Applied profile: ${name}`));
+        console.log(chalk.gray('Settings loaded:'));
+        console.log(JSON.stringify(settings, null, 2));
+      } catch (e: any) {
+        console.log(chalk.red(`✗ Failed to apply profile: ${e.message}`));
+        process.exit(1);
+      }
+      return;
+    }
+
+    if (action === 'create' && name) {
+      const { loadSettings } = await import('../utils/configLoader.js');
+      const { getProfileManager } = await import('../utils/profiles.js');
+      const currentSettings = await loadSettings();
+
+      const profile = {
+        name,
+        inherits: options.inherit,
+        settings: (currentSettings || {}) as any,
+        environment: {},
+      };
+
+      getProfileManager().saveProfile(profile);
+      console.log(chalk.green(`✓ Created profile: ${name}`));
+      return;
+    }
+
+    if (action === 'delete' && name) {
+      const profiles = getProfileManager().listProfiles();
+      if (!profiles.includes(name)) {
+        console.log(chalk.red(`Profile "${name}" not found`));
+        process.exit(1);
+      }
+
+      if (name === 'development' || name === 'staging' || name === 'production') {
+        console.log(chalk.red('Cannot delete default profiles'));
+        process.exit(1);
+      }
+
+      getProfileManager().deleteProfile(name);
+      console.log(chalk.green(`✓ Deleted profile: ${name}`));
+      return;
+    }
+
+    console.log(chalk.red('Unknown action. Use: list, show, apply, create, delete'));
+    process.exit(1);
+  });
+
+// ============================================================================
+// COMANDO: profiler - Performance profiling y optimización
+// ============================================================================
+program
+  .command('profiler')
+  .description('Performance profiling and optimization tools')
+  .option('-s, --start <operation>', 'Start profiling an operation')
+  .option('-e, --end <operation>', 'End profiling and show report')
+  .option('-m, --memory', 'Show current memory usage')
+  .option('-b, --baseline', 'Set baseline for comparison')
+  .option('-c, --compare', 'Compare current state with baseline')
+  .option('-r, --report <file>', 'Generate report from saved profile data')
+  .option('--clear', 'Clear all profiling data')
+  .action(async (options) => {
+    const { getProfiler, PerformanceProfiler } = await import('../utils/profiler.js');
+    const { default: chalk } = await import('chalk');
+
+    const profiler = getProfiler();
+
+    if (options.memory) {
+      console.log(chalk.bold('Current Memory Usage:'));
+      console.log('  ' + PerformanceProfiler.getMemoryUsage());
+      return;
+    }
+
+    if (options.baseline) {
+      profiler.setBaseline();
+      console.log(chalk.green('✓ Baseline set'));
+      console.log('  ' + PerformanceProfiler.getMemoryUsage());
+      return;
+    }
+
+    if (options.compare) {
+      const comparison = profiler.compareWithBaseline();
+      if (!comparison) {
+        console.log(chalk.yellow('No baseline set. Use --baseline first.'));
+        return;
+      }
+      console.log(chalk.bold('Comparison with Baseline:'));
+      console.log(`  Memory Delta: ${(comparison.memory / 1024 / 1024).toFixed(2)}MB`);
+      console.log(`  CPU Delta: ${(comparison.cpu / 1000).toFixed(2)}s`);
+      return;
+    }
+
+    if (options.start) {
+      profiler.start(options.start);
+      console.log(chalk.green(`✓ Profiling started: ${options.start}`));
+      console.log(chalk.gray('Run with --end when operation completes'));
+      return;
+    }
+
+    if (options.end) {
+      try {
+        const report = profiler.end(options.end);
+        console.log(PerformanceProfiler.formatReport(report));
+
+        // Save report if bottlenecks detected
+        if (report.bottlenecks.length > 0) {
+          const reportPath = `.orchestra/profiles/${options.end.replace(/\//g, '-')}-${Date.now()}.json`;
+          const { writeFileSync, mkdirSync } = await import('fs');
+          mkdirSync('.orchestra/profiles', { recursive: true });
+          writeFileSync(reportPath, JSON.stringify(report, null, 2));
+          console.log(chalk.gray(`\nReport saved: ${reportPath}`));
+        }
+      } catch (error) {
+        console.error(chalk.red(`Error: ${(error as Error).message}`));
+      }
+      return;
+    }
+
+    if (options.clear) {
+      profiler.clear();
+      console.log(chalk.green('✓ Profiling data cleared'));
+      return;
+    }
+
+    // Show help if no option provided
+    console.log(chalk.bold('Performance Profiler'));
+    console.log('');
+    console.log('Usage:');
+    console.log('  orchestra profiler --memory          Show current memory usage');
+    console.log('  orchestra profiler --baseline        Set baseline for comparison');
+    console.log('  orchestra profiler --compare         Compare with baseline');
+    console.log('  orchestra profiler --start <op>      Start profiling operation');
+    console.log('  orchestra profiler --end <op>        End profiling and show report');
+    console.log('  orchestra profiler --clear           Clear profiling data');
+    console.log('');
+    console.log('Examples:');
+    console.log('  orchestra profiler --start "agent-execution"');
+    console.log('  orchestra profiler --end "agent-execution"');
+  });
+
+// ============================================================================
 // COMANDO: default (sin argumentos abre TUI)
 // ============================================================================
 program
@@ -1267,6 +1599,18 @@ program
     // Si no hay comando, mostrar ayuda
     program.help();
   });
+
+// ============================================================================
+// REGISTRAR COMANDOS DE INTEGRACIÓN
+// ============================================================================
+import { registerIntegrationCommands } from './integrationCommands.js';
+registerIntegrationCommands(program);
+
+// ============================================================================
+// REGISTRAR COMANDOS DE PLUGINS
+// ============================================================================
+import { registerPluginCommands } from './pluginCommands.js';
+registerPluginCommands(program);
 
 // Helper function para formatear duración
 function formatDurationMs(ms: number): string {

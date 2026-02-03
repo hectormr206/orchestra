@@ -103,7 +103,7 @@ async function runWithConcurrency<T, R>(
 }
 
 export type PlanApprovalResult =
-  | { approved: true }
+  | { approved: true; editedPlan?: string }
   | { approved: false; reason: "rejected" | "edit"; editedPlan?: string };
 
 export interface OrchestratorCallbacks {
@@ -594,6 +594,15 @@ export class Orchestrator {
     // Solicitar aprobación del usuario
     const result = await this.callbacks.onPlanReady(planContent, planFile);
 
+    // Plan editado - guardar cambios y continuar (puede venir con approved: true o reason: "edit")
+    if (result.editedPlan) {
+      await writeFile(planFile, result.editedPlan, "utf-8");
+      await this.stateManager.createCheckpoint("plan-edited");
+      this.callbacks.onPhaseStart?.("planning", "Architect");
+      this.callbacks.onPhaseComplete?.("planning", "Architect", { success: true, duration: 0 });
+      return true;
+    }
+
     if (result.approved) {
       return true;
     }
@@ -603,13 +612,6 @@ export class Orchestrator {
       await this.stateManager.setPhase("rejected");
       this.callbacks.onError?.("approval", "Plan rechazado por el usuario");
       return false;
-    }
-
-    // Plan editado - guardar cambios y continuar
-    if (result.reason === "edit" && result.editedPlan) {
-      await writeFile(planFile, result.editedPlan, "utf-8");
-      await this.stateManager.createCheckpoint("plan-edited");
-      return true;
     }
 
     return false;

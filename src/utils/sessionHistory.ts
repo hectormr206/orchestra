@@ -101,6 +101,20 @@ export class SessionHistory {
   }
 
   /**
+   * Alias de getSession para compatibilidad
+   */
+  get(id: string): SessionSummary | undefined {
+    return this.getSession(id);
+  }
+
+  /**
+   * Obtiene datos completos de sesión (alias de loadFullSession)
+   */
+  async getFullSession(id: string): Promise<SessionData | null> {
+    return this.loadFullSession(id);
+  }
+
+  /**
    * Carga los datos completos de una sesión desde el archivo JSON
    */
   async loadFullSession(id: string): Promise<SessionData | null> {

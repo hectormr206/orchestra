@@ -41,6 +41,7 @@ export interface OrchestratorActions {
   ) => Promise<void>;
   approvePlan: () => void;
   rejectPlan: () => void;
+  updatePlan: (editedPlan: string) => void;
   cancel: () => void;
   reset: () => void;
 }
@@ -69,6 +70,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
   const planResolveRef = useRef<((result: PlanApprovalResult) => void) | null>(
     null,
   );
+  const editedPlanRef = useRef<string | null>(null);
 
   // LOG BATCHING TO PREVENT FLICKERING -------------------------------------
   const logBufferRef = useRef<LogEntry[]>([]);
@@ -435,11 +437,25 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
 
   const approvePlan = useCallback(() => {
     if (planResolveRef.current) {
-      planResolveRef.current({ approved: true });
+      const result: PlanApprovalResult = editedPlanRef.current
+        ? { approved: true, editedPlan: editedPlanRef.current }
+        : { approved: true };
+
+      if (editedPlanRef.current) {
+        addLog("info", "Using edited plan");
+      }
+      planResolveRef.current(result);
       planResolveRef.current = null;
+      editedPlanRef.current = null;
       setState((prev) => ({ ...prev, phase: "executing" }));
       addLog("success", "Plan approved");
     }
+  }, [addLog]);
+
+  const updatePlan = useCallback((editedPlan: string) => {
+    editedPlanRef.current = editedPlan;
+    setState((prev) => ({ ...prev, plan: editedPlan }));
+    addLog("info", "Plan updated");
   }, [addLog]);
 
   const rejectPlan = useCallback(() => {
@@ -499,5 +515,5 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
     });
   }, []);
 
-  return [state, { start, approvePlan, rejectPlan, cancel, reset }];
+  return [state, { start, approvePlan, rejectPlan, updatePlan, cancel, reset }];
 }

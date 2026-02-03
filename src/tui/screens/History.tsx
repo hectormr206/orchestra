@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { Box, Text, useInput } from 'ink';
+import { SessionHistory } from '../../utils/sessionHistory.js';
+import { existsSync } from 'fs';
+import { unlink, rm } from 'fs/promises';
+import path from 'path';
 
 interface SessionSummary {
   id: string;
@@ -13,23 +17,60 @@ interface SessionSummary {
 interface HistoryProps {
   sessions: SessionSummary[];
   onSelect: (sessionId: string) => void;
+  onSessionDetails: (sessionId: string) => void;
   onBack: () => void;
   onDelete: (sessionId: string) => void;
+  onSessionsChange: () => void;
 }
 
 export const History: React.FC<HistoryProps> = ({
   sessions,
   onSelect,
+  onSessionDetails,
   onBack,
   onDelete,
+  onSessionsChange,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
+
+  const handleDeleteSession = async (sessionId: string) => {
+    try {
+      setDeleteStatus('Deleting...');
+
+      // Delete session directory
+      const sessionDir = path.join('.orchestra', 'sessions', sessionId);
+      if (existsSync(sessionDir)) {
+        await rm(sessionDir, { recursive: true, force: true });
+      }
+
+      // Remove from history index
+      const history = new SessionHistory();
+      await history.init();
+      await history.deleteSession(sessionId);
+
+      setDeleteStatus('Deleted!');
+      onSessionsChange(); // Refresh sessions list
+      onDelete(sessionId); // Notify parent
+
+      setTimeout(() => {
+        setDeleteStatus(null);
+        setConfirmDelete(null);
+      }, 1000);
+    } catch (error) {
+      setDeleteStatus('Failed: ' + String(error));
+      setTimeout(() => {
+        setDeleteStatus(null);
+      }, 2000);
+    }
+  };
 
   useInput((input, key) => {
     if (key.escape) {
       if (confirmDelete) {
         setConfirmDelete(null);
+        setDeleteStatus(null);
       } else {
         onBack();
       }
@@ -42,14 +83,20 @@ export const History: React.FC<HistoryProps> = ({
     }
     if (key.return && sessions[selectedIndex]) {
       if (confirmDelete) {
-        onDelete(confirmDelete);
-        setConfirmDelete(null);
+        handleDeleteSession(confirmDelete);
       } else {
-        onSelect(sessions[selectedIndex].id);
+        onSessionDetails(sessions[selectedIndex].id);
       }
     }
-    if (input === 'd' && sessions[selectedIndex]) {
+    if (input === 'd' && sessions[selectedIndex] && !confirmDelete) {
       setConfirmDelete(sessions[selectedIndex].id);
+    }
+    if (input === 'v' && sessions[selectedIndex] && !confirmDelete) {
+      onSessionDetails(sessions[selectedIndex].id);
+    }
+    if ((input === 'n' || input === 'c') && confirmDelete) {
+      setConfirmDelete(null);
+      setDeleteStatus(null);
     }
   });
 
@@ -151,17 +198,27 @@ export const History: React.FC<HistoryProps> = ({
           borderStyle="double"
           borderColor="red"
           padding={1}
+          flexDirection="column"
         >
           <Text color="red">
-            ⚠️ Delete session {confirmDelete.substring(0, 8)}? Press Enter to confirm, Esc to cancel
+            ⚠️ Delete session {confirmDelete.substring(0, 8)}?
           </Text>
+          {deleteStatus ? (
+            <Text color={deleteStatus === 'Deleted!' ? 'green' : 'red'}>
+              {deleteStatus}
+            </Text>
+          ) : (
+            <Text color="gray">
+              Press y to confirm, n to cancel
+            </Text>
+          )}
         </Box>
       )}
 
       {/* Help */}
       <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
         <Text color="gray">
-          ↑/↓: Navigate │ Enter: View details │ d: Delete │ Esc: Back
+          ↑/↓: Navigate │ Enter/v: View details │ d: Delete │ Esc: Back
         </Text>
       </Box>
     </Box>

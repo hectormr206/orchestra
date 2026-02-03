@@ -5,8 +5,12 @@ import { Dashboard } from "./screens/Dashboard.js";
 import { TaskInput } from "./screens/TaskInput.js";
 import { Execution } from "./screens/Execution.js";
 import { PlanReview } from "./screens/PlanReview.js";
+import { PlanEditor } from "./screens/PlanEditor.js";
+import { DryRun } from "./screens/DryRun.js";
+import { SessionDetails } from "./screens/SessionDetails.js";
 import { History } from "./screens/History.js";
 import { Settings } from "./screens/Settings.js";
+import { AdvancedSettings } from "./screens/AdvancedSettings.js";
 import { Doctor } from "./screens/Doctor.js";
 import { useOrchestrator } from "./hooks/useOrchestrator.js";
 import {
@@ -18,10 +22,14 @@ import {
 type Screen =
   | "dashboard"
   | "new-task"
+  | "dry-run"
   | "execution"
   | "plan-review"
+  | "plan-editor"
   | "history"
+  | "session-details"
   | "settings"
+  | "advanced-settings"
   | "doctor";
 
 interface AppProps {
@@ -63,6 +71,9 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
     cacheEntries: 0,
   });
   const [sessions, setSessions] = useState<any[]>([]);
+  const [currentTask, setCurrentTask] = useState<string>("");
+  const [currentPlan, setCurrentPlan] = useState<string>("");
+  const [selectedSessionId, setSelectedSessionId] = useState<string>("");
 
   // Load stats on mount
   useEffect(() => {
@@ -174,8 +185,11 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
   };
 
   const handleTaskSubmit = (task: string, options: any) => {
+    setCurrentTask(task);
+    setCurrentPlan("");
+
     if (options.dryRun) {
-      // TODO: Implement dry-run screen
+      setScreen("dry-run");
       return;
     }
 
@@ -213,6 +227,25 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
           />
         );
 
+      case "dry-run":
+        return (
+          <DryRun
+            task={currentTask}
+            plan={currentPlan}
+            onApprove={() => {
+              setScreen("execution");
+              orchestratorActions.start(currentTask, {
+                autoApprove: settings.autoApprove,
+                parallel: settings.parallel,
+                runTests: settings.runTests,
+                gitCommit: settings.gitCommit,
+              });
+            }}
+            onReject={handleBack}
+            onBack={handleBack}
+          />
+        );
+
       case "execution":
         return (
           <Execution
@@ -243,7 +276,23 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
               handleBack();
             }}
             onEdit={() => {
-              // TODO: Implement plan editing
+              setCurrentPlan(orchestratorState.plan || "");
+              setScreen("plan-editor");
+            }}
+          />
+        );
+
+      case "plan-editor":
+        return (
+          <PlanEditor
+            initialPlan={currentPlan}
+            onSave={(editedPlan) => {
+              setCurrentPlan(editedPlan);
+              orchestratorActions.updatePlan(editedPlan);
+              setScreen("plan-review");
+            }}
+            onCancel={() => {
+              setScreen("plan-review");
             }}
           />
         );
@@ -253,12 +302,37 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
           <History
             sessions={sessions}
             onSelect={(id) => {
-              // TODO: Load and display session details
+              setSelectedSessionId(id);
+              setScreen("session-details");
+            }}
+            onSessionDetails={(id) => {
+              setSelectedSessionId(id);
+              setScreen("session-details");
             }}
             onBack={handleBack}
             onDelete={async (id) => {
-              // TODO: Delete session
               setSessions((prev) => prev.filter((s) => s.id !== id));
+            }}
+            onSessionsChange={async () => {
+              // Reload sessions
+              try {
+                const { SessionHistory } = await import("../utils/sessionHistory.js");
+                const history = new SessionHistory();
+                await history.init();
+                setSessions(history.list({ limit: 20 }));
+              } catch {
+                // Ignore errors
+              }
+            }}
+          />
+        );
+
+      case "session-details":
+        return (
+          <SessionDetails
+            sessionId={selectedSessionId}
+            onBack={() => {
+              setScreen("history");
             }}
           />
         );
@@ -277,6 +351,27 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
               setScreen("dashboard");
             }}
             onBack={handleBack}
+            onAdvancedSettings={() => {
+              setScreen("advanced-settings");
+            }}
+          />
+        );
+
+      case "advanced-settings":
+        return (
+          <AdvancedSettings
+            config={settings}
+            onChange={setSettings}
+            onSave={async () => {
+              try {
+                await saveSettings(settings);
+              } catch {
+                // Failed to save, but continue anyway
+              }
+            }}
+            onBack={() => {
+              setScreen("settings");
+            }}
           />
         );
 

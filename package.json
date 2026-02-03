@@ -19,14 +19,18 @@
   ],
   "scripts": {
     "build": "tsc",
-    "dev": "tsx src/cli/index.ts",
+    "dev": "tsx watch src/cli/index.ts",
+    "dev:tui": "tsx watch src/tui/index.ts",
     "start": "node dist/cli/index.js",
     "tui": "node dist/tui/index.js",
     "test": "vitest",
+    "test:watch": "vitest --watch",
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
     "clean": "rm -rf dist/",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "completion": "node ./dist/cli/index.js completion"
   },
   "keywords": [
     "ai",
@@ -53,7 +57,19 @@
   },
   "homepage": "https://github.com/gama/ai-core/tree/main/orchestra#readme",
   "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/api-logs": "^0.211.0",
+    "@opentelemetry/core": "^2.5.0",
+    "@opentelemetry/exporter-prometheus": "^0.211.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.211.0",
+    "@opentelemetry/resources": "^2.5.0",
+    "@opentelemetry/sdk-logs": "^0.211.0",
+    "@opentelemetry/sdk-metrics": "^2.5.0",
+    "@opentelemetry/sdk-trace-base": "^2.5.0",
+    "@opentelemetry/sdk-trace-node": "^2.5.0",
+    "@opentelemetry/semantic-conventions": "^1.39.0",
     "@types/glob": "^8.1.0",
+    "@types/pino": "^7.0.4",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "glob": "^13.0.0",
@@ -65,7 +81,9 @@
     "ink-spinner": "^5.0.0",
     "ink-text-input": "^6.0.0",
     "ora": "^8.0.1",
-    "react": "^19.2.4"
+    "pino": "^10.3.0",
+    "react": "^19.2.4",
+    "redis": "^5.10.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",

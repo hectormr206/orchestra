@@ -8,19 +8,22 @@ interface SettingsProps {
   onChange: (config: TUISettings) => void;
   onSave: () => void;
   onBack: () => void;
+  onAdvancedSettings?: () => void;
 }
 
 type SettingItem =
   | { key: string; label: string; type: "boolean" }
   | { key: string; label: string; type: "number"; min: number; max: number }
   | { key: string; label: string; type: "string" }
-  | { key: string; label: string; type: "select"; options: readonly string[] };
+  | { key: string; label: string; type: "select"; options: readonly string[] }
+  | { key: "advanced"; label: string; type: "action" };
 
 export const Settings: React.FC<SettingsProps> = ({
   config,
   onChange,
   onSave,
   onBack,
+  onAdvancedSettings,
 }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editingText, setEditingText] = useState(false);
@@ -137,7 +140,8 @@ export const Settings: React.FC<SettingsProps> = ({
       label: "Auto-revert on Failure",
       type: "boolean",
     },
-  ];
+    { key: "advanced", label: "Advanced Settings...", type: "action" },
+  ] as SettingItem[];
 
   // Helper to access nested keys safely
   const getNestedValue = (obj: any, path: string) => {
@@ -176,6 +180,14 @@ export const Settings: React.FC<SettingsProps> = ({
 
     const currentSetting = settings[selectedIndex];
     const currentValue = getNestedValue(config, currentSetting.key);
+
+    // Handle action type (Advanced Settings)
+    if (currentSetting.type === "action" && (input === " " || key.return)) {
+      if (currentSetting.key === "advanced" && onAdvancedSettings) {
+        onAdvancedSettings();
+      }
+      return;
+    }
 
     if (currentSetting.type === "boolean" && (input === " " || key.return)) {
       onChange(setNestedValue(config, currentSetting.key, !currentValue));
@@ -219,6 +231,14 @@ export const Settings: React.FC<SettingsProps> = ({
 
   const renderValue = (setting: SettingItem) => {
     const value = getNestedValue(config, setting.key);
+
+    if (setting.type === "action") {
+      return (
+        <Box width={20}>
+          <Text color="cyan">→</Text>
+        </Box>
+      );
+    }
 
     if (setting.type === "boolean") {
       return (
@@ -302,6 +322,7 @@ export const Settings: React.FC<SettingsProps> = ({
             settings[selectedIndex].type === "select") &&
             "Left/Right: Change Value"}
           {settings[selectedIndex].type === "string" && "Enter: Edit text"}
+          {settings[selectedIndex].type === "action" && "Enter: Open"}
         </Text>
       </Box>
 
