@@ -1,12 +1,12 @@
 # ROADMAP
 
-**Estado actual:** 30 de enero, 2026
+**Estado actual:** 3 de febrero, 2026
 **Versión:** 0.1.0
 **Estado:** Desarrollo activo
 
 ---
 
-## 📊 Estado Actual del Proyecto (30-ene-2026)
+## 📊 Estado Actual del Proyecto (03-feb-2026)
 
 ### ✅ Implementado
 
@@ -89,9 +89,9 @@
 - [ ] Pantalla de configuración avanzada
 
 #### Pruebas
-- [x] Tests unitarios para `src/` (securityAudit, export, pluginManager, frameworkDetector)
-- [ ] Tests de integración para el flujo completo
-- [ ] Tests E2E para CLI
+- [x] Tests unitarios para `src/` (securityAudit, export, pluginManager, frameworkDetector, fallbackAdapter)
+- [x] Tests de integración para el flujo completo (integration.test.ts)
+- [x] Tests E2E para CLI (e2e.test.ts - infrastructure created)
 - [ ] Cobertura mínima del 80%
 
 ### 📋 Pendiente
