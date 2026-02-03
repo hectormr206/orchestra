@@ -92,8 +92,12 @@ describe('StatusBar Component', () => {
       const { lastFrame } = render(<StatusBar status="executing" />);
 
       // Should not have the │ separator without currentFile
-      const lines = lastFrame().split('\n');
-      expect(lines[0]).not.toContain('│');
+      const frame = lastFrame();
+      expect(frame).toBeDefined();
+      if (frame) {
+        const lines = frame.split('\n');
+        expect(lines[0]).not.toContain('│');
+      }
     });
 
     it('should display progress when provided', () => {

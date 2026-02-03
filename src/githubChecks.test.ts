@@ -108,7 +108,7 @@ describe('GitHub Checks', () => {
   describe('generateCheckFromAudit', () => {
     it('should generate success check for no issues', () => {
       const task = 'Audit code';
-      const auditResults = [];
+      const auditResults: Array<{ file: string; description: string; severity: 'critical' | 'major' | 'minor' }> = [];
       const headSha = 'mno345';
 
       const result = generateCheckFromAudit(task, auditResults, headSha);
@@ -120,7 +120,7 @@ describe('GitHub Checks', () => {
 
     it('should generate failure check for critical issues', () => {
       const task = 'Security audit';
-      const auditResults = [
+      const auditResults: Array<{ file: string; description: string; severity: 'critical' | 'major' | 'minor' }> = [
         { file: 'auth.ts', description: 'SQL injection vulnerability', severity: 'critical' },
         { file: 'db.ts', description: 'Missing encryption', severity: 'critical' },
       ];
@@ -130,12 +130,12 @@ describe('GitHub Checks', () => {
 
       expect(result.conclusion).toBe('failure');
       expect(result.output?.summary).toBe('2 critical, 0 major, 0 minor');
-      expect(result.annotations).toHaveLength(2);
+      expect(result.output?.annotations).toHaveLength(2);
     });
 
     it('should generate neutral check for major issues', () => {
       const task = 'Code review';
-      const auditResults = [
+      const auditResults: Array<{ file: string; description: string; severity: 'critical' | 'major' | 'minor' }> = [
         { file: 'utils.ts', description: 'Complex function', severity: 'major' },
         { file: 'api.ts', description: 'Missing error handling', severity: 'major' },
         { file: 'types.ts', description: 'Typo in docs', severity: 'minor' },
@@ -150,7 +150,7 @@ describe('GitHub Checks', () => {
 
     it('should create annotations for each issue', () => {
       const task = 'Audit';
-      const auditResults = [
+      const auditResults: Array<{ file: string; description: string; severity: 'critical' | 'major' | 'minor' }> = [
         { file: 'test.ts', description: 'Bug found', severity: 'minor' },
         { file: 'main.ts', description: 'Critical bug', severity: 'critical' },
       ];
@@ -158,16 +158,16 @@ describe('GitHub Checks', () => {
 
       const result = generateCheckFromAudit(task, auditResults, headSha);
 
-      expect(result.annotations).toHaveLength(2);
-      expect(result.annotations![0].annotation_level).toBe('notice');
-      expect(result.annotations![1].annotation_level).toBe('failure');
-      expect(result.annotations![0].title).toBe('MINOR: test.ts');
-      expect(result.annotations![1].title).toBe('CRITICAL: main.ts');
+      expect(result.output?.annotations).toHaveLength(2);
+      expect(result.output?.annotations![0].annotation_level).toBe('notice');
+      expect(result.output?.annotations![1].annotation_level).toBe('failure');
+      expect(result.output?.annotations![0].title).toBe('MINOR: test.ts');
+      expect(result.output?.annotations![1].title).toBe('CRITICAL: main.ts');
     });
 
     it('should limit annotations to 50', () => {
       const task = 'Large audit';
-      const auditResults = Array.from({ length: 100 }, (_, i) => ({
+      const auditResults: Array<{ file: string; description: string; severity: 'critical' | 'major' | 'minor' }> = Array.from({ length: 100 }, (_, i) => ({
         file: `file${i}.ts`,
         description: `Issue ${i}`,
         severity: 'minor' as const,
@@ -176,7 +176,7 @@ describe('GitHub Checks', () => {
 
       const result = generateCheckFromAudit(task, auditResults, headSha);
 
-      expect(result.annotations).toHaveLength(50);
+      expect(result.output?.annotations).toHaveLength(50);
     });
 
     it('should include audit details in text', () => {

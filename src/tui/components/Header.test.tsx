@@ -20,9 +20,12 @@ describe('Header Component', () => {
       const { lastFrame } = render(<Header compact={false} />);
 
       const frame = lastFrame();
-      expect(frame).toContain('___');
-      expect(frame).toContain('____');
-      expect(frame).toContain('_____');
+      expect(frame).toBeDefined();
+      if (frame) {
+        expect(frame).toContain('___');
+        expect(frame).toContain('____');
+        expect(frame).toContain('_____');
+      }
     });
 
     it('should display tagline', () => {
@@ -36,8 +39,10 @@ describe('Header Component', () => {
 
       const frame = lastFrame();
       expect(frame).toBeDefined();
-      // The frame should contain multiple lines with ASCII art
-      expect(frame.split('\n').length).toBeGreaterThan(5);
+      if (frame) {
+        // The frame should contain multiple lines with ASCII art
+        expect(frame.split('\n').length).toBeGreaterThan(5);
+      }
     });
   });
 
@@ -54,10 +59,18 @@ describe('Header Component', () => {
       const fullHeader = render(<Header compact={false} />);
       const compactHeader = render(<Header compact={true} />);
 
-      const fullLines = fullHeader.lastFrame().split('\n').length;
-      const compactLines = compactHeader.lastFrame().split('\n').length;
+      const fullFrame = fullHeader.lastFrame();
+      const compactFrame = compactHeader.lastFrame();
 
-      expect(compactLines).toBeLessThan(fullLines);
+      expect(fullFrame).toBeDefined();
+      expect(compactFrame).toBeDefined();
+
+      if (fullFrame && compactFrame) {
+        const fullLines = fullFrame.split('\n').length;
+        const compactLines = compactFrame.split('\n').length;
+
+        expect(compactLines).toBeLessThan(fullLines);
+      }
     });
 
     it('should contain version number', () => {

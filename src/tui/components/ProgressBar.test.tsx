@@ -35,8 +35,11 @@ describe('ProgressBar Component', () => {
       const { lastFrame } = render(<ProgressBar percent={50} />);
 
       const frame = lastFrame();
-      const filledCount = (frame.match(/█/g) || []).length;
-      expect(filledCount).toBe(20); // 50% of 40
+      expect(frame).toBeDefined();
+      if (frame) {
+        const filledCount = (frame.match(/█/g) || []).length;
+        expect(filledCount).toBe(20); // 50% of 40
+      }
     });
   });
 
@@ -46,14 +49,21 @@ describe('ProgressBar Component', () => {
         <ProgressBar percent={50} width={10} label="Progress:" />
       );
 
-      expect(lastFrame()).toContain('Progress:');
+      const frame = lastFrame();
+      expect(frame).toBeDefined();
+      if (frame) {
+        expect(frame).toContain('Progress:');
+      }
     });
 
     it('should not display label when not provided', () => {
       const { lastFrame } = render(<ProgressBar percent={50} width={10} />);
 
       const frame = lastFrame();
-      expect(frame.startsWith('█') || frame.startsWith('░')).toBe(true);
+      expect(frame).toBeDefined();
+      if (frame) {
+        expect(frame.startsWith('█') || frame.startsWith('░')).toBe(true);
+      }
     });
   });
 

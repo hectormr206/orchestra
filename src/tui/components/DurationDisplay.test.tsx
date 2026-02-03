@@ -2,7 +2,7 @@
  * Tests for DurationDisplay TUI Component
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { DurationDisplay } from './DurationDisplay.js';

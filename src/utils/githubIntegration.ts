@@ -819,8 +819,8 @@ export function generateCheckFromAudit(
       title: `Audit Results: ${auditResults.length} issues found`,
       summary: `${auditResults.filter(r => r.severity === 'critical').length} critical, ${auditResults.filter(r => r.severity === 'major').length} major, ${auditResults.filter(r => r.severity === 'minor').length} minor`,
       text: auditResults.map(r => `### ${r.file}\n**Severity:** ${r.severity}\n${r.description}`).join('\n\n'),
+      annotations: annotations.slice(0, 50), // GitHub limit: 50 annotations per check
     },
-    annotations: annotations.slice(0, 50), // GitHub limit: 50 annotations per check
   };
 }
 
