@@ -67,9 +67,9 @@ function getBackoffDelay(attempt: number, baseDelay: number): number {
 }
 
 /**
- * Valida título de issue
+ * Valida título de issue (exported for testing)
  */
-function validateIssueTitle(title: string): { valid: boolean; error?: string } {
+export function validateIssueTitle(title: string): { valid: boolean; error?: string } {
   if (!title || title.trim().length === 0) {
     return { valid: false, error: 'Title is required' };
   }
@@ -88,9 +88,9 @@ function validateIssueTitle(title: string): { valid: boolean; error?: string } {
 }
 
 /**
- * Valida cuerpo de issue/PR
+ * Valida cuerpo de issue/PR (exported for testing)
  */
-function validateBody(body: string): { valid: boolean; error?: string } {
+export function validateBody(body: string): { valid: boolean; error?: string } {
   if (body.length > 65536) {
     return { valid: false, error: 'Body must be 65536 characters or less' };
   }
@@ -99,9 +99,9 @@ function validateBody(body: string): { valid: boolean; error?: string } {
 }
 
 /**
- * Valida labels
+ * Valida labels (exported for testing)
  */
-function validateLabels(labels: string[]): { valid: boolean; error?: string } {
+export function validateLabels(labels: string[]): { valid: boolean; error?: string } {
   if (labels.length > 100) {
     return { valid: false, error: 'Cannot add more than 100 labels' };
   }
