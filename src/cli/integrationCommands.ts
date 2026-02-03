@@ -51,7 +51,7 @@ export function registerIntegrationCommands(program: Command): void {
     .option('-c, --code', 'Check code for security issues')
     .option('-o, --owasp', 'Check OWASP Top 10 compliance')
     .option('-f, --fail <level>', 'Fail if issues found (critical|high|medium|low)', 'high')
-    .option('-o, --output <format>', 'Output format (text|markdown|json)', 'text')
+    .option('-F, --format <format>', 'Output format (text|markdown|json)', 'text')
     .action(async (options) => {
       const auditor = new SecurityAuditor({
         checkDependencies: options.dependencies ?? true,
@@ -68,9 +68,9 @@ export function registerIntegrationCommands(program: Command): void {
 
         spinner.stop();
 
-        if (options.output === 'markdown') {
+        if (options.format === 'markdown') {
           console.log(auditor.formatAsMarkdown(result));
-        } else if (options.output === 'json') {
+        } else if (options.format === 'json') {
           console.log(JSON.stringify(result, null, 2));
         } else {
           // Text output
@@ -113,62 +113,6 @@ export function registerIntegrationCommands(program: Command): void {
         }
       } catch (error) {
         spinner.fail('Security audit failed');
-        console.error(chalk.red((error as Error).message));
-        process.exit(1);
-      }
-    });
-
-  // =========================================================================
-  // COMANDO: export - Export sessions
-  // =========================================================================
-  program
-    .command('export')
-    .description('Export session data to various formats')
-    .argument('[session-id]', 'Session ID to export (latest if not specified)')
-    .option('-f, --format <format>', 'Export format (html|markdown|json)', 'html')
-    .option('-o, --output <path>', 'Output file path')
-    .option('--include-logs', 'Include execution logs')
-    .option('--include-metadata', 'Include session metadata')
-    .option('--include-plan', 'Include execution plan')
-    .action(async (sessionId, options) => {
-      const exportManager = new ExportManager();
-      const spinner = ora('Loading session data...').start();
-
-      try {
-        // Load session data (simplified - would need full implementation)
-        const sessionData: any = {
-          sessionId: sessionId || 'latest',
-          task: 'Example task',
-          status: 'completed',
-          startTime: new Date().toISOString(),
-          filesCreated: [],
-          filesModified: [],
-          errors: [],
-          logs: [],
-        };
-
-        spinner.text = 'Exporting session...';
-
-        const result = await exportManager.exportToFile(
-          sessionData,
-          options.format as any,
-          options.output,
-          {
-            includeLogs: options.includeLogs,
-            includeMetadata: options.includeMetadata,
-            includePlan: options.includePlan,
-          }
-        );
-
-        if (result.success) {
-          spinner.succeed(`Session exported to ${chalk.cyan(result.path)}`);
-        } else {
-          spinner.fail('Export failed');
-          console.error(chalk.red(result.error));
-          process.exit(1);
-        }
-      } catch (error) {
-        spinner.fail('Export failed');
         console.error(chalk.red((error as Error).message));
         process.exit(1);
       }
