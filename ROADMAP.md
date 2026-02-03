@@ -191,7 +191,7 @@
 - [x] Adaptador para Llama 3 (local y API) ✓ (LlamaAdapter.ts con Ollama y API)
 - [x] Adaptador para Mistral (API y Azure) ✓ (MistralAdapter.ts)
 - [x] Arquitectura de plugins con carga dinámica
-- [ ] Plugin oficial para soporte Express.js
+- [x] Plugin oficial para soporte Express.js ✓ (express-js plugin con hooks y reglas de auditoría)
 - [ ] Plugin oficial para soporte FastAPI
 - [x] Documentación para crear plugins personalizados
 - [x] Sistema de configuración por proyecto con herencia
@@ -320,7 +320,7 @@
 ## 📈 Métricas de Éxito
 
 ### Calidad de Código
-- [x] **Cobertura de tests**: 323 tests (258 passing, 38 timeout, 27 skipped, 79.9% pass rate) ✓
+- [x] **Cobertura de tests**: 339 tests (274 passing, 38 timeout, 27 skipped, 80.8% pass rate) ✓
 - [ ] **Complexity promedio**: < 15 por función (cyclomatic complexity)
 - [ ] **Duplicación**: < 5% (eslint `no-duplicate-imports`)
 - [x] **Type safety**: 100% TypeScript strict mode ✓
