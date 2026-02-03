@@ -451,59 +451,6 @@ export function registerIntegrationCommands(program: Command): void {
     });
 
   // =========================================================================
-  // COMANDO: notify - Send notifications
-  // =========================================================================
-  program
-    .command('notify')
-    .description('Send test notification (requires SLACK_WEBHOOK_URL or DISCORD_WEBHOOK_URL)')
-    .option('-m, --message <text>', 'Notification message')
-    .option('-s, --slack', 'Send to Slack only')
-    .option('-d, --discord', 'Send to Discord only')
-    .action(async (options) => {
-      const notificationConfig = (await import('../utils/slackDiscordIntegration.js')).createNotificationConfigFromEnv();
-
-      if (!notificationConfig.slack && !notificationConfig.discord) {
-        console.error(chalk.red('No notification services configured'));
-        console.error(chalk.gray('Set SLACK_WEBHOOK_URL or DISCORD_WEBHOOK_URL'));
-        process.exit(1);
-      }
-
-      const message = options.message || 'Test notification from Orchestra CLI';
-
-      try {
-        const spinner = ora('Sending notification...').start();
-
-        // Filter to specific service if requested
-        if (options.slack) {
-          delete notificationConfig.discord;
-        } else if (options.discord) {
-          delete notificationConfig.slack;
-        }
-
-        const results = await testNotificationEndpoints(notificationConfig);
-
-        spinner.stop();
-
-        if (results.slack || results.discord) {
-          console.log(chalk.green('✓ Notification sent'));
-
-          if (results.slack && !results.slack.success) {
-            console.log(chalk.yellow(`  Slack: ${results.slack.error}`));
-          }
-          if (results.discord && !results.discord.success) {
-            console.log(chalk.yellow(`  Discord: ${results.discord.error}`));
-          }
-        } else {
-          console.log(chalk.red('✗ Notification failed'));
-          process.exit(1);
-        }
-      } catch (error) {
-        console.error(chalk.red((error as Error).message));
-        process.exit(1);
-      }
-    });
-
-  // =========================================================================
   // COMANDO: detect - Detect project framework
   // =========================================================================
   program

@@ -1,0 +1,29 @@
+{
+  "sessionId": "sess_1770150059008",
+  "task": "Multi-save test",
+  "phase": "init",
+  "iteration": 4,
+  "startedAt": "2026-02-03T20:20:59.008Z",
+  "lastActivity": "2026-02-03T20:20:59.011Z",
+  "agents": {
+    "architect": {
+      "status": "pending",
+      "duration": null
+    },
+    "executor": {
+      "status": "pending",
+      "duration": null
+    },
+    "auditor": {
+      "status": "pending",
+      "duration": null
+    },
+    "consultant": {
+      "status": "not_needed",
+      "duration": null
+    }
+  },
+  "checkpoints": [],
+  "canResume": true,
+  "lastError": null
+}
