@@ -119,7 +119,7 @@
 #### Nuevas Features
 - [x] Claude Opus 4.5 adapter (ClaudeAdapter.ts implementado) ✓
 - [x] Adaptador para Llama 3 ✓ (LlamaAdapter.ts con soporte Ollama y API)
-- [ ] Adaptadores para más proveedores (Mistral)
+- [x] Adaptador para Mistral ✓ (MistralAdapter.ts con soporte API y Azure)
 - [x] Sistema de plugins para extensibilidad
 - [x] Soporte para monorepos (multi-package)
 - [x] Contexto multi-archivo inteligente (entender dependencias)
@@ -189,6 +189,7 @@
 
 - [x] Adaptador para Claude Opus 4.5 ✓ (ClaudeAdapter.ts)
 - [x] Adaptador para Llama 3 (local y API) ✓ (LlamaAdapter.ts con Ollama y API)
+- [x] Adaptador para Mistral (API y Azure) ✓ (MistralAdapter.ts)
 - [x] Arquitectura de plugins con carga dinámica
 - [ ] Plugin oficial para soporte Express.js
 - [ ] Plugin oficial para soporte FastAPI
@@ -319,7 +320,7 @@
 ## 📈 Métricas de Éxito
 
 ### Calidad de Código
-- [x] **Cobertura de tests**: 301 tests (252 passing, 38 timeout, 11 skipped, 83.7% pass rate) ✓
+- [x] **Cobertura de tests**: 323 tests (258 passing, 38 timeout, 27 skipped, 79.9% pass rate) ✓
 - [ ] **Complexity promedio**: < 15 por función (cyclomatic complexity)
 - [ ] **Duplicación**: < 5% (eslint `no-duplicate-imports`)
 - [x] **Type safety**: 100% TypeScript strict mode ✓
