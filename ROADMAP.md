@@ -112,7 +112,7 @@
 - [ ] Tests para componentes TUI
 - [ ] Cobertura mínima del 80%
 
-**Total: 146 tests, 138 passing (94.5%)** ✓
+**Total: 159 tests, 147 passing (92.5%)** ✓
 
 ### 📋 Pendiente
 
