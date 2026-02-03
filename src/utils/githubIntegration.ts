@@ -559,3 +559,352 @@ export function generatePRFromTask(
     draft: true,
   };
 }
+
+/**
+ * GitHub Check Runs - Status Checks Integration
+ * https://docs.github.com/rest/checks/
+ */
+
+export type CheckStatus = 'queued' | 'in_progress' | 'completed' | 'failure' | 'cancelled' | 'timed_out' | 'action_required';
+
+export type CheckConclusion = 'success' | 'failure' | 'neutral' | 'cancelled' | 'timed_out' | 'action_required' | 'stale' | null;
+
+export interface GitHubCheckRun {
+  name: string;
+  headSha: string;
+  status?: CheckStatus;
+  conclusion?: CheckConclusion;
+  detailsUrl?: string;
+  externalId?: string;
+  startedAt?: string;
+  completedAt?: string;
+  output?: {
+    title: string;
+    summary: string;
+    text?: string;
+    annotations?: CheckAnnotation[];
+  };
+  actions?: CheckAction[];
+}
+
+export interface CheckAnnotation {
+  path: string;
+  start_line: number;
+  end_line: number;
+  annotation_level: 'notice' | 'warning' | 'failure';
+  message: string;
+  title?: string;
+  raw_details?: string;
+}
+
+export interface CheckAction {
+  label: string;
+  description: string;
+  identifier: string;
+  url: string;
+}
+
+export interface CheckResult {
+  success: boolean;
+  checkId?: number;
+  url?: string;
+  error?: string;
+}
+
+/**
+ * Crea un Check Run en GitHub
+ */
+export async function createCheckRun(
+  check: GitHubCheckRun,
+  options: GitHubOptions = {}
+): Promise<CheckResult> {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+
+  // Dry run mode
+  if (opts.dryRun) {
+    console.log(chalk.yellow('[DRY RUN] Would create check run:'));
+    console.log(chalk.gray(`  Name: ${check.name}`));
+    console.log(chalk.gray(`  Status: ${check.status || 'queued'}`));
+    console.log(chalk.gray(`  Conclusion: ${check.conclusion || 'pending'}`));
+    return {
+      success: true,
+      url: 'https://github.com/mock/checks/0',
+    };
+  }
+
+  try {
+    const args = [
+      'api',
+      'repos/{owner}/{repo}/check-runs',
+      '--method', 'POST',
+      '-f', `name=${check.name}`,
+      '-f', `head_sha=${check.headSha}`,
+    ];
+
+    if (check.status) {
+      args.push('-F', `status=${check.status}`);
+    }
+    if (check.conclusion) {
+      args.push('-F', `conclusion=${check.conclusion}`);
+    }
+    if (check.detailsUrl) {
+      args.push('-F', `details_url=${check.detailsUrl}`);
+    }
+    if (check.externalId) {
+      args.push('-F', `external_id=${check.externalId}`);
+    }
+    if (check.startedAt) {
+      args.push('-F', `started_at=${check.startedAt}`);
+    }
+    if (check.completedAt) {
+      args.push('-F', `completed_at=${check.completedAt}`);
+    }
+
+    // Add output if provided
+    if (check.output) {
+      args.push('-F', `output=${JSON.stringify(check.output)}`);
+    }
+
+    // Add actions if provided
+    if (check.actions && check.actions.length > 0) {
+      args.push('-F', `actions=${JSON.stringify(check.actions)}`);
+    }
+
+    const { stdout } = await execWithRetry(args, opts);
+    const data = JSON.parse(stdout);
+
+    return {
+      success: true,
+      checkId: data.id,
+      url: data.html_url,
+    };
+  } catch (err: unknown) {
+    const error = err as { stderr?: string; message?: string };
+    const errorMessage = error.stderr || error.message || 'Error creating check run';
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
+
+/**
+ * Actualiza un Check Run existente
+ */
+export async function updateCheckRun(
+  checkId: number,
+  updates: Partial<Pick<GitHubCheckRun, 'status' | 'conclusion' | 'completedAt' | 'output'>>,
+  options: GitHubOptions = {}
+): Promise<CheckResult> {
+  const opts = { ...DEFAULT_OPTIONS, ...options };
+
+  // Dry run mode
+  if (opts.dryRun) {
+    console.log(chalk.yellow(`[DRY RUN] Would update check run ${checkId}`));
+    return {
+      success: true,
+    };
+  }
+
+  try {
+    const args = [
+      'api',
+      'repos/{owner}/{repo}/check-runs/' + checkId,
+      '--method', 'PATCH',
+    ];
+
+    if (updates.status) {
+      args.push('-F', `status=${updates.status}`);
+    }
+    if (updates.conclusion) {
+      args.push('-F', `conclusion=${updates.conclusion}`);
+    }
+    if (updates.completedAt) {
+      args.push('-F', `completed_at=${updates.completedAt}`);
+    }
+    if (updates.output) {
+      args.push('-F', `output=${JSON.stringify(updates.output)}`);
+    }
+
+    const { stdout } = await execWithRetry(args, opts);
+    const data = JSON.parse(stdout);
+
+    return {
+      success: true,
+      url: data.html_url,
+    };
+  } catch (err: unknown) {
+    const error = err as { stderr?: string; message?: string };
+    const errorMessage = error.stderr || error.message || 'Error updating check run';
+
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+}
+
+/**
+ * Genera un Check Run desde resultados de tests
+ */
+export function generateCheckFromTests(
+  task: string,
+  testResults: {
+    passed: number;
+    failed: number;
+    skipped: number;
+    duration: number;
+    output: string;
+  },
+  headSha: string
+): GitHubCheckRun {
+  const total = testResults.passed + testResults.failed + testResults.skipped;
+  const success = testResults.failed === 0;
+
+  const summary = [
+    `**Tests:** ${testResults.passed}/${total} passed`,
+    testResults.failed > 0 ? `, ${testResults.failed} failed` : '',
+    testResults.skipped > 0 ? `, ${testResults.skipped} skipped` : '',
+    ` (${(testResults.duration / 1000).toFixed(1)}s)`,
+  ].join('');
+
+  return {
+    name: `Orchestra: ${task.substring(0, 50)}`,
+    headSha,
+    status: 'completed',
+    conclusion: success ? 'success' : 'failure',
+    completedAt: new Date().toISOString(),
+    output: {
+      title: success ? 'Tests passed' : 'Tests failed',
+      summary,
+      text: testResults.output.substring(0, 60000), // GitHub limit for output
+    },
+  };
+}
+
+/**
+ * Genera un Check Run desde resultados de auditoría
+ */
+export function generateCheckFromAudit(
+  task: string,
+  auditResults: Array<{
+    file: string;
+    description: string;
+    severity: string;
+  }>,
+  headSha: string
+): GitHubCheckRun {
+  const hasCritical = auditResults.some(r => r.severity === 'critical');
+  const hasMajor = auditResults.some(r => r.severity === 'major');
+
+  const conclusion: CheckConclusion = hasCritical ? 'failure' : hasMajor ? 'neutral' : 'success';
+
+  const annotations: CheckAnnotation[] = auditResults.map((result, index) => ({
+    path: result.file,
+    start_line: 1,
+    end_line: 1,
+    annotation_level: result.severity === 'critical' ? 'failure' : result.severity === 'major' ? 'warning' : 'notice',
+    message: result.description,
+    title: `${result.severity.toUpperCase()}: ${result.file}`,
+  }));
+
+  return {
+    name: `Orchestra Audit: ${task.substring(0, 50)}`,
+    headSha,
+    status: 'completed',
+    conclusion,
+    completedAt: new Date().toISOString(),
+    output: {
+      title: `Audit Results: ${auditResults.length} issues found`,
+      summary: `${auditResults.filter(r => r.severity === 'critical').length} critical, ${auditResults.filter(r => r.severity === 'major').length} major, ${auditResults.filter(r => r.severity === 'minor').length} minor`,
+      text: auditResults.map(r => `### ${r.file}\n**Severity:** ${r.severity}\n${r.description}`).join('\n\n'),
+    },
+    annotations: annotations.slice(0, 50), // GitHub limit: 50 annotations per check
+  };
+}
+
+/**
+ * Genera un Check Run desde ejecución completada
+ */
+export function generateCheckFromExecution(
+  task: string,
+  executionResults: {
+    filesGenerated: number;
+    filesModified: number;
+    duration: number;
+    success: boolean;
+    errors?: string[];
+  },
+  headSha: string
+): GitHubCheckRun {
+  const conclusion: CheckConclusion = executionResults.success ? 'success' : 'failure';
+
+  const summary = [
+    `Files: ${executionResults.filesGenerated} generated, ${executionResults.filesModified} modified`,
+    `Duration: ${(executionResults.duration / 1000).toFixed(1)}s`,
+    executionResults.success ? '✓ Success' : '✗ Failed',
+  ].join(' | ');
+
+  return {
+    name: `Orchestra Execution: ${task.substring(0, 50)}`,
+    headSha,
+    status: 'completed',
+    conclusion,
+    completedAt: new Date().toISOString(),
+    output: {
+      title: executionResults.success ? 'Execution completed' : 'Execution failed',
+      summary,
+      text: executionResults.errors && executionResults.errors.length > 0
+        ? 'Errors:\n' + executionResults.errors.join('\n')
+        : `Orchestra completed task "${task}" successfully.`,
+    },
+  };
+}
+
+/**
+ * Crea un check run y actualiza su estado durante una operación
+ */
+export async function createAndStartCheck(
+  name: string,
+  headSha: string,
+  options: GitHubOptions = {}
+): Promise<{ checkId?: number; success: boolean; error?: string }> {
+  const check: GitHubCheckRun = {
+    name,
+    headSha,
+    status: 'in_progress',
+    startedAt: new Date().toISOString(),
+  };
+
+  const result = await createCheckRun(check, options);
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  return {
+    success: true,
+    checkId: result.checkId,
+  };
+}
+
+/**
+ * Completa un check run existente
+ */
+export async function completeCheck(
+  checkId: number,
+  conclusion: CheckConclusion,
+  output?: GitHubCheckRun['output'],
+  options: GitHubOptions = {}
+): Promise<boolean> {
+  const result = await updateCheckRun(checkId, {
+    status: 'completed',
+    conclusion,
+    completedAt: new Date().toISOString(),
+    output,
+  }, options);
+
+  return result.success;
+}
+
