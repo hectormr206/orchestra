@@ -61,6 +61,23 @@
 - [x] `dryRun.ts` - Análisis de tareas sin ejecución
 - [x] `gitIntegration.ts` - Auto-commit con mensajes convencionales
 - [x] `githubIntegration.ts` - Creación de issues/PRs vía `gh` CLI
+- [x] `ciCdIntegration.ts` - Integración CI/CD (GitHub Actions, GitLab CI, Jenkins)
+- [x] `jiraIntegration.ts` - Integración con Jira para tickets
+- [x] `slackDiscordIntegration.ts` - Integración Slack/Discord para notificaciones
+- [x] `securityAudit.ts` - Auditoría de seguridad (OWASP Top 10)
+- [x] `export.ts` - Exportación a HTML/Markdown/JSON/PDF
+- [x] `promptOptimizer.ts` - Optimizador de prompts
+- [x] `frameworkDetector.ts` - Detección automática de frameworks
+- [x] `monorepo.ts` - Soporte para monorepos
+- [x] `redisCache.ts` - Cache distribuido Redis
+- [x] `telemetry.ts` - Métricas y observabilidad
+- [x] `profiler.ts` - Performance profiling
+- [x] `sessionRecovery.ts` - Gestión de recuperación de sesiones
+- [x] `recoveryOptimizer.ts` - Optimizador de recovery mode
+- [x] `logger.ts` - Logging estructurado
+- [x] `profiles.ts` - Perfiles de configuración
+- [x] `contextAnalyzer.ts` - Análisis de contexto multi-archivo
+- [x] `tsPathResolver.ts` - Soporte para TypeScript path aliases
 
 #### TUI (`src/tui/`)
 - [x] `App.tsx` - Aplicación principal con navegación
@@ -68,8 +85,12 @@
 - [x] `TaskInput.tsx` - Entrada de tareas
 - [x] `Execution.tsx` - Visualización de ejecución
 - [x] `PlanReview.tsx` - Revisión y aprobación de planes
+- [x] `PlanEditor.tsx` - Editor de planes
 - [x] `History.tsx` - Historial de sesiones
+- [x] `SessionDetails.tsx` - Detalles de sesión
 - [x] `Settings.tsx` - Configuración
+- [x] `AdvancedSettings.tsx` - Configuración avanzada
+- [x] `DryRun.tsx` - Pantalla de dry-run
 - [x] `Doctor.tsx` - Verificación de entorno
 - [x] `hooks/useOrchestrator.ts` - Hook personalizado para orquestación
 
@@ -81,17 +102,13 @@
 
 ### 🚧 En Progreso
 
-#### Mejoras TUI (`src/tui/`)
-- [ ] Pantalla de Dry-Run (TODO en `App.tsx:167`)
-- [ ] Edición de planes en TUI (TODO en `App.tsx:229`)
-- [ ] Detalles de sesión en History (TODO en `App.tsx:239`)
-- [ ] Eliminación de sesiones en History (TODO en `App.tsx:242`)
-- [ ] Pantalla de configuración avanzada
-
 #### Pruebas
 - [x] Tests unitarios para `src/` (securityAudit, export, pluginManager, frameworkDetector, fallbackAdapter)
 - [x] Tests de integración para el flujo completo (integration.test.ts)
-- [x] Tests E2E para CLI (e2e.test.ts - infrastructure created)
+- [x] Tests unitarios para adapters (fallbackAdapter.test.ts)
+- [x] Tests E2E para CLI (e2e.test.ts - infrastructure creada)
+- [ ] Tests unitarios para orchestrator/
+- [ ] Tests para componentes TUI
 - [ ] Cobertura mínima del 80%
 
 ### 📋 Pendiente
@@ -180,35 +197,35 @@
 ### Q4 2026 (Oct - Dic) - Ecosistema v0.5
 **Objetivo:** Integraciones y ecosistema
 
-- [ ] Integración con Jira (crear tickets desde auditorías)
-- [ ] Integración con Slack (notificaciones en tiempo real)
-- [ ] Integración con GitHub Actions (workflow templates)
-- [ ] Exportación a reportes PDF con gráficos
+- [x] Integración con Jira (crear tickets desde auditorías) ✓
+- [x] Integración con Slack (notificaciones en tiempo real) ✓
+- [x] Integración con GitHub Actions (workflow templates) ✓
+- [x] Exportación a reportes PDF con gráficos ✓
 - [ ] Modo "servidor" para orquestación remota
 - [ ] CLI remoto vía WebSocket
 - [ ] Marketplace de plugins (repo curado)
 
 **Entregables:**
-- Versión 0.5.0 con 3 integraciones nuevas
-- Modo servidor funcional
-- Marketplace de plugins inicial
+- Versión 0.5.0 con 3 integraciones nuevas ✓
+- Modo servidor funcional (pendiente)
+- Marketplace de plugins inicial (pendiente)
 
 ### H1 2027 (Ene - Jun) - Producción v1.0
 **Objetivo:** Estabilidad para producción
 
-- [ ] Auditoría de seguridad completa
-- [ ] Hardening de Recovery Mode (timeout adaptativo)
-- [ ] Caché distribuido con Redis
-- [ ] Soporte para orquestación multi-repo
+- [x] Auditoría de seguridad completa (securityAudit.ts) ✓
+- [x] Hardening de Recovery Mode (timeout adaptativo) ✓
+- [x] Caché distribuido con Redis (redisCache.ts) ✓
+- [x] Soporte para orquestación multi-repo (monorepo.ts) ✓
 - [ ] Interfaz web alternativa (React)
-- [ ] Métricas y observabilidad con OpenTelemetry
-- [ ] SLAs definidos y documentados
-- [ ] Guía de escalado para equipos grandes
+- [x] Métricas y observabilidad con OpenTelemetry (telemetry.ts, profiler.ts) ✓
+- [x] SLAs definidos y documentados (SCALING.md) ✓
+- [x] Guía de escalado para equipos grandes (SCALING.md) ✓
 
 **Entregables:**
 - Versión 1.0.0 production-ready
-- Interfaz web funcional
-- Documentación de arquitectura y operaciones
+- Interfaz web funcional (pendiente)
+- Documentación de arquitectura y operaciones ✓
 
 ---
 
@@ -223,10 +240,10 @@
    - [ ] Implementar eliminación de sesiones en `History.tsx` (ver TODO en `App.tsx:242`)
 
 2. **Tests** (`src/**/*.test.ts`)
+   - [x] `adapters/FallbackAdapter.test.ts` - Test fallback chains ✓
    - [ ] `adapters/CodexAdapter.test.ts` - Mock API responses
    - [ ] `adapters/GeminiAdapter.test.ts` - Mock API responses
    - [ ] `adapters/GLMAdapter.test.ts` - Mock API responses
-   - [ ] `adapters/FallbackAdapter.test.ts` - Test fallback chains
    - [ ] `orchestrator/Orchestrator.test.ts` - Integration tests
    - [ ] `utils/StateManager.test.ts` - Test persistence
    - [ ] `utils/testRunner.test.ts` - Mock test frameworks
@@ -234,7 +251,7 @@
    - [ ] `utils/gitIntegration.test.ts` - Mock git commands
    - [ ] `utils/githubIntegration.test.ts` - Mock gh CLI
    - [ ] `tui/App.test.tsx` - Component tests
-   - [ ] `cli/index.test.ts` - E2E CLI tests
+   - [x] `cli/e2e.test.ts` - E2E CLI tests ✓
 
 3. **Hardening GitHub Integration** (`src/utils/githubIntegration.ts`)
    - [ ] Manejo robusto de errores de red
@@ -266,10 +283,10 @@
    - [ ] `TUTORIAL.md` - Tutorial paso a paso
 
 7. **DevEx**
-   - [ ] `npm run dev` con hot-reload usando `tsx watch`
-   - [ ] `npm run test:watch` para modo watch de tests
-   - [ ] `npm run lint:fix` para auto-corrección de ESLint
-   - [ ] Completado de comandos en shell (orchestra-completion.bash)
+   - [x] `npm run dev` con hot-reload usando `tsx watch` ✓
+   - [x] `npm run test:watch` para modo watch de tests ✓
+   - [x] `npm run lint:fix` para auto-corrección de ESLint ✓
+   - [x] Completado de comandos en shell (orchestra-completion.bash/zsh) ✓
 
 ### Baja Prioridad
 
@@ -279,10 +296,10 @@
    - [ ] `src/adapters/MistralAdapter.ts` - Mistral API
 
 9. **Sistema de Plugins**
-   - [ ] `src/plugins/PluginManager.ts` - Gestor de plugins
-   - [ ] `src/plugins/types.ts` - Interfaces de plugin
-   - [ ] `.orchestra/plugins/` - Directorio de plugins instalados
-   - [ ] `orchestra plugin install <name>` - CLI para instalar plugins
+   - [x] `src/plugins/PluginManager.ts` - Gestor de plugins ✓
+   - [x] `src/plugins/types.ts` - Interfaces de plugin ✓
+   - [x] `.orchestra/plugins/` - Directorio de plugins instalados ✓
+   - [x] `orchestra plugin install <name>` - CLI para instalar plugins ✓
 
 10. **Interfaz Web**
     - [ ] `src/web/` - Código de interfaz web
