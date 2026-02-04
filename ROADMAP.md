@@ -254,7 +254,7 @@
    - [x] `adapters/ClaudeAdapter.test.ts` - Mock Anthropic API ✓
    - [x] `adapters/LlamaAdapter.test.ts` - Mock Llama API ✓
    - [x] `adapters/MistralAdapter.test.ts` - Mock Mistral API ✓
-   - [ ] `orchestrator/Orchestrator.test.ts` - Integration tests
+   - [x] `orchestrator/Orchestrator.test.ts` - Integration tests (24 tests passing) ✓
    - [x] `utils/StateManager.test.ts` - Test persistence ✓
    - [x] `utils/testRunner.test.ts` - Mock test frameworks ✓
    - [x] `utils/validators.test.ts` - Test syntax validation ✓
@@ -263,7 +263,7 @@
    - [x] `utils/metrics.test.ts` - Test metrics collection ✓
    - [x] `utils/sessionHistory.test.ts` - Test history management ✓
    - [x] `utils/githubIntegration.test.ts` - Mock gh CLI (61 tests passing) ✓
-   - [ ] `tui/App.test.tsx` - Component tests
+   - [x] `tui/App.test.tsx` - Component tests (8 tests passing) ✓
    - [x] `cli/e2e.test.ts` - E2E CLI tests ✓
 
 3. **Hardening GitHub Integration** (`src/utils/githubIntegration.ts`)
@@ -317,10 +317,10 @@
    - [x] `orchestra plugin install <name>` - CLI para instalar plugins ✓
 
 10. **Interfaz Web**
-    - [ ] `src/web/` - Código de interfaz web
-    - [ ] Vite + React setup
-    - [ ] WebSocket para comunicación con orchestrator
-    - [ ] Diseño responsive
+    - [x] `src/web/` - Código de interfaz web ✓
+    - [x] Vite + React setup ✓
+    - [x] 4 páginas principales (Dashboard, Sessions, Plugins, Settings) ✓
+    - [x] Diseño responsive con Tailwind CSS ✓
 
 ---
 
