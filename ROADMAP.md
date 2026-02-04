@@ -210,12 +210,12 @@
 - [x] Exportación a reportes PDF con gráficos ✓
 - [x] Modo "servidor" para orquestación remota ✓ (OrchestraServer con HTTP/WebSocket)
 - [x] CLI remoto vía WebSocket ✓ (OrchestraClient con comandos remotos)
-- [ ] Marketplace de plugins (repo curado)
+- [x] Marketplace de plugins ✓ (PluginMarketplace con búsqueda e instalación)
 
 **Entregables:**
 - Versión 0.5.0 con 3 integraciones nuevas ✓
-- Modo servidor funcional (pendiente)
-- Marketplace de plugins inicial (pendiente)
+- Modo servidor funcional ✓ (OrchestraServer + OrchestraClient)
+- Marketplace de plugins inicial ✓ (PluginMarketplace con 2 plugins oficiales)
 
 ### H1 2027 (Ene - Jun) - Producción v1.0
 **Objetivo:** Estabilidad para producción
@@ -320,7 +320,7 @@
 ## 📈 Métricas de Éxito
 
 ### Calidad de Código
-- [x] **Cobertura de tests**: 398 tests (333 passing, 38 timeout, 27 skipped, 83.7% pass rate) ✓
+- [x] **Cobertura de tests**: 424 tests (359 passing, 38 timeout, 27 skipped, 84.7% pass rate) ✓
 - [ ] **Complexity promedio**: < 15 por función (cyclomatic complexity)
 - [ ] **Duplicación**: < 5% (eslint `no-duplicate-imports`)
 - [x] **Type safety**: 100% TypeScript strict mode ✓
