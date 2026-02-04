@@ -114,7 +114,11 @@ export class OrchestraClient {
    * Send orchestration command via HTTP API
    */
   async orchestrate(command: OrchestrationCommand): Promise<string> {
-    const response = await this.httpRequest('POST', '/api/orchestrate', command);
+    const response = await this.httpRequest<{ sessionId: string }>(
+      'POST',
+      '/api/orchestrate',
+      command as unknown as Record<string, unknown>
+    );
     return response.sessionId;
   }
 
@@ -308,11 +312,11 @@ export class OrchestraClient {
     const response = await fetch(url.toString(), options);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const error = await response.json().catch(() => ({ error: 'Unknown error' })) as { error?: string };
       throw new Error(error.error || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   /**

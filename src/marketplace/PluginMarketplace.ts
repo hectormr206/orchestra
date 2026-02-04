@@ -207,7 +207,7 @@ export class PluginMarketplace {
         success: false,
         pluginId,
         version: plugin.version,
-        installedPath,
+        installedPath: installPath,
         message: `Plugin "${pluginId}" is already installed. Use --force to reinstall.`,
       };
     }
