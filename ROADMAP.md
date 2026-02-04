@@ -265,6 +265,8 @@
    - [x] `utils/githubIntegration.test.ts` - Mock gh CLI (61 tests passing) ✓
    - [x] `tui/App.test.tsx` - Component tests (8 tests passing) ✓
    - [x] `cli/e2e.test.ts` - E2E CLI tests ✓
+   - [x] `utils/performanceOptimizer.test.ts` - Performance utilities (27 tests passing) ✓
+   - [x] `utils/streamingAdapter.test.ts` - Streaming utilities (21 tests passing) ✓
 
 3. **Hardening GitHub Integration** (`src/utils/githubIntegration.ts`)
    - [x] Manejo robusto de errores de red ✓
@@ -282,10 +284,10 @@
 ### Media Prioridad
 
 5. **Mejoras de Performance**
-   - [ ] Perfilado con `clinic` o `0x` para identificar cuellos de botella
-   - [ ] Optimizar `runWithConcurrency` para reducir overhead
-   - [ ] Cache de prompts compilados
-   - [ ] Streaming de respuestas de API (cuando sea posible)
+   - [x] Perfilado con `clinic` o `0x` para identificar cuellos de botella ✓ (scripts/profile.js + docs/guides/performance.md)
+   - [x] Optimizar `runWithConcurrency` para reducir overhead ✓ (runWithConcurrencyOptimized con batched progress updates)
+   - [x] Cache de prompts compilados ✓ (PromptCache class en performanceOptimizer.ts)
+   - [x] Streaming de respuestas de API (cuando sea posible) ✓ (streamingAdapter.ts con processStream y utilidades)
 
 6. **Documentación**
    - [x] `docs/api/README.md` - Documentación completa de API (Orchestrator, Adapters, Types, Utilities, Plugins) ✓
@@ -295,6 +297,7 @@
    - [x] `docs/guides/development.md` - Guía de desarrollo ✓
    - [x] `docs/guides/testing.md` - Guía de tests ✓
    - [x] `docs/guides/plugin-development.md` - Guía de desarrollo de plugins ✓
+   - [x] `docs/guides/performance.md` - Guía de perfilado y optimización ✓
    - [x] `TUTORIAL.md` - Tutorial paso a paso ✓
 
 7. **DevEx**
@@ -327,7 +330,7 @@
 ## 📈 Métricas de Éxito
 
 ### Calidad de Código
-- [x] **Cobertura de tests**: 424 tests (359 passing, 38 timeout, 27 skipped, 84.7% pass rate) ✓
+- [x] **Cobertura de tests**: 492 tests (459 passing, 33 timeout/skipped, 93.3% pass rate) ✓
 - [x] **Web UI**: React + Vite con 4 páginas principales (Dashboard, Sessions, Plugins, Settings) ✓
 - [ ] **Complexity promedio**: < 15 por función (cyclomatic complexity)
 - [ ] **Duplicación**: < 5% (eslint `no-duplicate-imports`)

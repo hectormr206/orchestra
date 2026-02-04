@@ -91,6 +91,7 @@
     "@types/node": "^20.11.0",
     "@types/react": "^19.2.10",
     "@types/ws": "^8.5.10",
+    "clinic": "^13.0.0",
     "ink-testing-library": "^4.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
