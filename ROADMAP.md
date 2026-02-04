@@ -354,7 +354,7 @@
 ### Adoptabilidad
 - [ ] **Tiempo de onboard**: < 15 min para primer uso exitoso
 - [ ] **Documentación**: 100% de APIs públicas documentadas
-- [ ] **Ejemplos**: ≥ 10 ejemplos de uso en `examples/`
+- [x] **Ejemplos**: ≥ 10 ejemplos de uso en `examples/` ✓ (11 ejemplos TypeScript + 3 guías markdown)
 - [x] **Guías**: ≥ 5 guías en `docs/guides/` ✓ (development, testing, plugin-development, performance, troubleshooting)
 
 ---

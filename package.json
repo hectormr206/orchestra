@@ -87,11 +87,16 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@eslint/compat": "^2.0.2",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20.11.0",
     "@types/react": "^19.2.10",
     "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "clinic": "^13.0.0",
+    "eslint": "^9.39.2",
+    "eslint-plugin-security": "^3.0.1",
     "ink-testing-library": "^4.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",
