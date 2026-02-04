@@ -1,0 +1,26 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "noEmitOnError": false
+  },
+  "include": [
+    "src/orchestrator/**/*",
+    "src/adapters/**/*",
+    "src/prompts/**/*",
+    "src/utils/**/*",
+    "src/tui/**/*",
+    "src/cli/**/*",
+    "src/types.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/web/**",
+    "src/client/**",
+    "src/server/**",
+    "src/marketplace/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}

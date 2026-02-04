@@ -49,7 +49,7 @@ async function measureExecution(task, config = {}) {
     },
   });
 
-  await orchestrator.orchestrate(task);
+  await orchestrator.run(task);
   await orchestrator.clean();
 
   const endTime = performance.now();

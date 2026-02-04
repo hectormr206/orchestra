@@ -103,7 +103,7 @@ export async function processStream<T>(
 
     const totalTime = Date.now() - startTime;
 
-    options.onComplete?.(result);
+    options?.onComplete?.(result);
 
     return {
       result,
@@ -114,7 +114,7 @@ export async function processStream<T>(
       data: data as T,
     };
   } catch (error) {
-    options.onError?.(error as Error);
+    options?.onError?.(error as Error);
     throw error;
   }
 }
