@@ -1,7 +1,9 @@
 {
   "execution": {
     "parallel": false,
-    "maxConcurrency": 1
+    "maxConcurrency": 1,
+    "timeout": 900000,
+    "maxIterations": 5
   },
   "test": {
     "command": "npm test",
@@ -14,30 +16,14 @@
     "autoApprove": false,
     "notifications": true,
     "cacheEnabled": true,
-    "maxRecoveryAttempts": 3,
-    "recoveryTimeoutMinutes": 10,
+    "maxRecoveryAttempts": 5,
+    "recoveryTimeoutMinutes": 15,
     "autoRevertOnFailure": true,
     "agents": {
-      "architect": [
-        "Claude (GLM 4.7)",
-        "Gemini",
-        "Codex"
-      ],
-      "executor": [
-        "Claude (GLM 4.7)",
-        "Gemini",
-        "Codex"
-      ],
-      "auditor": [
-        "Gemini",
-        "Claude (GLM 4.7)",
-        "Codex"
-      ],
-      "consultant": [
-        "Claude (GLM 4.7)",
-        "Gemini",
-        "Codex"
-      ]
+      "architect": ["Claude (GLM 4.7)"],
+      "executor": ["Claude (GLM 4.7)"],
+      "auditor": ["Claude (GLM 4.7)"],
+      "consultant": ["Claude (GLM 4.7)"]
     }
   }
 }
