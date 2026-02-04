@@ -1,189 +1,354 @@
 /**
- * Tests for ClaudeAdapter
+ * Tests for Claude Adapter
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ClaudeAdapter } from './ClaudeAdapter.js';
-import type { ExecuteOptions, AgentResult } from '../types.js';
+import type { ExecuteOptions } from '../types.js';
 
-// Mock execFile for curl commands
-vi.mock('util', () => ({
-  execFile: vi.fn(),
-  promisify: vi.fn(() => (cmd: string, args: string[]) => {
-    return new Promise((resolve, reject) => {
-      // Mock different responses based on command
-      if (cmd === 'curl' && args.includes('https://api.anthropic.com/v1/messages')) {
-        // Mock successful API response
-        resolve({
-          stdout: JSON.stringify({
-            content: [
-              {
-                type: 'text',
-                text: 'Mock response from Claude API'
-              }
-            ],
-            usage: {
-              input_tokens: 100,
-              output_tokens: 50
-            }
-          })
-        });
-      } else if (cmd === 'curl' && args.includes('models')) {
-        // Mock models list
-        resolve({
-          stdout: JSON.stringify({
-            data: [
-              { id: 'claude-3-5-sonnet-20241022' },
-              { id: 'claude-3-opus-20240229' }
-            ]
-          })
-        });
-      } else {
-        reject(new Error('Command failed'));
-      }
-    });
-  }),
+// Create mock spawn function
+const mockSpawnFn = vi.fn();
+vi.mock('child_process', () => ({
+  spawn: (...args: unknown[]) => mockSpawnFn(...args),
+  default: { spawn: (...args: unknown[]) => mockSpawnFn(...args) },
+}));
+
+// Mock fs/promises writeFile
+const mockWriteFile = vi.fn();
+vi.mock('fs/promises', () => ({
+  writeFile: (...args: unknown[]) => mockWriteFile(...args),
 }));
 
 describe('ClaudeAdapter', () => {
   let adapter: ClaudeAdapter;
 
   beforeEach(() => {
-    adapter = new ClaudeAdapter({
-      apiKey: 'test-key',
-    });
+    vi.clearAllMocks();
+    mockSpawnFn.mockReset();
+    adapter = new ClaudeAdapter();
   });
 
-  describe('constructor', () => {
-    it('should create adapter with API key', () => {
+  afterEach(() => {
+    // Clean up any ANTHROPIC_* env vars we might have set
+    for (const key in process.env) {
+      if (key.startsWith('ANTHROPIC_')) {
+        delete process.env[key];
+      }
+    }
+  });
+
+  describe('initialization', () => {
+    it('should initialize with default config', () => {
       expect(adapter).toBeDefined();
     });
 
-    it('should create adapter with custom options', () => {
-      const customAdapter = new ClaudeAdapter({
-        apiKey: 'custom-key',
-        model: 'claude-3-5-sonnet-20241022',
-        timeout: 60000,
-      });
-      expect(customAdapter).toBeDefined();
-    });
+    it('should have correct info', () => {
+      const info = adapter.getInfo();
 
-    it('should use default model if not specified', () => {
-      const defaultAdapter = new ClaudeAdapter({
-        apiKey: 'test-key',
-      });
-      expect(defaultAdapter).toBeDefined();
+      expect(info.name).toBe('ClaudeAdapter');
+      expect(info.model).toBe('Claude Opus 4.5');
+      expect(info.provider).toBe('Anthropic');
     });
   });
 
   describe('execute', () => {
-    it('should execute prompt and return result', async () => {
-      const options: ExecuteOptions = {
-        prompt: 'Test prompt',
-        systemPrompt: 'You are a helpful assistant',
+    it('should spawn claude command and filter ANTHROPIC_* env vars', async () => {
+      // Set some ANTHROPIC_* env vars that should be filtered out
+      process.env.ANTHROPIC_API_KEY = 'should-be-filtered';
+      process.env.ANTHROPIC_BASE_URL = 'should-be-filtered';
+
+      const mockProc: any = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        stdin: { end: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
       };
 
-      const result: AgentResult = await adapter.execute(options);
+      mockSpawnFn.mockReturnValueOnce(mockProc);
 
-      expect(result).toBeDefined();
-      expect(result.content).toContain('Mock response from Claude API');
+      // Simulate successful execution
+      process.nextTick(() => {
+        const stdoutHandler = mockProc.stdout.on.mock.calls.find(
+          ([event]: [string]) => event === 'data'
+        )?.[1] as ((data: Buffer) => void) | undefined;
+        const closeHandler = mockProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+
+        stdoutHandler?.(Buffer.from('Test response'));
+        closeHandler?.(0);
+      });
+
+      const options: ExecuteOptions = {
+        prompt: 'Test prompt',
+      };
+
+      const result = await adapter.execute(options);
+
+      expect(mockSpawnFn).toHaveBeenCalledWith(
+        'claude',
+        ['Test prompt'],
+        expect.objectContaining({
+          env: expect.not.objectContaining({
+            ANTHROPIC_API_KEY: 'should-be-filtered',
+            ANTHROPIC_BASE_URL: 'should-be-filtered',
+          }),
+          stdio: ['pipe', 'pipe', 'pipe'],
+        })
+      );
       expect(result.success).toBe(true);
     });
 
-    it('should handle API errors gracefully', async () => {
-      // Mock error scenario would go here
+    it('should handle rate limit errors', async () => {
+      const mockProc: any = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        stdin: { end: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+      };
+
+      mockSpawnFn.mockReturnValueOnce(mockProc);
+
+      // Simulate rate limit error
+      process.nextTick(() => {
+        const stderrHandler = mockProc.stderr.on.mock.calls.find(
+          ([event]: [string]) => event === 'data'
+        )?.[1] as ((data: Buffer) => void) | undefined;
+        const closeHandler = mockProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+
+        stderrHandler?.(Buffer.from('rate limit exceeded'));
+        closeHandler?.(1);
+      });
+
       const options: ExecuteOptions = {
         prompt: 'Test prompt',
       };
 
       const result = await adapter.execute(options);
-      expect(result).toBeDefined();
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('RATE_LIMIT');
     });
 
-    it('should include usage statistics', async () => {
+    it('should write to output file when specified', async () => {
+      const mockProc: any = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        stdin: { end: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+      };
+
+      mockSpawnFn.mockReturnValueOnce(mockProc);
+      mockWriteFile.mockResolvedValueOnce(undefined);
+
+      // Simulate successful execution
+      process.nextTick(() => {
+        const stdoutHandler = mockProc.stdout.on.mock.calls.find(
+          ([event]: [string]) => event === 'data'
+        )?.[1] as ((data: Buffer) => void) | undefined;
+        const closeHandler = mockProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+
+        stdoutHandler?.(Buffer.from('Test response'));
+        closeHandler?.(0);
+      });
+
       const options: ExecuteOptions = {
-        prompt: 'Count to 10',
+        prompt: 'Test prompt',
+        outputFile: '/tmp/output.txt',
       };
 
       const result = await adapter.execute(options);
 
-      expect(result.metadata).toBeDefined();
-      expect(result.metadata?.usage).toBeDefined();
+      expect(mockWriteFile).toHaveBeenCalledWith('/tmp/output.txt', 'Test response', 'utf-8');
+      expect(result.success).toBe(true);
+      expect(result.outputFile).toBe('/tmp/output.txt');
+    });
+
+    it('should handle file write errors', async () => {
+      const mockProc: any = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        stdin: { end: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+      };
+
+      mockSpawnFn.mockReturnValueOnce(mockProc);
+      mockWriteFile.mockRejectedValueOnce(new Error('Write failed'));
+
+      // Simulate successful execution
+      process.nextTick(() => {
+        const stdoutHandler = mockProc.stdout.on.mock.calls.find(
+          ([event]: [string]) => event === 'data'
+        )?.[1] as ((data: Buffer) => void) | undefined;
+        const closeHandler = mockProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+
+        stdoutHandler?.(Buffer.from('Test response'));
+        closeHandler?.(0);
+      });
+
+      const options: ExecuteOptions = {
+        prompt: 'Test prompt',
+        outputFile: '/tmp/output.txt',
+      };
+
+      const result = await adapter.execute(options);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Error escribiendo archivo');
+    });
+
+    it('should handle process errors', async () => {
+      const mockProc: any = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        stdin: { end: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+      };
+
+      mockSpawnFn.mockReturnValueOnce(mockProc);
+
+      // Simulate process error
+      process.nextTick(() => {
+        const errorHandler = mockProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'error'
+        )?.[1] as ((error: Error) => void) | undefined;
+        errorHandler?.(new Error('Command not found'));
+      });
+
+      const options: ExecuteOptions = {
+        prompt: 'Test prompt',
+      };
+
+      const result = await adapter.execute(options);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('Command not found');
+    });
+
+    it('should accept successful execution with non-zero exit code but output', async () => {
+      const mockProc: any = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        stdin: { end: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+      };
+
+      mockSpawnFn.mockReturnValueOnce(mockProc);
+
+      // Simulate successful execution with stdout but non-zero exit
+      process.nextTick(() => {
+        const stdoutHandler = mockProc.stdout.on.mock.calls.find(
+          ([event]: [string]) => event === 'data'
+        )?.[1] as ((data: Buffer) => void) | undefined;
+        const closeHandler = mockProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+
+        stdoutHandler?.(Buffer.from('Test response'));
+        closeHandler?.(1); // Non-zero exit code
+      });
+
+      const options: ExecuteOptions = {
+        prompt: 'Test prompt',
+      };
+
+      const result = await adapter.execute(options);
+
+      // ClaudeAdapter accepts stdout.length > 0 as success
+      expect(result.success).toBe(true);
     });
   });
 
-  describe('isAvailable', () => {
-    it('should return true when API key is set', async () => {
+  describe('availability', () => {
+    it('should check if claude command is available', async () => {
+      const mockWhichProc: any = { on: vi.fn() };
+
+      mockSpawnFn.mockReturnValueOnce(mockWhichProc);
+
+      process.nextTick(() => {
+        const closeHandler = mockWhichProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+        closeHandler?.(0);
+      });
+
       const available = await adapter.isAvailable();
+
       expect(available).toBe(true);
     });
-  });
 
-  describe('listModels', () => {
-    it('should return list of available models', async () => {
-      const models = await adapter.listModels();
+    it('should return false when claude is not found', async () => {
+      const mockWhichProc: any = { on: vi.fn() };
 
-      expect(models).toBeDefined();
-      expect(Array.isArray(models)).toBe(true);
-      expect(models.length).toBeGreaterThan(0);
-      expect(models[0]).toContain('claude');
-    });
-  });
+      mockSpawnFn.mockReturnValueOnce(mockWhichProc);
 
-  describe('hasModel', () => {
-    it('should return true for available model', async () => {
-      const hasModel = await adapter.hasModel('claude-3-5-sonnet-20241022');
-      expect(hasModel).toBe(true);
-    });
-
-    it('should return false for unavailable model', async () => {
-      const hasModel = await adapter.hasModel('non-existent-model');
-      expect(hasModel).toBe(false);
-    });
-  });
-
-  describe('error handling', () => {
-    it('should handle missing API key', async () => {
-      const noKeyAdapter = new ClaudeAdapter({
-        apiKey: '',
+      process.nextTick(() => {
+        const closeHandler = mockWhichProc.on.mock.calls.find(
+          ([event]: [string]) => event === 'close'
+        )?.[1] as ((code: number) => void) | undefined;
+        closeHandler?.(1);
       });
 
-      const options: ExecuteOptions = {
-        prompt: 'Test',
-      };
+      const available = await adapter.isAvailable();
 
-      const result = await noKeyAdapter.execute(options);
-      expect(result).toBeDefined();
-    });
-
-    it('should handle timeout errors', async () => {
-      const timeoutAdapter = new ClaudeAdapter({
-        apiKey: 'test-key',
-        timeout: 1,
-      });
-
-      const options: ExecuteOptions = {
-        prompt: 'Test',
-      };
-
-      const result = await timeoutAdapter.execute(options);
-      expect(result).toBeDefined();
+      expect(available).toBe(false);
     });
   });
 
-  describe('model parameter', () => {
-    it('should use custom model when specified', async () => {
-      const customModelAdapter = new ClaudeAdapter({
-        apiKey: 'test-key',
-        model: 'claude-3-opus-20240229',
-      });
+  describe('rate limit detection', () => {
+    it('should detect various rate limit patterns', async () => {
+      const patterns = [
+        'rate limit exceeded',
+        'quota exceeded',
+        'too many requests',
+        '429',
+        'resource exhausted',
+        'overloaded',
+      ];
 
-      const options: ExecuteOptions = {
-        prompt: 'Test with custom model',
-      };
+      for (const pattern of patterns) {
+        mockSpawnFn.mockReset();
 
-      const result = await customModelAdapter.execute(options);
-      expect(result).toBeDefined();
+        const mockProc: any = {
+          stdout: { on: vi.fn() },
+          stderr: { on: vi.fn() },
+          stdin: { end: vi.fn() },
+          on: vi.fn(),
+          kill: vi.fn(),
+        };
+
+        mockSpawnFn.mockReturnValueOnce(mockProc);
+
+        // Simulate rate limit error
+        process.nextTick(() => {
+          const stderrHandler = mockProc.stderr.on.mock.calls.find(
+            ([event]: [string]) => event === 'data'
+          )?.[1] as ((data: Buffer) => void) | undefined;
+          const closeHandler = mockProc.on.mock.calls.find(
+            ([event]: [string]) => event === 'close'
+          )?.[1] as ((code: number) => void) | undefined;
+
+          stderrHandler?.(Buffer.from(pattern));
+          closeHandler?.(1);
+        });
+
+        const result = await adapter.execute({ prompt: 'Test' });
+
+        expect(result.success).toBe(false);
+        expect(result.error).toContain('RATE_LIMIT');
+      }
     });
   });
 });

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { detectProject, type ProjectDetection, type FrameworkInfo } from './utils/frameworkDetector';
+import { detectProject, type ProjectDetection, type FrameworkInfo } from './frameworkDetector';
 
 describe('FrameworkDetector', () => {
   describe('detectProject', () => {

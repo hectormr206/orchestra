@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { FallbackAdapter, type Adapter, type FallbackAdapterCallbacks } from './adapters/FallbackAdapter';
-import type { ExecuteOptions, AgentResult } from './types';
+import { FallbackAdapter, type Adapter, type FallbackAdapterCallbacks } from './FallbackAdapter.js';
+import type { ExecuteOptions, AgentResult } from '../types.js';
 
 // Mock adapter for testing
 class MockAdapter implements Adapter {

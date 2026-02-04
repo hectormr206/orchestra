@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Orchestrator } from './orchestrator/Orchestrator';
+import { Orchestrator } from './Orchestrator';
 import type { OrchestratorConfig } from './types';
 
 // Test types for integration testing

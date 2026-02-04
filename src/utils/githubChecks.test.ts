@@ -15,7 +15,7 @@ import {
   type CheckAnnotation,
   type CheckStatus,
   type CheckConclusion,
-} from './utils/githubIntegration.js';
+} from './githubIntegration.js';
 
 // Mock child_process
 const mockExecFile = vi.fn();

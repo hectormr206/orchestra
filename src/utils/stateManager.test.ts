@@ -4,23 +4,27 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { StateManager } from './StateManager.js';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'fs';
-import path from 'path';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
 
+// Mock fs/promises
+vi.mock('fs/promises', () => ({
+  readFile: vi.fn(),
+  writeFile: vi.fn(),
+  mkdir: vi.fn(),
+}));
+
+// Mock fs
 vi.mock('fs', () => ({
   existsSync: vi.fn(),
-  mkdirSync: vi.fn(),
-  writeFileSync: vi.fn(),
-  readFileSync: vi.fn(),
-  rmSync: vi.fn(),
 }));
 
 describe('StateManager', () => {
   let manager: StateManager;
-  const mockSessionDir = '.orchestra';
+  const mockSessionDir = '.orchestra-test';
 
   beforeEach(() => {
-    manager = new StateManager();
+    manager = new StateManager(mockSessionDir);
     vi.clearAllMocks();
   });
 
@@ -28,136 +32,205 @@ describe('StateManager', () => {
     // Cleanup
   });
 
-  describe('saveSession', () => {
-    it('should save session state to file', () => {
-      const sessionState = {
-        sessionId: 'test-123',
-        task: 'Test task',
-        status: 'running' as const,
-        startTime: Date.now(),
-      };
-
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(writeFileSync).mockImplementation(() => {});
-
-      manager.saveSession(sessionState);
-
-      expect(writeFileSync).toHaveBeenCalled();
-    });
-
-    it('should create directory if not exists', () => {
-      const sessionState = {
-        sessionId: 'test-456',
-        task: 'Another task',
-        status: 'running' as const,
-        startTime: Date.now(),
-      };
-
+  describe('init', () => {
+    it('should initialize a new session', async () => {
       vi.mocked(existsSync).mockReturnValue(false);
-      vi.mocked(mkdirSync).mockImplementation(() => {});
-      vi.mocked(writeFileSync).mockImplementation(() => {});
+      vi.mocked(mkdir).mockResolvedValue(undefined);
+      vi.mocked(writeFile).mockResolvedValue(undefined);
 
-      manager.saveSession(sessionState);
+      const state = await manager.init('Test task');
 
-      expect(mkdirSync).toHaveBeenCalled();
-      expect(writeFileSync).toHaveBeenCalled();
+      expect(state.sessionId).toMatch(/^sess_\d+$/);
+      expect(state.task).toBe('Test task');
+      expect(state.phase).toBe('init');
+      expect(state.iteration).toBe(0);
+      expect(mkdir).toHaveBeenCalledTimes(2); // orchestraDir and checkpointsDir
+      expect(writeFile).toHaveBeenCalled();
     });
 
-    it('should handle file system errors gracefully', () => {
-      const sessionState = {
-        sessionId: 'test-789',
-        task: 'Error test',
-        status: 'running' as const,
-        startTime: Date.now(),
-      };
+    it('should create session with correct structure', async () => {
+      vi.mocked(mkdir).mockResolvedValue(undefined);
+      vi.mocked(writeFile).mockResolvedValue(undefined);
 
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(writeFileSync).mockImplementation(() => {
-        throw new Error('Write failed');
-      });
+      const state = await manager.init('Another task');
 
-      // Should not throw
-      expect(() => manager.saveSession(sessionState)).not.toThrow();
+      expect(state).toHaveProperty('sessionId');
+      expect(state).toHaveProperty('task', 'Another task');
+      expect(state).toHaveProperty('phase');
+      expect(state).toHaveProperty('iteration');
+      expect(state).toHaveProperty('startedAt');
+      expect(state).toHaveProperty('lastActivity');
+      expect(state).toHaveProperty('agents');
+      expect(state).toHaveProperty('checkpoints');
+      expect(state).toHaveProperty('canResume', true);
+      expect(state).toHaveProperty('lastError', null);
     });
   });
 
-  describe('loadSession', () => {
-    it('should load session state from file', () => {
-      const sessionState = {
+  describe('load', () => {
+    it('should load session state from file', async () => {
+      const mockState = {
         sessionId: 'test-123',
         task: 'Test task',
-        status: 'running' as const,
-        startTime: Date.now(),
+        phase: 'execution' as const,
+        iteration: 1,
+        startedAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        agents: {
+          architect: { status: 'completed', duration: 1000 },
+          executor: { status: 'running', duration: null },
+          auditor: { status: 'pending', duration: null },
+          consultant: { status: 'not_needed', duration: null },
+        },
+        checkpoints: [],
+        canResume: true,
+        lastError: null,
       };
 
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(sessionState));
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockState));
 
-      const loaded = manager.loadSession('test-123');
+      const loaded = await manager.load();
 
       expect(loaded).toBeDefined();
-      expect(loaded.sessionId).toBe('test-123');
+      expect(loaded?.sessionId).toBe('test-123');
+      expect(loaded?.task).toBe('Test task');
     });
 
-    it('should return null if session file does not exist', () => {
+    it('should return null if session file does not exist', async () => {
       vi.mocked(existsSync).mockReturnValue(false);
 
-      const loaded = manager.loadSession('nonexistent');
+      const loaded = await manager.load();
 
       expect(loaded).toBeNull();
     });
 
-    it('should handle invalid JSON gracefully', () => {
+    it('should return null on invalid JSON', async () => {
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFileSync).mockReturnValue('invalid json{');
+      vi.mocked(readFile).mockResolvedValue('invalid json{');
 
-      const loaded = manager.loadSession('test-123');
+      const loaded = await manager.load();
 
       expect(loaded).toBeNull();
     });
   });
 
-  describe('deleteSession', () => {
-    it('should delete session file', () => {
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(rmSync).mockImplementation(() => {});
+  describe('save', () => {
+    it('should save session state to file', async () => {
+      const mockState = {
+        sessionId: 'test-456',
+        task: 'Save test',
+        phase: 'execution' as const,
+        iteration: 1,
+        startedAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        agents: {
+          architect: { status: 'completed', duration: 1000 },
+          executor: { status: 'running', duration: null },
+          auditor: { status: 'pending', duration: null },
+          consultant: { status: 'not_needed', duration: null },
+        },
+        checkpoints: [],
+        canResume: true,
+        lastError: null,
+      };
 
-      manager.deleteSession('test-123');
+      vi.mocked(writeFile).mockResolvedValue(undefined);
 
-      expect(rmSync).toHaveBeenCalled();
+      await manager.save(mockState);
+
+      expect(writeFile).toHaveBeenCalled();
+      const callArgs = vi.mocked(writeFile).mock.calls[0];
+      expect(callArgs[0]).toContain('.orchestra-test/state.json');
+      expect(callArgs[1]).toContain(JSON.stringify(mockState, null, 2));
     });
 
-    it('should not error if session does not exist', () => {
-      vi.mocked(existsSync).mockReturnValue(false);
+    it('should update lastActivity timestamp', async () => {
+      const mockState = {
+        sessionId: 'test-789',
+        task: 'Timestamp test',
+        phase: 'execution' as const,
+        iteration: 0,
+        startedAt: '2024-01-01T00:00:00.000Z',
+        lastActivity: '2024-01-01T00:00:00.000Z',
+        agents: {
+          architect: { status: 'pending', duration: null },
+          executor: { status: 'pending', duration: null },
+          auditor: { status: 'pending', duration: null },
+          consultant: { status: 'not_needed', duration: null },
+        },
+        checkpoints: [],
+        canResume: true,
+        lastError: null,
+      };
 
-      expect(() => manager.deleteSession('nonexistent')).not.toThrow();
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+
+      await manager.save(mockState);
+
+      const callArgs = vi.mocked(writeFile).mock.calls[0];
+      const savedState = JSON.parse(callArgs[1] as string);
+      expect(savedState.lastActivity).not.toBe('2024-01-01T00:00:00.000Z');
     });
   });
 
-  describe('listSessions', () => {
-    it('should return list of session IDs', () => {
-      // Mock would go here
-      const sessions = manager.listSessions();
+  describe('setPhase', () => {
+    it('should update the current phase', async () => {
+      const mockState = {
+        sessionId: 'test-phase',
+        task: 'Phase test',
+        phase: 'init' as const,
+        iteration: 0,
+        startedAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        agents: {
+          architect: { status: 'pending', duration: null },
+          executor: { status: 'pending', duration: null },
+          auditor: { status: 'pending', duration: null },
+          consultant: { status: 'not_needed', duration: null },
+        },
+        checkpoints: [],
+        canResume: true,
+        lastError: null,
+      };
 
-      expect(Array.isArray(sessions)).toBe(true);
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockState));
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+
+      await manager.setPhase('execution');
+
+      expect(readFile).toHaveBeenCalled();
+      expect(writeFile).toHaveBeenCalled();
     });
   });
 
-  describe('sessionExists', () => {
-    it('should check if session exists', () => {
-      vi.mocked(existsSync).mockReturnValue(true);
+  describe('setIteration', () => {
+    it('should update the current iteration', async () => {
+      const mockState = {
+        sessionId: 'test-iteration',
+        task: 'Iteration test',
+        phase: 'execution' as const,
+        iteration: 1,
+        startedAt: new Date().toISOString(),
+        lastActivity: new Date().toISOString(),
+        agents: {
+          architect: { status: 'completed', duration: 1000 },
+          executor: { status: 'running', duration: null },
+          auditor: { status: 'pending', duration: null },
+          consultant: { status: 'not_needed', duration: null },
+        },
+        checkpoints: [],
+        canResume: true,
+        lastError: null,
+      };
 
-      const exists = manager.sessionExists('test-123');
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockState));
+      vi.mocked(writeFile).mockResolvedValue(undefined);
 
-      expect(exists).toBe(true);
-    });
+      await manager.setIteration(2);
 
-    it('should return false for non-existent session', () => {
-      vi.mocked(existsSync).mockReturnValue(false);
-
-      const exists = manager.sessionExists('nonexistent');
-
-      expect(exists).toBe(false);
+      expect(readFile).toHaveBeenCalled();
+      expect(writeFile).toHaveBeenCalled();
     });
   });
 });

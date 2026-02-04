@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { PluginManager, type PluginManifest } from './plugins/PluginManager';
+import { PluginManager, type PluginManifest } from './PluginManager';
 
 describe('PluginManager', () => {
   let manager: PluginManager;
