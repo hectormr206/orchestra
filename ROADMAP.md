@@ -248,14 +248,20 @@
 
 2. **Tests** (`src/**/*.test.ts`)
    - [x] `adapters/FallbackAdapter.test.ts` - Test fallback chains ✓
-   - [ ] `adapters/CodexAdapter.test.ts` - Mock API responses
-   - [ ] `adapters/GeminiAdapter.test.ts` - Mock API responses
-   - [ ] `adapters/GLMAdapter.test.ts` - Mock API responses
+   - [x] `adapters/CodexAdapter.test.ts` - Mock API responses ✓
+   - [x] `adapters/GeminiAdapter.test.ts` - Mock API responses ✓
+   - [x] `adapters/GLMAdapter.test.ts` - Mock API responses ✓
+   - [x] `adapters/ClaudeAdapter.test.ts` - Mock Anthropic API ✓
+   - [x] `adapters/LlamaAdapter.test.ts` - Mock Llama API ✓
+   - [x] `adapters/MistralAdapter.test.ts` - Mock Mistral API ✓
    - [ ] `orchestrator/Orchestrator.test.ts` - Integration tests
-   - [ ] `utils/StateManager.test.ts` - Test persistence
-   - [ ] `utils/testRunner.test.ts` - Mock test frameworks
-   - [ ] `utils/validators.test.ts` - Test syntax validation
-   - [ ] `utils/gitIntegration.test.ts` - Mock git commands
+   - [x] `utils/StateManager.test.ts` - Test persistence ✓
+   - [x] `utils/testRunner.test.ts` - Mock test frameworks ✓
+   - [x] `utils/validators.test.ts` - Test syntax validation ✓
+   - [x] `utils/gitIntegration.test.ts` - Mock git commands ✓
+   - [x] `utils/cache.test.ts` - Test cache functionality ✓
+   - [x] `utils/metrics.test.ts` - Test metrics collection ✓
+   - [x] `utils/sessionHistory.test.ts` - Test history management ✓
    - [ ] `utils/githubIntegration.test.ts` - Mock gh CLI
    - [ ] `tui/App.test.tsx` - Component tests
    - [x] `cli/e2e.test.ts` - E2E CLI tests ✓
@@ -267,11 +273,11 @@
    - [x] Soporte para organizaciones (no solo repos personales) ✓
    - [x] Tests con mocking de `gh` CLI ✓ (21 tests passing, 21 skipped)
 
-4. **Optimización Recovery Mode** (`src/orchestrator/Orchestrator.ts`)
-   - [ ] Timeout adaptativo basado en complejidad del archivo
-   - [ ] Cache de análisis del Consultant para no repetir
-   - [ ] Paralelización de recovery en múltiples archivos
-   - [ ] Métricas de éxito/fracaso de recovery
+4. **Optimización Recovery Mode** (`src/utils/recoveryOptimizer.ts`)
+   - [x] Timeout adaptativo basado en complejidad del archivo ✓ (calculateAdaptiveTimeout)
+   - [x] Cache de análisis del Consultant para no repetir ✓ (consultantCache)
+   - [x] Paralelización de recovery en múltiples archivos ✓ (runParallelRecovery)
+   - [x] Métricas de éxito/fracaso de recovery ✓ (getCacheStats, getComplexityReport)
 
 ### Media Prioridad
 
