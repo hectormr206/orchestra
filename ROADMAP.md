@@ -208,7 +208,7 @@
 - [x] Integración con Slack (notificaciones en tiempo real) ✓
 - [x] Integración con GitHub Actions (workflow templates) ✓
 - [x] Exportación a reportes PDF con gráficos ✓
-- [ ] Modo "servidor" para orquestación remota
+- [x] Modo "servidor" para orquestación remota ✓ (OrchestraServer con HTTP/WebSocket)
 - [ ] CLI remoto vía WebSocket
 - [ ] Marketplace de plugins (repo curado)
 
@@ -320,7 +320,7 @@
 ## 📈 Métricas de Éxito
 
 ### Calidad de Código
-- [x] **Cobertura de tests**: 357 tests (292 passing, 38 timeout, 27 skipped, 81.8% pass rate) ✓
+- [x] **Cobertura de tests**: 377 tests (312 passing, 38 timeout, 27 skipped, 82.8% pass rate) ✓
 - [ ] **Complexity promedio**: < 15 por función (cyclomatic complexity)
 - [ ] **Duplicación**: < 5% (eslint `no-duplicate-imports`)
 - [x] **Type safety**: 100% TypeScript strict mode ✓
