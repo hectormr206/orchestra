@@ -83,12 +83,14 @@
     "ora": "^8.0.1",
     "pino": "^10.3.0",
     "react": "^19.2.4",
-    "redis": "^5.10.0"
+    "redis": "^5.10.0",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@testing-library/react": "^16.3.2",
     "@types/node": "^20.11.0",
     "@types/react": "^19.2.10",
+    "@types/ws": "^8.5.10",
     "ink-testing-library": "^4.0.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3",

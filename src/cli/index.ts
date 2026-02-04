@@ -1592,6 +1592,70 @@ program
   });
 
 // ============================================================================
+// COMANDO: server (modo servidor para orquestación remota)
+// ============================================================================
+program
+  .command('server')
+  .description('Inicia Orchestra en modo servidor para orquestación remota')
+  .option('-p, --port <n>', 'Puerto del servidor', '8080')
+  .option('-h, --host <address>', 'Dirección de escucha', '0.0.0.0')
+  .option('-t, --token <token>', 'Token de autenticación (opcional)')
+  .option('--no-cors', 'Desactivar CORS')
+  .option('-c, --max-connections <n>', 'Número máximo de conexiones', '10')
+  .action(async (options: {
+    port: string;
+    host: string;
+    token?: string;
+    cors: boolean;
+    maxConnections: string;
+  }) => {
+    const { OrchestraServer } = await import('../server/OrchestraServer.js');
+    const server = new OrchestraServer({
+      port: parseInt(options.port),
+      host: options.host,
+      authToken: options.token,
+      enableCors: options.cors,
+      maxConnections: parseInt(options.maxConnections),
+    });
+
+    console.log(chalk.cyan('╔════════════════════════════════════════════════════════════╗'));
+    console.log(chalk.cyan('║') + chalk.cyan.bold('           Orchestra Server - Remote Orchestration') + chalk.cyan('          ║'));
+    console.log(chalk.cyan('╚════════════════════════════════════════════════════════════╝'));
+    console.log();
+    console.log(chalk.gray('Server configuration:'));
+    console.log(`  Host: ${chalk.cyan(options.host)}`);
+    console.log(`  Port: ${chalk.cyan(options.port)}`);
+    console.log(`  CORS: ${options.cors ? chalk.green('enabled') : chalk.red('disabled')}`);
+    console.log(`  Auth: ${options.token ? chalk.green('enabled') : chalk.yellow('disabled (not recommended for production)')}`);
+    console.log(`  Max connections: ${chalk.cyan(options.maxConnections)}`);
+    console.log();
+    console.log(chalk.yellow('Press Ctrl+C to stop the server'));
+    console.log();
+
+    try {
+      await server.start();
+    } catch (error) {
+      console.error(chalk.red('Failed to start server:'), error);
+      process.exit(1);
+    }
+
+    // Handle graceful shutdown
+    process.on('SIGINT', async () => {
+      console.log();
+      console.log(chalk.yellow('Stopping Orchestra Server...'));
+      await server.stop();
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', async () => {
+      console.log();
+      console.log(chalk.yellow('Stopping Orchestra Server...'));
+      await server.stop();
+      process.exit(0);
+    });
+  });
+
+// ============================================================================
 // COMANDO: default (sin argumentos abre TUI)
 // ============================================================================
 program
