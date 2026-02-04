@@ -209,7 +209,7 @@
 - [x] Integración con GitHub Actions (workflow templates) ✓
 - [x] Exportación a reportes PDF con gráficos ✓
 - [x] Modo "servidor" para orquestación remota ✓ (OrchestraServer con HTTP/WebSocket)
-- [ ] CLI remoto vía WebSocket
+- [x] CLI remoto vía WebSocket ✓ (OrchestraClient con comandos remotos)
 - [ ] Marketplace de plugins (repo curado)
 
 **Entregables:**
@@ -320,7 +320,7 @@
 ## 📈 Métricas de Éxito
 
 ### Calidad de Código
-- [x] **Cobertura de tests**: 377 tests (312 passing, 38 timeout, 27 skipped, 82.8% pass rate) ✓
+- [x] **Cobertura de tests**: 398 tests (333 passing, 38 timeout, 27 skipped, 83.7% pass rate) ✓
 - [ ] **Complexity promedio**: < 15 por función (cyclomatic complexity)
 - [ ] **Duplicación**: < 5% (eslint `no-duplicate-imports`)
 - [x] **Type safety**: 100% TypeScript strict mode ✓
