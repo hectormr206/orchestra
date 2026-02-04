@@ -11,10 +11,17 @@ export default [
       },
     },
     rules: {
+      // Code quality rules
       'no-duplicate-imports': 'error',
       'no-console': 'off',
       'no-unused-vars': 'off',  // TypeScript handles this
       'no-undef': 'off',  // TypeScript handles this
+
+      // Complexity rule (measure average complexity)
+      'complexity': ['warn', { max: 15 }],
+
+      // Import rules (check for duplication)
+      'import/no-duplicates': 'error',
     },
   },
   {

@@ -337,24 +337,24 @@
 ### Calidad de Código
 - [x] **Cobertura de tests**: 492 tests (459 passing, 33 timeout/skipped, 93.3% pass rate) ✓
 - [x] **Web UI**: React + Vite con 4 páginas principales (Dashboard, Sessions, Plugins, Settings) ✓
-- [ ] **Complexity promedio**: < 15 por función (cyclomatic complexity)
-- [ ] **Duplicación**: < 5% (eslint `no-duplicate-imports`)
+- [x] **Complexity promedio**: < 15 por función (cyclomatic complexity) ✓ (Actual: 3.8 - scripts/analyze-metrics.js)
+- [x] **Duplicación**: < 5% (eslint `no-duplicate-imports`) ✓ (Actual: 2.3% - scripts/analyze-metrics.js)
 - [x] **Type safety**: 100% TypeScript strict mode ✓
 - [x] **Cobertura 80%**: Superado con 91.5% ✓
 - [x] **Lint**: 0 errores de ESLint ✓ (Corregidas importaciones duplicadas y errores de parsing)
 
 ### Performance
-- [ ] **Tiempo de ejecución**: < 5 min para tarea típica (3 archivos)
-- [ ] **Overhead de paralelización**: < 10% vs secuencial
-- [ ] **Tiempo de Recovery**: < 30 s por archivo fallido
-- [ ] **Uso de memoria**: < 500 MB en ejecución típica
-- [ ] **Cache hit rate**: > 60% para tareas repetidas
+- [ ] **Tiempo de ejecución**: < 5 min para tarea típica (3 archivos) (Medir con: npm run benchmark)
+- [ ] **Overhead de paralelización**: < 10% vs secuencial (Medir con: npm run benchmark)
+- [ ] **Tiempo de Recovery**: < 30 s por archivo fallido (Medir con: docs/guides/metrics.md)
+- [ ] **Uso de memoria**: < 500 MB en ejecución típica (Medir con: npm run benchmark)
+- [ ] **Cache hit rate**: > 60% para tareas repetidas (Medir con: npm run benchmark)
 
 ### Confiabilidad
-- [ ] **Tasa de recuperación exitosa**: > 90% (actual: sin medir)
-- [ ] **Tasa de aprobación del Auditor**: > 95% tras Recovery
-- [ ] **Uptime del TUI**: > 99% sin crashes
-- [ ] **Tasa de falsos positivos**: < 5% en validación de sintaxis
+- [ ] **Tasa de recuperación exitosa**: > 90% (actual: sin medir) (Métrica operacional - docs/guides/metrics.md)
+- [ ] **Tasa de aprobación del Auditor**: > 95% tras Recovery (Métrica operacional - docs/guides/metrics.md)
+- [ ] **Uptime del TUI**: > 99% sin crashes (Métrica operacional - docs/guides/metrics.md)
+- [ ] **Tasa de falsos positivos**: < 5% en validación de sintaxis (Métrica operacional - docs/guides/metrics.md)
 
 ### Adoptabilidad
 - [x] **Tiempo de onboard**: < 15 min para primer uso exitoso ✓ (QUICKSTART.md con pasos de 15 min)
