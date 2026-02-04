@@ -20,26 +20,26 @@
     "agents": {
       "architect": [
         "Claude (GLM 4.7)",
-        "Gemini",
         "Claude (GLM 4.7)",
-        "Codex"
+        "Claude (GLM 4.7)",
+        "Claude (GLM 4.7)"
       ],
       "executor": [
         "Claude (GLM 4.7)",
-        "Gemini",
-        "Claude (Opus 4.5)",
-        "Codex"
+        "Claude (GLM 4.7)",
+        "Claude (GLM 4.7)",
+        "Claude (GLM 4.7)"
       ],
       "auditor": [
-        "Gemini",
         "Claude (GLM 4.7)",
-        "Codex",
-        "Codex"
+        "Claude (GLM 4.7)",
+        "Claude (GLM 4.7)",
+        "Claude (GLM 4.7)"
       ],
       "consultant": [
-        "Codex",
         "Claude (GLM 4.7)",
-        "Gemini",
+        "Claude (GLM 4.7)",
+        "Claude (GLM 4.7)",
         "Claude (GLM 4.7)"
       ]
     }
