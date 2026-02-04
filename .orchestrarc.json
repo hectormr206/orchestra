@@ -1,7 +1,7 @@
 {
   "execution": {
-    "parallel": true,
-    "maxConcurrency": 3
+    "parallel": false,
+    "maxConcurrency": 1
   },
   "test": {
     "command": "npm test",
@@ -20,27 +20,23 @@
     "agents": {
       "architect": [
         "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)"
+        "Gemini",
+        "Codex"
       ],
       "executor": [
         "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)"
+        "Gemini",
+        "Codex"
       ],
       "auditor": [
+        "Gemini",
         "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)"
+        "Codex"
       ],
       "consultant": [
         "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)",
-        "Claude (GLM 4.7)"
+        "Gemini",
+        "Codex"
       ]
     }
   }
