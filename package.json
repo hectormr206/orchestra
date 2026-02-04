@@ -28,6 +28,8 @@
     "test:coverage": "vitest --coverage",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
+    "benchmark": "node scripts/benchmark.js",
+    "profile": "clinic doctor -- on -- node dist/cli/index.js start 'test task'",
     "clean": "rm -rf dist/",
     "prepublishOnly": "npm run build",
     "completion": "node ./dist/cli/index.js completion"

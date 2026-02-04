@@ -288,16 +288,21 @@
    - [x] Optimizar `runWithConcurrency` para reducir overhead ✓ (runWithConcurrencyOptimized con batched progress updates)
    - [x] Cache de prompts compilados ✓ (PromptCache class en performanceOptimizer.ts)
    - [x] Streaming de respuestas de API (cuando sea posible) ✓ (streamingAdapter.ts con processStream y utilidades)
+   - [x] Script de benchmark para métricas ✓ (scripts/benchmark.js + docs/guides/metrics.md)
 
 6. **Documentación**
    - [x] `docs/api/README.md` - Documentación completa de API (Orchestrator, Adapters, Types, Utilities, Plugins) ✓
    - [x] `docs/architecture.md` - Arquitectura del sistema ✓
    - [x] `docs/api/orchestrator.md` - API detallada de `Orchestrator` class ✓
    - [x] `docs/api/adapters.md` - Interface de `Adapter` ✓
+   - [x] `docs/api/utilities.md` - API completa de utilidades ✓
    - [x] `docs/guides/development.md` - Guía de desarrollo ✓
    - [x] `docs/guides/testing.md` - Guía de tests ✓
    - [x] `docs/guides/plugin-development.md` - Guía de desarrollo de plugins ✓
    - [x] `docs/guides/performance.md` - Guía de perfilado y optimización ✓
+   - [x] `docs/guides/metrics.md` - Guía de métricas de rendimiento ✓
+   - [x] `docs/guides/troubleshooting.md` - Guía de troubleshooting ✓
+   - [x] `QUICKSTART.md` - Guía de inicio rápido (15 min) ✓
    - [x] `TUTORIAL.md` - Tutorial paso a paso ✓
 
 7. **DevEx**
