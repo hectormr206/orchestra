@@ -9,7 +9,8 @@ import { createServer, IncomingMessage, ServerResponse, Server } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { URL } from 'url';
 import { Orchestrator } from '../orchestrator/Orchestrator.js';
-import { configLoader } from '../utils/configLoader.js';
+import { loadProjectConfig } from '../utils/configLoader.js';
+import { createDefaultConfig } from '../utils/configLoader.js';
 
 export interface ServerOptions {
   port?: number;
@@ -232,21 +233,24 @@ export class OrchestraServer {
 
     try {
       // Load config
-      const projectConfig = configLoader.load();
+      const projectConfig = await loadProjectConfig();
 
       // Create orchestrator
-      const orchestrator = new Orchestrator({
-        ...projectConfig,
-        ...config,
-      });
+      const orchestrator = new Orchestrator(
+        projectConfig ? {
+          orchestraDir: '.orchestra-server',
+          ...projectConfig,
+          ...config,
+        } : {
+          orchestraDir: '.orchestra-server',
+          ...config,
+        }
+      );
 
       this.orchestrators.set(sessionId, orchestrator);
 
       // Run orchestration
-      const result = await orchestrator.orchestrate(task, {
-        ...metadata,
-        sessionId,
-      });
+      const result = await orchestrator.run(task);
 
       // Update session status
       sessionInfo.status = 'completed';
