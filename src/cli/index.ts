@@ -1656,6 +1656,206 @@ program
   });
 
 // ============================================================================
+// COMANDO: remote (CLI remoto vía WebSocket)
+// ============================================================================
+program
+  .command('remote <action>')
+  .description('Cliente CLI remoto para servidor Orchestra')
+  .option('-u, --url <url>', 'URL del servidor Orchestra', 'http://localhost:8080')
+  .option('-t, --token <token>', 'Token de autenticación')
+  .option('-s, --session <id>', 'ID de sesión (para attach/cancel/status)')
+  .option('--watch', 'Modo watch - seguir mostrando logs')
+  .action(async (action: string, options: {
+    url: string;
+    token?: string;
+    session?: string;
+    watch?: boolean;
+  }) => {
+    const { OrchestraClient } = await import('../client/OrchestraClient.js');
+
+    const client = new OrchestraClient({
+      url: options.url,
+      authToken: options.token,
+      reconnect: false,
+    });
+
+    try {
+      switch (action) {
+        case 'connect': {
+          await client.connect();
+          console.log(chalk.green('✓ Connected to Orchestra Server'));
+
+          // Set up message handler
+          client.onMessage((data) => {
+            console.log(JSON.stringify(data, null, 2));
+          });
+
+          // Keep connection open
+          process.on('SIGINT', () => {
+            client.disconnect();
+            process.exit(0);
+          });
+
+          break;
+        }
+
+        case 'orchestrate': {
+          if (!options.session) {
+            console.error(chalk.red('Error: Task description required'));
+            console.error(chalk.gray('Usage: orchestra remote orchestrate <task>'));
+            process.exit(1);
+          }
+
+          const sessionId = await client.orchestrate({
+            task: options.session,
+          });
+
+          console.log(chalk.green('✓ Orchestration started'));
+          console.log(chalk.cyan(`Session ID: ${sessionId}`));
+
+          if (options.watch) {
+            // Connect to WebSocket for real-time updates
+            await client.connect();
+            client.attach(sessionId);
+
+            client.onMessage((data) => {
+              if (data.type === 'complete' || data.type === 'error') {
+                console.log(chalk.cyan('Session completed:'));
+                console.log(JSON.stringify(data, null, 2));
+                client.disconnect();
+                process.exit(0);
+              }
+            });
+
+            // Keep connection open
+            process.on('SIGINT', () => {
+              client.disconnect();
+              process.exit(0);
+            });
+          }
+
+          break;
+        }
+
+        case 'list': {
+          const result = await client.listSessions();
+          console.log(chalk.bold(`Active Sessions (${result.count}):`));
+          console.log();
+
+          if (result.sessions.length === 0) {
+            console.log(chalk.gray('No active sessions'));
+          } else {
+            for (const session of result.sessions) {
+              const statusColor = session.status === 'running' ? chalk.green : session.status === 'completed' ? chalk.blue : chalk.red;
+              console.log(`${chalk.cyan(session.sessionId)}: ${statusColor(session.status)} - ${session.task}`);
+              console.log(`  Started: ${new Date(session.startTime).toLocaleString()}`);
+              if (session.endTime) {
+                console.log(`  Ended: ${new Date(session.endTime).toLocaleString()}`);
+              }
+              console.log(`  Clients: ${session.clientCount}`);
+              console.log();
+            }
+          }
+
+          break;
+        }
+
+        case 'status': {
+          if (!options.session) {
+            const status = await client.getStatus();
+            console.log(chalk.bold('Server Status:'));
+            console.log(`  Server: ${chalk.green(status.server)}`);
+            console.log(`  Version: ${chalk.cyan(status.version)}`);
+            console.log(`  Uptime: ${Math.floor(status.uptime / 60)}m ${Math.floor(status.uptime % 60)}s`);
+            console.log(`  Connections: ${chalk.cyan(status.connections)}`);
+            console.log(`  Active Sessions: ${chalk.cyan(status.activeSessions)}`);
+            console.log(`  Total Sessions: ${chalk.cyan(status.totalSessions)}`);
+          } else {
+            const session = await client.getSession(options.session);
+            console.log(chalk.bold('Session Status:'));
+            console.log(`  ID: ${chalk.cyan(session.sessionId)}`);
+            console.log(`  Status: ${session.status === 'running' ? chalk.green('running') : chalk.blue(session.status)}`);
+            console.log(`  Task: ${session.task}`);
+            console.log(`  Started: ${new Date(session.startTime).toLocaleString()}`);
+            if (session.endTime) {
+              console.log(`  Ended: ${new Date(session.endTime).toLocaleString()}`);
+            }
+            console.log(`  Clients: ${session.clientCount}`);
+          }
+
+          break;
+        }
+
+        case 'cancel': {
+          if (!options.session) {
+            console.error(chalk.red('Error: Session ID required'));
+            console.error(chalk.gray('Usage: orchestra remote cancel --session <id>'));
+            process.exit(1);
+          }
+
+          const result = await client.cancelSession(options.session);
+          console.log(chalk.green('✓'), result.message);
+          console.log(chalk.cyan(`Session ID: ${result.sessionId}`));
+
+          break;
+        }
+
+        case 'attach': {
+          if (!options.session) {
+            console.error(chalk.red('Error: Session ID required'));
+            console.error(chalk.gray('Usage: orchestra remote attach --session <id>'));
+            process.exit(1);
+          }
+
+          await client.connect();
+          console.log(chalk.green(`✓ Attached to session: ${options.session}`));
+
+          client.attach(options.session);
+
+          client.onMessage((data) => {
+            if (data.sessionId === options.session) {
+              console.log(JSON.stringify(data, null, 2));
+            }
+          });
+
+          // Keep connection open
+          process.on('SIGINT', () => {
+            client.detach();
+            client.disconnect();
+            process.exit(0);
+          });
+
+          break;
+        }
+
+        default:
+          console.error(chalk.red(`Unknown action: ${action}`));
+          console.log();
+          console.log(chalk.bold('Available actions:'));
+          console.log('  connect           - Connect to server (WebSocket)');
+          console.log('  orchestrate       - Start orchestration task');
+          console.log('  list              - List all sessions');
+          console.log('  status            - Show server/session status');
+          console.log('  cancel            - Cancel a running session');
+          console.log('  attach            - Attach to session for real-time updates');
+          console.log();
+          console.log(chalk.bold('Examples:'));
+          console.log('  orchestra remote connect');
+          console.log('  orchestra remote orchestrate "Create API endpoint" --watch');
+          console.log('  orchestra remote list');
+          console.log('  orchestra remote status');
+          console.log('  orchestra remote status --session abc123');
+          console.log('  orchestra remote cancel --session abc123');
+          console.log('  orchestra remote attach --session abc123');
+          process.exit(1);
+      }
+    } catch (error) {
+      console.error(chalk.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
 // COMANDO: default (sin argumentos abre TUI)
 // ============================================================================
 program
