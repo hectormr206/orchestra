@@ -1856,6 +1856,253 @@ program
   });
 
 // ============================================================================
+// COMANDO: marketplace (gestión de plugins)
+// ============================================================================
+program
+  .command('marketplace <action>')
+  .description('Gestionar marketplace de plugins de Orchestra')
+  .option('-s, --search <query>', 'Buscar plugins')
+  .option('-c, --category <category>', 'Filtrar por categoría')
+  .option('-i, --info <plugin>', 'Mostrar información de un plugin')
+  .option('--install <plugin>', 'Instalar un plugin')
+  .option('--uninstall <plugin>', 'Desinstalar un plugin')
+  .option('-f, --force', 'Forzar reinstalación')
+  .option('-v, --verbose', 'Salida detallada')
+  .action(async (action: string, options: {
+    search?: string;
+    category?: string;
+    info?: string;
+    install?: string;
+    uninstall?: string;
+    force?: boolean;
+    verbose?: boolean;
+  }) => {
+    const { PluginMarketplace } = await import('../marketplace/PluginMarketplace.js');
+    const marketplace = new PluginMarketplace();
+
+    try {
+      switch (action) {
+        case 'search': {
+          const query = options.search || '';
+          const category = options.category;
+
+          const result = await marketplace.search(query, category);
+
+          console.log(chalk.bold(`Found ${result.total} plugin(s):`));
+          console.log();
+
+          if (result.plugins.length === 0) {
+            console.log(chalk.gray('No plugins found'));
+          } else {
+            for (const plugin of result.plugins) {
+              const badge = plugin.official ? chalk.green('[OFFICIAL]') : chalk.gray('[COMMUNITY]');
+              console.log(`${badge} ${chalk.cyan(plugin.name)} (${chalk.yellow(plugin.id)})`);
+              console.log(`  ${plugin.description}`);
+              console.log(`  Version: ${plugin.version} | Author: ${plugin.author}`);
+              console.log(`  Category: ${plugin.category} | Tags: ${plugin.tags.join(', ')}`);
+              console.log(`  Rating: ${'★'.repeat(Math.floor(plugin.rating))}${'☆'.repeat(5 - Math.floor(plugin.rating))} (${plugin.rating})`);
+              console.log();
+            }
+          }
+
+          break;
+        }
+
+        case 'list': {
+          const result = await marketplace.list();
+
+          console.log(chalk.bold(`Available Plugins (${result.total}):`));
+          console.log();
+
+          if (result.plugins.length === 0) {
+            console.log(chalk.gray('No plugins available'));
+          } else {
+            const categories = await marketplace.getCategories();
+
+            for (const category of categories) {
+              console.log(chalk.bold(`${category}:`));
+              const categoryPlugins = result.plugins.filter((p) => p.category === category);
+
+              for (const plugin of categoryPlugins) {
+                const badge = plugin.official ? chalk.green('✓') : chalk.gray('·');
+                console.log(`  ${badge} ${chalk.cyan(plugin.id)} - ${plugin.name} v${plugin.version}`);
+              }
+              console.log();
+            }
+          }
+
+          break;
+        }
+
+        case 'info': {
+          const pluginId = options.info;
+
+          if (!pluginId) {
+            console.error(chalk.red('Error: Plugin ID required'));
+            console.error(chalk.gray('Usage: orchestra marketplace info --info <plugin>'));
+            process.exit(1);
+          }
+
+          const plugin = await marketplace.info(pluginId);
+
+          if (!plugin) {
+            console.error(chalk.red(`Plugin "${pluginId}" not found`));
+            process.exit(1);
+          }
+
+          console.log(chalk.bold(plugin.name));
+          console.log(chalk.gray('─'.repeat(50)));
+          console.log();
+          console.log(`ID:        ${chalk.cyan(plugin.id)}`);
+          console.log(`Version:   ${chalk.yellow(plugin.version)}`);
+          console.log(`Author:    ${plugin.author}`);
+          console.log(`License:   ${plugin.license}`);
+          console.log(`Category:  ${plugin.category}`);
+          console.log(`Official:  ${plugin.official ? chalk.green('Yes') : chalk.gray('No')}`);
+          console.log(`Verified:  ${plugin.verified ? chalk.green('Yes') : chalk.gray('No')}`);
+          console.log(`Rating:    ${'★'.repeat(Math.floor(plugin.rating))}${'☆'.repeat(5 - Math.floor(plugin.rating))} (${plugin.rating})`);
+          console.log(`Downloads: ${plugin.downloads}`);
+          console.log();
+          console.log(chalk.bold('Description:'));
+          console.log(`  ${plugin.description}`);
+          console.log();
+          console.log(chalk.bold('Tags:'));
+          console.log(`  ${plugin.tags.join(', ')}`);
+          console.log();
+          console.log(chalk.bold('Repository:'));
+          console.log(`  ${plugin.repository.url}`);
+          console.log();
+          console.log(chalk.bold('Hooks:'));
+          for (const [hook, fn] of Object.entries(plugin.manifest.hooks)) {
+            console.log(`  ${hook}: ${fn}`);
+          }
+
+          break;
+        }
+
+        case 'install': {
+          const pluginId = options.install;
+
+          if (!pluginId) {
+            console.error(chalk.red('Error: Plugin ID required'));
+            console.error(chalk.gray('Usage: orchestra marketplace install --install <plugin>'));
+            process.exit(1);
+          }
+
+          const installOptions = {
+            force: options.force,
+            verbose: options.verbose,
+          };
+
+          const result = await marketplace.install(pluginId, installOptions);
+
+          if (result.success) {
+            console.log(chalk.green('✓'), result.message);
+            if (result.installedPath) {
+              console.log(chalk.gray(`  Path: ${result.installedPath}`));
+            }
+          } else {
+            console.error(chalk.red('✗'), result.message);
+            process.exit(1);
+          }
+
+          break;
+        }
+
+        case 'uninstall': {
+          const pluginId = options.uninstall;
+
+          if (!pluginId) {
+            console.error(chalk.red('Error: Plugin ID required'));
+            console.error(chalk.gray('Usage: orchestra marketplace uninstall --uninstall <plugin>'));
+            process.exit(1);
+          }
+
+          const result = await marketplace.uninstall(pluginId);
+
+          if (result.success) {
+            console.log(chalk.green('✓'), result.message);
+          } else {
+            console.error(chalk.red('✗'), result.message);
+            process.exit(1);
+          }
+
+          break;
+        }
+
+        case 'installed': {
+          const installed = await marketplace.listInstalled();
+
+          console.log(chalk.bold(`Installed Plugins (${installed.length}):`));
+          console.log();
+
+          if (installed.length === 0) {
+            console.log(chalk.gray('No plugins installed'));
+          } else {
+            for (const manifest of installed) {
+              console.log(`${chalk.cyan(manifest.name)} - v${manifest.version}`);
+              console.log(`  ${manifest.description}`);
+              console.log(`  Hooks: ${Object.keys(manifest.hooks).join(', ')}`);
+              console.log();
+            }
+          }
+
+          break;
+        }
+
+        case 'categories': {
+          const categories = await marketplace.getCategories();
+
+          console.log(chalk.bold('Categories:'));
+          for (const category of categories) {
+            console.log(`  - ${category}`);
+          }
+
+          break;
+        }
+
+        case 'tags': {
+          const tags = await marketplace.getTags();
+
+          console.log(chalk.bold('Available Tags:'));
+          console.log(`  ${tags.join(', ')}`);
+          console.log();
+
+          break;
+        }
+
+        default:
+          console.error(chalk.red(`Unknown action: ${action}`));
+          console.log();
+          console.log(chalk.bold('Available actions:'));
+          console.log('  search            - Search for plugins');
+          console.log('  list              - List all available plugins');
+          console.log('  info              - Show plugin details');
+          console.log('  install           - Install a plugin');
+          console.log('  uninstall         - Uninstall a plugin');
+          console.log('  installed         - List installed plugins');
+          console.log('  categories        - List all categories');
+          console.log('  tags              - List all tags');
+          console.log();
+          console.log(chalk.bold('Examples:'));
+          console.log('  orchestra marketplace search --search express');
+          console.log('  orchestra marketplace search --category "Backend Frameworks"');
+          console.log('  orchestra marketplace list');
+          console.log('  orchestra marketplace info --info express-js');
+          console.log('  orchestra marketplace install --install express-js');
+          console.log('  orchestra marketplace uninstall --uninstall express-js');
+          console.log('  orchestra marketplace installed');
+          console.log('  orchestra marketplace categories');
+          console.log('  orchestra marketplace tags');
+          process.exit(1);
+      }
+    } catch (error) {
+      console.error(chalk.red('Error:'), (error as Error).message);
+      process.exit(1);
+    }
+  });
+
+// ============================================================================
 // COMANDO: default (sin argumentos abre TUI)
 // ============================================================================
 program
