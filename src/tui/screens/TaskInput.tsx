@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
+import type { ModelType, AgentConfig } from "../../types.js";
 
 interface TaskInputProps {
   onSubmit: (task: string, options: TaskOptions) => void;
@@ -15,6 +16,7 @@ interface TaskOptions {
   runTests: boolean;
   gitCommit: boolean;
   dryRun: boolean;
+  agents?: AgentConfig;
 }
 
 export const TaskInput: React.FC<TaskInputProps> = ({

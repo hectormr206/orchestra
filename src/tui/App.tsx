@@ -199,6 +199,7 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
       parallel: options.parallel,
       runTests: options.runTests,
       gitCommit: options.gitCommit,
+      agents: options.agents,
     });
   };
 
@@ -223,6 +224,7 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
               parallel: settings.parallel,
               runTests: settings.runTests,
               gitCommit: settings.gitCommit,
+              agents: settings.agents,
             }}
           />
         );

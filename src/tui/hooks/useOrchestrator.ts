@@ -6,6 +6,7 @@ import {
 import type { FileStatus } from "../components/FileList.js";
 import type { AgentInfo } from "../components/AgentStatus.js";
 import type { LogEntry } from "../components/LogView.js";
+import type { AgentConfig } from "../../types.js";
 
 export interface OrchestratorState {
   isRunning: boolean;
@@ -37,6 +38,7 @@ export interface OrchestratorActions {
       parallel?: boolean;
       runTests?: boolean;
       gitCommit?: boolean;
+      agents?: AgentConfig;
     },
   ) => Promise<void>;
   approvePlan: () => void;
@@ -135,6 +137,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
         parallel?: boolean;
         runTests?: boolean;
         gitCommit?: boolean;
+        agents?: AgentConfig;
       },
     ) => {
       const currentStartTime = Date.now();
@@ -167,6 +170,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
           parallel: options.parallel,
           runTests: options.runTests,
           gitCommit: options.gitCommit,
+          agents: options.agents,
         },
         {
           onPhaseStart: (phase, agent) => {
