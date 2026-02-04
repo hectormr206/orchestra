@@ -3,8 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ExportManager } from './utils/export';
-import type { SessionData } from './utils/export';
+import { ExportManager, type SessionData } from './utils/export';
 
 describe('ExportManager', () => {
   let manager: ExportManager;

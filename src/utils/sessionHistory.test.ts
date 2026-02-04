@@ -199,7 +199,7 @@ describe('sessionHistory', () => {
     it('should clear session history', () => {
       vi.mocked(require('fs').existsSync).mockReturnValue(true);
       vi.mocked(require('fs').readdirSync).mockReturnValue(['s1.json', 's2.json']);
-      vi.mocked(require('fs').require('fs').rmSync = vi.fn();
+      vi.mocked(require('fs').rmSync).mockImplementation(() => {});
 
       sessionHistory.clear();
 

@@ -22,7 +22,7 @@ import {
   createCheckpoint,
   type RecoveryPoint,
 } from '../utils/sessionRecovery.js';
-import { ExportManager } from '../utils/export.js';
+import { ExportManager, type SessionData } from '../utils/export.js';
 import { SecurityAuditor } from '../utils/securityAudit.js';
 import { JiraClient, createIssueFromOrchestraResult } from '../utils/jiraIntegration.js';
 import {
@@ -33,7 +33,6 @@ import {
 import { detectProject, type ProjectDetection } from '../utils/frameworkDetector.js';
 import { PromptOptimizer } from '../utils/promptOptimizer.js';
 import { getRedisCache, getResponseCache, type SessionCache } from '../utils/redisCache.js';
-import type { SessionData } from '../utils/export.js';
 
 /**
  * Extended configuration with integration options

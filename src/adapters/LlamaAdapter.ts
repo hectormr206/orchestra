@@ -6,10 +6,9 @@
  * - API-compatible endpoints (Groq, OpenAI-compatible, etc.)
  */
 
-import { spawn } from 'child_process';
+import { spawn, execFile } from 'child_process';
 import { writeFile } from 'fs/promises';
 import { promisify } from 'util';
-import { execFile } from 'child_process';
 import type { AdapterConfig, ExecuteOptions, AgentResult } from '../types.js';
 
 const execFileAsync = promisify(execFile);

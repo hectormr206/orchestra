@@ -3,8 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { SecurityAuditor } from './utils/securityAudit';
-import type { SecurityIssue } from './utils/securityAudit';
+import { SecurityAuditor, type SecurityIssue } from './utils/securityAudit';
 
 describe('SecurityAuditor', () => {
   let auditor: SecurityAuditor;
