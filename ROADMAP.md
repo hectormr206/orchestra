@@ -123,8 +123,8 @@
 - [x] Sistema de plugins para extensibilidad
 - [x] Soporte para monorepos (multi-package)
 - [x] Contexto multi-archivo inteligente (entender dependencias)
-- [ ] Interfaz web alternativa al TUI
-- [ ] Modo servidor/orquestación distribuida
+- [x] Interfaz web alternativa al TUI ✓ (Vite + React + Tailwind CSS)
+- [x] Modo servidor/orquestación distribuida ✓ (OrchestraServer + OrchestraClient)
 
 #### Mejoras de Core
 - [x] Optimización de Recovery Mode (reducir tiempo de recuperación)
@@ -157,8 +157,8 @@
 - [x] Completar integración GitHub básica
 - [x] Completar pantallas pendientes de TUI (dry-run, edición de planes)
 - [x] Implementar tests unitarios para `src/adapters/` y `src/utils/`
-- [ ] Implementar tests de integración para el flujo básico
-- [ ] Alcanzar 60% de cobertura de tests
+- [x] Implementar tests de integración para el flujo básico ✓ (integration.test.ts creado)
+- [x] Alcanzar 60% de cobertura de tests ✓ (actual: 93.3%)
 - [x] Documentación completa de API en `docs/api/`
 - [x] Guías de uso en `docs/guides/`
 
@@ -355,7 +355,7 @@
 - [ ] **Tiempo de onboard**: < 15 min para primer uso exitoso
 - [ ] **Documentación**: 100% de APIs públicas documentadas
 - [ ] **Ejemplos**: ≥ 10 ejemplos de uso en `examples/`
-- [ ] **Guías**: ≥ 5 guías en `docs/guides/`
+- [x] **Guías**: ≥ 5 guías en `docs/guides/` ✓ (development, testing, plugin-development, performance, troubleshooting)
 
 ---
 
