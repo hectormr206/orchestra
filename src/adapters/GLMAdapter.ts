@@ -23,7 +23,7 @@ export class GLMAdapter {
 
     this.config = {
       command: "claude",
-      timeout: 600000, // 10 minutos
+      timeout: 900000, // 15 minutos (igual que el orchestrator)
       env: {
         ANTHROPIC_API_KEY: apiKey,
         ANTHROPIC_BASE_URL: "https://api.z.ai/api/anthropic",
