@@ -174,6 +174,41 @@ The TUI provides:
 - 🕰️ Session history and details
 - ⚙️ Configuration management
 
+### Using the Web UI
+
+Orchestra also includes a modern web interface for easier interaction:
+
+```bash
+# Terminal 1: Start the Orchestra server
+orchestra server
+
+# Terminal 2: Start the Web UI
+orchestra web
+```
+
+The Web UI will be available at `http://localhost:3000` and provides:
+- 🌐 **Dashboard**: Start and monitor orchestration tasks
+- 📁 **Sessions**: View and manage active/completed sessions
+- 🔌 **Plugins**: Browse and install plugins from marketplace
+- ⚙️ **Settings**: Configure server connection and preferences
+- 📡 **Real-time updates**: WebSocket integration for live monitoring
+- 🌓 **Dark/Light theme**: Toggle between themes
+- 📱 **Responsive design**: Works on desktop and mobile
+
+**Web UI Options:**
+```bash
+# Custom port
+orchestra web --port 4000
+
+# Connect to remote server
+orchestra web --server-url http://orchestra.example.com:8080
+
+# Development mode with hot-reload
+orchestra web --dev
+```
+
+**Note:** The Web UI requires the Orchestra server to be running. The server provides the REST API and WebSocket connections that the web interface uses.
+
 ### Resuming Interrupted Sessions
 
 ```bash
@@ -724,6 +759,8 @@ Check out the `examples/` directory for:
 # Essential Commands
 orchestra start "task"              # Start new task
 orchestra tui                       # Launch Terminal UI
+orchestra web                       # Launch Web UI (requires server)
+orchestra server                    # Start Orchestra server
 orchestra resume                    # Resume session
 orchestra status                    # Show status
 orchestra history                   # Show history
@@ -746,6 +783,11 @@ orchestra plugin info <name>        # Plugin info
 # Integration Commands
 orchestra notify --slack <url>      # Configure Slack
 orchestra github --issue            # Create GitHub issue
+
+# Server & Web UI Commands
+orchestra server --port 8080        # Start server on custom port
+orchestra web --port 3000           # Start Web UI on custom port
+orchestra remote start "task"       # Remote CLI via WebSocket
 ```
 
 ---

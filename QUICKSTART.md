@@ -110,6 +110,30 @@ orchestra tui
 - `Tab` - Switch panels
 - `Enter` - Select
 
+## Using the Web UI (Optional)
+
+Orchestra also includes a modern web interface:
+
+**Terminal 1:** Start the server
+```bash
+orchestra server
+```
+
+**Terminal 2:** Start the Web UI
+```bash
+orchestra web
+```
+
+Then open `http://localhost:3000` in your browser.
+
+**Features:**
+- 📊 Visual dashboard with task statistics
+- 📁 Session history and details viewer
+- 🔌 Plugin marketplace browser
+- ⚙️ Configuration management
+- 📡 Real-time execution monitoring
+- 🌓 Dark/Light theme toggle
+
 ## Common Workflows (2 minutes)
 
 ### Review Before Executing

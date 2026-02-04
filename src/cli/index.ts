@@ -1260,6 +1260,89 @@ program
   });
 
 // ============================================================================
+// COMANDO: web
+// ============================================================================
+program
+  .command('web')
+  .description('Inicia la interfaz web de Orchestra (requiere servidor)')
+  .option('-p, --port <n>', 'Puerto de la interfaz web', '3000')
+  .option('--server-url <url>', 'URL del servidor Orchestra', 'http://localhost:8080')
+  .option('--dev', 'Modo desarrollo con hot-reload')
+  .action(async (options: {
+    port: string;
+    serverUrl: string;
+    dev?: boolean;
+  }) => {
+    const { exec } = await import('child_process');
+    const { existsSync } = await import('fs');
+
+    console.log(chalk.cyan('╔════════════════════════════════════════════════════════════╗'));
+    console.log(chalk.cyan('║') + chalk.cyan.bold('                    Orchestra Web UI') + chalk.cyan('                       ║'));
+    console.log(chalk.cyan('╚════════════════════════════════════════════════════════════╝'));
+    console.log();
+    console.log(chalk.gray('Web UI configuration:'));
+    console.log(`  URL: ${chalk.cyan(`http://localhost:${options.port}`)}`);
+    console.log(`  Server: ${chalk.cyan(options.serverUrl)}`);
+    console.log(`  Mode: ${options.dev ? chalk.green('development') : chalk.yellow('production')}`);
+    console.log();
+
+    const webPath = path.resolve('src/web');
+    const nodeModulesPath = path.join(webPath, 'node_modules');
+
+    // Check if dependencies are installed
+    if (!existsSync(nodeModulesPath)) {
+      console.log(chalk.yellow('⚠️  Web UI dependencies not installed.'));
+      console.log(chalk.gray('  Installing dependencies in src/web...'));
+      console.log();
+
+      await new Promise<void>((resolve, reject) => {
+        exec('npm install', { cwd: webPath }, (error) => {
+          if (error) {
+            console.error(chalk.red('Failed to install dependencies:'), error.message);
+            reject(error);
+            return;
+          }
+          console.log(chalk.green('✓ Dependencies installed'));
+          console.log();
+          resolve();
+        });
+      });
+    }
+
+    // Set environment variable for server URL
+    const env = { ...process.env, VITE_API_URL: options.serverUrl };
+
+    console.log(chalk.green('✓ Starting Web UI...'));
+    console.log();
+    console.log(chalk.yellow('Press Ctrl+C to stop the Web UI'));
+    console.log();
+
+    const { spawn } = await import('child_process');
+    const webProcess = spawn('npm', ['run', 'dev'], {
+      cwd: webPath,
+      env,
+      shell: true,
+      stdio: 'inherit' as any,
+    });
+
+    webProcess.on('error', (error: Error) => {
+      console.error(chalk.red('Failed to start Web UI:'), error);
+      process.exit(1);
+    });
+
+    // Handle graceful shutdown
+    const shutdownHandler = async () => {
+      console.log();
+      console.log(chalk.yellow('Stopping Web UI...'));
+      webProcess.kill('SIGTERM');
+      process.exit(0);
+    };
+
+    process.on('SIGINT', shutdownHandler);
+    process.on('SIGTERM', shutdownHandler);
+  });
+
+// ============================================================================
 // COMANDO: completion
 // ============================================================================
 program
