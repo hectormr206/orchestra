@@ -241,10 +241,10 @@
 ### Alta Prioridad
 
 1. **Completar TUI** (`src/tui/`)
-   - [ ] Implementar `DryRun.tsx` (ver TODO en `App.tsx:167`)
-   - [ ] Implementar edición de planes en `PlanReview.tsx` (ver TODO en `App.tsx:229`)
-   - [ ] Cargar y mostrar detalles de sesión en `History.tsx` (ver TODO en `App.tsx:239`)
-   - [ ] Implementar eliminación de sesiones en `History.tsx` (ver TODO en `App.tsx:242`)
+   - [x] Implementar `DryRun.tsx` ✓
+   - [x] Implementar edición de planes en `PlanReview.tsx` ✓
+   - [x] Cargar y mostrar detalles de sesión en `History.tsx` ✓
+   - [x] Implementar eliminación de sesiones en `History.tsx` ✓
 
 2. **Tests** (`src/**/*.test.ts`)
    - [x] `adapters/FallbackAdapter.test.ts` - Test fallback chains ✓
@@ -262,7 +262,7 @@
    - [x] `utils/cache.test.ts` - Test cache functionality ✓
    - [x] `utils/metrics.test.ts` - Test metrics collection ✓
    - [x] `utils/sessionHistory.test.ts` - Test history management ✓
-   - [ ] `utils/githubIntegration.test.ts` - Mock gh CLI
+   - [x] `utils/githubIntegration.test.ts` - Mock gh CLI (61 tests passing) ✓
    - [ ] `tui/App.test.tsx` - Component tests
    - [x] `cli/e2e.test.ts` - E2E CLI tests ✓
 
@@ -290,11 +290,12 @@
 6. **Documentación**
    - [x] `docs/api/README.md` - Documentación completa de API (Orchestrator, Adapters, Types, Utilities, Plugins) ✓
    - [x] `docs/architecture.md` - Arquitectura del sistema ✓
-   - [ ] `docs/api/orchestrator.md` - API detallada de `Orchestrator` class
-   - [ ] `docs/api/adapters.md` - Interface de `Adapter`
-   - [ ] `docs/guides/development.md` - Guía de desarrollo
-   - [ ] `docs/guides/testing.md` - Guía de tests
-   - [ ] `TUTORIAL.md` - Tutorial paso a paso
+   - [x] `docs/api/orchestrator.md` - API detallada de `Orchestrator` class ✓
+   - [x] `docs/api/adapters.md` - Interface de `Adapter` ✓
+   - [x] `docs/guides/development.md` - Guía de desarrollo ✓
+   - [x] `docs/guides/testing.md` - Guía de tests ✓
+   - [x] `docs/guides/plugin-development.md` - Guía de desarrollo de plugins ✓
+   - [x] `TUTORIAL.md` - Tutorial paso a paso ✓
 
 7. **DevEx**
    - [x] `npm run dev` con hot-reload usando `tsx watch` ✓
@@ -306,8 +307,8 @@
 
 8. **Nuevos Adaptadores**
    - [x] `src/adapters/ClaudeAdapter.ts` - Claude Opus 4.5 ✓
-   - [ ] `src/adapters/LlamaAdapter.ts` - Llama 3 API
-   - [ ] `src/adapters/MistralAdapter.ts` - Mistral API
+   - [x] `src/adapters/LlamaAdapter.ts` - Llama 3 API ✓
+   - [x] `src/adapters/MistralAdapter.ts` - Mistral API ✓
 
 9. **Sistema de Plugins**
    - [x] `src/plugins/PluginManager.ts` - Gestor de plugins ✓
