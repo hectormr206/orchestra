@@ -295,27 +295,27 @@ export async function loadSettings(
     return null;
   }
 
-  // Optimized Model Hierarchy (Cost-Aware)
+  // Optimized CLI Hierarchy (Cost-Aware)
   const defaultAgents = {
-    // Architect: Agent Swarm capabilities with massive context fallback
+    // Architect: Kimi CLI (k2.5 with Agent Swarm) → Gemini CLI (auto-select)
     architect: [
-      "Kimi k2.5",        // Primary: Agent Swarm, 200K context ($0.30/M)
-      "Gemini 3 Pro",     // Fallback: Massive context window ($0.15/M)
+      "Kimi",             // Primary: Kimi CLI (k2.5, 200K context, $0.30/M)
+      "Gemini",           // Fallback: Gemini CLI (auto-select, $0.15/M)
     ] as ModelType[],
-    // Executor: Most economical model with good fallback
+    // Executor: Claude+z.ai (GLM 4.7) → Kimi CLI
     executor: [
-      "GLM-4.7",          // Primary: Most economical ($0.05/M)
-      "Kimi k2.5",        // Fallback: Good value ($0.30/M)
+      "Claude (GLM 4.7)", // Primary: Claude CLI + z.ai (GLM 4.7, $0.05/M, most economical)
+      "Kimi",             // Fallback: Kimi CLI ($0.30/M)
     ] as ModelType[],
-    // Auditor: Thorough review with deep analysis fallback
+    // Auditor: Gemini CLI → Codex CLI
     auditor: [
-      "Gemini 3 Pro",     // Primary: Best for thorough review ($0.15/M)
-      "GPT-5.2-Codex",    // Fallback: Deep analysis ($0.50/M)
+      "Gemini",           // Primary: Gemini CLI (auto-select, $0.15/M)
+      "Codex",            // Fallback: Codex CLI (GPT-5.2-Codex, $0.50/M)
     ] as ModelType[],
-    // Consultant: Algorithmic expertise with good alternative
+    // Consultant: Codex CLI (GPT-5.2-Codex) → Kimi CLI
     consultant: [
-      "GPT-5.2-Codex",    // Primary: Best for algorithms ($0.50/M, use sparingly)
-      "Kimi k2.5",        // Fallback: Good alternative ($0.30/M)
+      "Codex",            // Primary: Codex CLI (GPT-5.2-Codex, $0.50/M, best for algorithms)
+      "Kimi",             // Fallback: Kimi CLI ($0.30/M)
     ] as ModelType[],
   };
 

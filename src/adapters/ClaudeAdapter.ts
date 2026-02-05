@@ -1,7 +1,7 @@
 /**
  * Claude Adapter
  *
- * Usa Claude CLI para interactuar con modelos de Anthropic (Opus 4.5)
+ * Usa Claude CLI para interactuar con modelos de Anthropic (Opus por defecto)
  */
 
 import { spawn } from "child_process";
@@ -194,7 +194,7 @@ export class ClaudeAdapter {
   getInfo(): { name: string; model: string; provider: string } {
     return {
       name: "ClaudeAdapter",
-      model: "Claude Opus 4.5",
+      model: "Claude",
       provider: "Anthropic",
     };
   }

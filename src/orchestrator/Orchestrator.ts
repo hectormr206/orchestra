@@ -3,11 +3,11 @@
  *
  * Coordina el flujo: Arquitecto → Ejecutor → Consultor → Auditor
  *
- * Agentes con Fallback por límite de uso:
- * - Arquitecto: Codex → Gemini → GLM 4.7 (crea el plan de implementación)
- * - Ejecutor: GLM 4.7 (implementa el código)
- * - Auditor: Gemini → GLM 4.7 (revisa el código generado)
- * - Consultor: Codex → Gemini → GLM 4.7 (ayuda con problemas algorítmicos)
+ * CLIs configurados con fallback automático (optimizado por costo):
+ * - Arquitecto: Kimi CLI (k2.5) → Gemini CLI (crea el plan de implementación)
+ * - Ejecutor: Claude CLI + z.ai (GLM 4.7) → Kimi CLI (implementa el código, más económico)
+ * - Auditor: Gemini CLI → Codex CLI (revisa el código generado)
+ * - Consultor: Codex CLI (GPT-5.2-Codex) → Kimi CLI (ayuda con problemas algorítmicos)
  */
 
 import { readFile, writeFile, mkdir, unlink } from "fs/promises";
@@ -19,6 +19,7 @@ import { GLMAdapter } from "../adapters/GLMAdapter.js";
 import { CodexAdapter } from "../adapters/CodexAdapter.js";
 import { GeminiAdapter } from "../adapters/GeminiAdapter.js";
 import { ClaudeAdapter } from "../adapters/ClaudeAdapter.js";
+import { KimiAdapter } from "../adapters/KimiAdapter.js";
 import { FallbackAdapter, type Adapter } from "../adapters/FallbackAdapter.js";
 import { StateManager } from "../utils/StateManager.js";
 import { buildArchitectPrompt } from "../prompts/architect.js";
@@ -192,6 +193,7 @@ export class Orchestrator {
   private codexAdapter: CodexAdapter;
   private geminiAdapter: GeminiAdapter;
   private claudeAdapter: ClaudeAdapter;
+  private kimiAdapter: KimiAdapter;
 
   // Adaptadores con fallback para cada agente
   public readonly architectAdapter: Adapter;
@@ -224,10 +226,10 @@ export class Orchestrator {
       recoveryTimeout: config.recoveryTimeout || 600000,
       autoRevertOnFailure: config.autoRevertOnFailure ?? true,
       agents: config.agents || {
-        architect: ["Claude (Opus 4.5)"],
-        executor: ["Claude (GLM 4.7)"],
-        auditor: ["Gemini"],
-        consultant: ["Claude (Opus 4.5)"],
+        architect: ["Kimi", "Gemini"],
+        executor: ["Claude (GLM 4.7)", "Kimi"],
+        auditor: ["Gemini", "Codex"],
+        consultant: ["Codex", "Kimi"],
       },
     };
 
@@ -239,6 +241,7 @@ export class Orchestrator {
     this.codexAdapter = new CodexAdapter();
     this.geminiAdapter = new GeminiAdapter();
     this.claudeAdapter = new ClaudeAdapter();
+    this.kimiAdapter = new KimiAdapter();
 
     // Configurar adaptadores dinámicamente
     this.architectAdapter = this.createAdapterChain(
@@ -278,8 +281,10 @@ export class Orchestrator {
           return this.geminiAdapter;
         case "Codex":
           return this.codexAdapter;
-        case "Claude (Opus 4.5)":
+        case "Claude":
           return this.claudeAdapter;
+        case "Kimi":
+          return this.kimiAdapter;
         default:
           return this.claudeAdapter;
       }

@@ -50,14 +50,11 @@ export interface AgentConfig {
 }
 
 export type ModelType =
+  | "Claude"
   | "Claude (GLM 4.7)"
   | "Gemini"
-  | "Gemini 3 Pro"
   | "Codex"
-  | "GPT-5.2-Codex"
-  | "Claude (Opus 4.5)"
-  | "Kimi k2.5"
-  | "GLM-4.7";
+  | "Kimi";
 
 /** Custom prompt templates */
 export interface CustomPrompts {

@@ -29,14 +29,11 @@ export const Settings: React.FC<SettingsProps> = ({
   const [editingText, setEditingText] = useState(false);
 
   const models = [
-    "Kimi k2.5",
-    "GLM-4.7",
-    "Gemini 3 Pro",
-    "GPT-5.2-Codex",
-    "Claude (Opus 4.5)",
-    "Claude (GLM 4.7)",  // Legacy
-    "Gemini",             // Legacy
-    "Codex",              // Legacy
+    "Kimi",
+    "Claude (GLM 4.7)",
+    "Gemini",
+    "Codex",
+    "Claude",
   ];
 
   const settings: readonly SettingItem[] = [

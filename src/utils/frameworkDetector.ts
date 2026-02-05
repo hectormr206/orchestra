@@ -523,7 +523,7 @@ function generateRecommendations(
   frameworks: FrameworkInfo[]
 ): OrchestrationRecommendations {
   return {
-    agentPreference: ['GLM-4.7', 'Kimi k2.5', 'Gemini 3 Pro'],
+    agentPreference: ['Claude (GLM 4.7)', 'Kimi', 'Gemini'],
     maxConcurrency: 3,
     useCache: true,
     testCommand: getTestCommandForLanguage(language, packageManager),

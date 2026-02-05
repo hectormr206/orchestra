@@ -235,10 +235,10 @@ class ProfileManagerImpl implements ProfileManager {
       recoveryTimeoutMinutes: 10,
       autoRevertOnFailure: true,
       agents: {
-        architect: ['Kimi k2.5', 'Gemini 3 Pro'],
-        executor: ['GLM-4.7', 'Kimi k2.5'],
-        auditor: ['Gemini 3 Pro', 'GPT-5.2-Codex'],
-        consultant: ['GPT-5.2-Codex', 'Kimi k2.5'],
+        architect: ['Kimi', 'Gemini'],
+        executor: ['Claude (GLM 4.7)', 'Kimi'],
+        auditor: ['Gemini', 'Codex'],
+        consultant: ['Codex', 'Kimi'],
       },
     };
 
