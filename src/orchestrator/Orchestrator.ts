@@ -57,6 +57,9 @@ import type {
   TestResult,
   SyntaxValidationResult,
 } from "../types.js";
+import { getLearningManager } from "../learning/LearningManager.js";
+import { collectExperienceFromOrchestration } from "../learning/OrchestratorIntegration.js";
+import type { MetricsCollector } from "../utils/metrics.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -304,6 +307,11 @@ export class Orchestrator {
       this.config = { ...this.config, ...merged };
       this.callbacks.onConfigLoaded?.(".orchestrarc.json");
     }
+
+    // Initialize learning system
+    const learningManager = getLearningManager();
+    await learningManager.initialize();
+    console.log(`[Learning] System initialized in ${learningManager.getMode()} mode`);
   }
 
   /**
@@ -389,6 +397,11 @@ export class Orchestrator {
         await this.runGitCommit(task);
       }
 
+      // ═══════════════════════════════════════════════════════════════
+      // FASE 6: LEARNING - Collect experience (successful execution)
+      // ═══════════════════════════════════════════════════════════════
+      await this.collectLearningExperience(task, true);
+
       return true;
     } catch (error) {
       const errorMessage =
@@ -396,7 +409,58 @@ export class Orchestrator {
       await this.stateManager.setError(errorMessage);
       await this.stateManager.setPhase("failed");
       this.callbacks.onError?.("orchestration", errorMessage);
+
+      // Collect experience even on failure
+      await this.collectLearningExperience(task, false);
+
       return false;
+    }
+  }
+
+  /**
+   * Collect experience for learning system
+   */
+  private async collectLearningExperience(task: string, success: boolean): Promise<void> {
+    try {
+      const learningManager = getLearningManager();
+      if (learningManager.getMode() === 'disabled') {
+        return;
+      }
+
+      // Build metrics from state
+      const state = await this.stateManager.load();
+      if (!state) {
+        return;
+      }
+
+      // Create simplified metrics from state
+      const metrics: any = {
+        sessionId: state.sessionId,
+        task: state.task,
+        startTime: new Date(state.startedAt),
+        endTime: new Date(),
+        totalDuration: Date.now() - new Date(state.startedAt).getTime(),
+        agents: {
+          architect: { invocations: 1, successes: 1, failures: 0, totalDuration: 0, avgDuration: 0, successRate: 100, fallbacks: 0 },
+          executor: { invocations: 1, successes: success ? 1 : 0, failures: success ? 0 : 1, totalDuration: 0, avgDuration: 0, successRate: success ? 100 : 0, fallbacks: 0 },
+          auditor: { invocations: 1, successes: success ? 1 : 0, failures: success ? 0 : 1, totalDuration: 0, avgDuration: 0, successRate: success ? 100 : 0, fallbacks: 0 },
+          consultant: { invocations: 0, successes: 0, failures: 0, totalDuration: 0, avgDuration: 0, successRate: 0, fallbacks: 0 },
+        },
+        files: [],
+        iterations: 1,
+        finalStatus: success ? 'completed' as const : 'failed' as const,
+        testsRun: this.config.runTests,
+        committed: this.config.gitCommit && success,
+      };
+
+      await collectExperienceFromOrchestration(task, metrics, {
+        parallel: this.config.parallel,
+        maxConcurrency: this.config.maxConcurrency,
+        timeout: this.config.timeout,
+      });
+    } catch (error) {
+      // Don't fail the orchestration if learning collection fails
+      console.error(`[Learning] Failed to collect experience: ${error}`);
     }
   }
 

@@ -2206,6 +2206,12 @@ registerIntegrationCommands(program);
 import { registerPluginCommands } from './pluginCommands.js';
 registerPluginCommands(program);
 
+// ============================================================================
+// REGISTRAR COMANDOS DE LEARNING
+// ============================================================================
+import { registerLearningCommands } from './learningCommands.js';
+registerLearningCommands(program);
+
 // Helper function para formatear duración
 function formatDurationMs(ms: number): string {
   if (ms < 1000) return ms + 'ms';
