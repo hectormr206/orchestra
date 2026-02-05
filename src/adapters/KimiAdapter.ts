@@ -178,7 +178,18 @@ export class KimiAdapter {
   }
 
   /**
-   * Obtiene información del modelo
+   * Implementa la interfaz Adapter
+   */
+  getInfo(): { name: string; model: string; provider: string } {
+    return {
+      name: "KimiAdapter",
+      model: "Kimi",
+      provider: "Moonshot",
+    };
+  }
+
+  /**
+   * Obtiene información detallada del modelo
    */
   getModelInfo() {
     return {
