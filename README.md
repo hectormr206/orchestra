@@ -581,31 +581,72 @@ compute_reward(outcome) {
 
 ## Architecture
 
-### Agent Workflow
+### Agent Workflow - Optimized Model Hierarchy
+
+**Cost-Optimized Multi-Model Strategy:** Orchestra uses an intelligent model hierarchy designed to minimize costs while maximizing quality. Each agent has a primary model (chosen for cost-efficiency) and automatic fallbacks.
 
 ```
 User Request
     ↓
-Architect (Codex → Gemini → GLM 4.7)
-    → Creates implementation plan
+🏗️  Architect (Kimi k2.5 → Gemini 3 Pro)
+    → Agent Swarm for complex planning
+    → Investigates dependencies and risks
+    → Creates detailed implementation plan
+    Cost: $0.001-0.002 per 1K tokens
     ↓
-[Plan Approval]
+[Plan Approval - User Review]
     ↓
-Executor (GLM 4.7)
-    → Generates code
+⚡ Executor (GLM 4.7 → Kimi k2.5)
+    → Most economical model for code generation
+    → Handles 80% of boilerplate code
+    → Falls back to Kimi for complex logic
+    Cost: ~$0.0005 per 1K tokens (cheapest)
     ↓
-Auditor (Gemini → GLM 4.7)
-    → Reviews code quality
+🔍 Auditor (Gemini 3 Pro → GPT-5.2-Codex)
+    → Massive context window (2M tokens)
+    → Reviews entire project for consistency
+    → Checks security (OWASP Top 10)
+    Cost: ~$0.001 per 1K tokens
     ↓
-[Issues Found?] → Consultant (Codex → Gemini → GLM 4.7)
-    → Provides algorithmic guidance
+❓ [Issues Found?]
+    ↓ YES (Algorithmic Problems)
     ↓
-[Loop until approved or max iterations]
+🎯 Consultant (GPT-5.2-Codex → Kimi k2.5)
+    → "Surgical" usage for complex algorithms only
+    → Reserved for problems GLM can't solve
+    → Expensive but precise
+    Cost: ~$0.01 per 1K tokens (use sparingly)
     ↓
-[Optional] Tests (auto-detected framework)
+[Loop until approved or max 10 iterations]
     ↓
-[Optional] Git commit (conventional commits)
+🧪 [Optional] Tests (pytest, jest, vitest, go test, cargo test)
+    ↓
+📦 [Optional] Git commit (conventional commits)
+    ↓
+🧠 Learning System (tracks performance and optimizes)
 ```
+
+**Model Selection Rationale:**
+
+| Agent | Primary Model | Why | Fallback | Cost Priority |
+|-------|---------------|-----|----------|---------------|
+| **Architect** | Kimi k2.5 | Agent Swarm capabilities, 200K context | Gemini 3 Pro | Medium |
+| **Executor** | GLM-4.7 | Most economical, sufficient for 80% of code | Kimi k2.5 | **Lowest** |
+| **Auditor** | Gemini 3 Pro | 2M context window, sees entire codebase | GPT-5.2-Codex | Medium |
+| **Consultant** | GPT-5.2-Codex | Best for complex algorithms (use rarely) | Kimi k2.5 | **Highest** |
+
+**Automatic Fallback Triggers:**
+- `RATE_LIMIT_429` - API quota exceeded
+- `CONTEXT_EXCEEDED` - Input too large for model
+- `TIMEOUT` - Model took too long to respond
+- `API_ERROR` - General API failure
+
+**Cost Optimization Strategy:**
+- ✅ Use GLM-4.7 for most code generation (cheapest)
+- ✅ Use Kimi k2.5 for planning (Agent Swarm advantage)
+- ✅ Use Gemini 3 Pro for auditing (massive context)
+- ⚠️  Use GPT-5.2-Codex **only** when absolutely necessary
+- 🎯 Learning System penalizes excessive expensive model usage
 
 ### Directory Structure
 
