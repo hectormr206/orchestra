@@ -267,20 +267,39 @@ const adapter = new GLMAdapter({
 - High performance for Chinese
 - Cost-effective
 
-### CodexAdapter (GitHub Copilot)
+### CodexAdapter (OpenAI GPT-5.2-Codex)
 
 ```typescript
 import { CodexAdapter } from './adapters/CodexAdapter.js';
 
-const adapter = new CodexAdapter({
-  apiKey: process.env.GITHUB_TOKEN, // GitHub token
-});
+const adapter = new CodexAdapter();
 ```
 
 **Features:**
-- OpenAI Codex models
-- GitHub integration
-- Good for code completion
+- OpenAI GPT-5.2-Codex for algorithmic problems
+- Surgical use for complex debugging
+- Automatic CONTEXT_EXCEEDED handling with retry
+- Rate limit detection (RATE_LIMIT_429)
+
+### KimiAdapter (Moonshot Kimi k2.5)
+
+```typescript
+import { KimiAdapter } from './adapters/KimiAdapter.js';
+
+const adapter = new KimiAdapter();
+```
+
+**Features:**
+- Kimi k2.5 Agent Swarm capabilities
+- 200K context window
+- Bilingual error detection (English + Chinese)
+- Automatic CONTEXT_EXCEEDED handling with retry
+- Cost-effective for planning and fallback
+
+**Error Detection:**
+- Rate limit: `請求過於頻繁` (Chinese), `rate limit` (English)
+- Context exceeded: `上下文過長` (Chinese), `context exceeded` (English)
+- Supports timeout, API errors, and invalid responses
 
 ### FallbackAdapter
 
@@ -399,6 +418,199 @@ const mockAdapter = {
 
 **Issue:** "Timeout"
 - **Solution:** Increase timeout in options or simplify prompt
+
+---
+
+## Context Compaction Helper
+
+All adapters now include automatic context compaction when CONTEXT_EXCEEDED errors occur.
+
+### Overview
+
+The `contextCompaction.ts` module provides intelligent prompt reduction with 5 progressive strategies:
+
+```typescript
+import {
+  compactPrompt,
+  isContextExceededError,
+  estimateTokens,
+  wouldExceedContext
+} from './adapters/contextCompaction.js';
+```
+
+### API Reference
+
+#### `compactPrompt(prompt, targetReduction?)`
+
+Compacts a prompt using multiple strategies to achieve target reduction.
+
+**Parameters:**
+- `prompt: string` - The original prompt text
+- `targetReduction?: number` - Target reduction ratio (default: 0.5 = 50%)
+
+**Returns:**
+```typescript
+interface CompactionResult {
+  compactedPrompt: string;      // The compacted prompt
+  originalLength: number;        // Original character count
+  compactedLength: number;       // Compacted character count
+  reductionPercent: number;      // Percentage reduced
+}
+```
+
+**Example:**
+```typescript
+const result = compactPrompt(longPrompt, 0.6); // 60% reduction target
+
+console.log(`Reduced from ${result.originalLength} to ${result.compactedLength} chars`);
+console.log(`Reduction: ${result.reductionPercent}%`);
+```
+
+#### `isContextExceededError(output)`
+
+Detects if an error message indicates context limit exceeded.
+
+**Parameters:**
+- `output: string` - Error message or output text
+
+**Returns:** `boolean` - True if context limit error detected
+
+**Supported patterns:**
+- English: "context exceeded", "maximum context", "token limit", "prompt too long"
+- Chinese: "上下文過長", "输入过长"
+
+**Example:**
+```typescript
+if (isContextExceededError(stderr)) {
+  const compacted = compactPrompt(originalPrompt);
+  // Retry with compacted prompt
+}
+```
+
+#### `estimateTokens(text)`
+
+Estimates token count for a given text.
+
+**Parameters:**
+- `text: string` - Text to estimate
+
+**Returns:** `number` - Estimated token count
+
+**Note:** Uses approximation of 1 token ≈ 4 characters
+
+**Example:**
+```typescript
+const tokens = estimateTokens(prompt);
+console.log(`Estimated tokens: ${tokens}`);
+```
+
+#### `wouldExceedContext(text, maxTokens)`
+
+Checks if text would exceed context limit using 80% safety margin.
+
+**Parameters:**
+- `text: string` - Text to check
+- `maxTokens: number` - Maximum allowed tokens
+
+**Returns:** `boolean` - True if would exceed safe limit (80% of max)
+
+**Example:**
+```typescript
+if (wouldExceedContext(prompt, 128000)) {
+  console.warn('Prompt may be too long, compacting...');
+  const result = compactPrompt(prompt);
+  // Use result.compactedPrompt
+}
+```
+
+### Compaction Strategies
+
+The compaction system applies 5 strategies in sequence:
+
+1. **Whitespace Removal**
+   - Collapses multiple spaces, tabs, newlines
+   - Preserves code structure
+
+2. **Repeated Phrase Detection**
+   - Removes duplicate sentences
+   - Deduplicates instructions
+
+3. **Code Block Summarization**
+   - Summarizes code blocks > 500 chars
+   - Preserves signatures and key lines
+   - Adds `... (code omitted for brevity) ...`
+
+4. **Verbose Phrase Removal**
+   - Strips common verbose patterns:
+     - "Please note that"
+     - "Make sure to"
+     - "It's important to"
+     - "Remember that"
+     - "Don't forget to"
+
+5. **Aggressive Summarization**
+   - Ranks sentences by importance
+   - Keeps only top N% most important
+   - Preserves action-oriented content
+
+### Automatic Retry Flow
+
+All adapters implement automatic retry with compaction:
+
+```typescript
+async execute(options: ExecuteOptions, retryCount: number = 0): Promise<AgentResult> {
+  // ... execute request ...
+
+  if (isContextExceededError(stderr) || isContextExceededError(stdout)) {
+    if (retryCount < 2) {
+      console.warn(`⚠️  Context exceeded. Compacting prompt (attempt ${retryCount + 1}/2)...`);
+
+      const compactionResult = compactPrompt(options.prompt);
+      console.log(`📦 Prompt compacted: ${compactionResult.originalLength} → ${compactionResult.compactedLength} chars (${compactionResult.reductionPercent}% reduction)`);
+
+      // Retry with compacted prompt
+      return await this.execute({
+        ...options,
+        prompt: compactionResult.compactedPrompt
+      }, retryCount + 1);
+    } else {
+      throw new Error('CONTEXT_EXCEEDED: Prompt too long even after compaction');
+    }
+  }
+}
+```
+
+### Best Practices
+
+1. **Proactive Checking**
+   ```typescript
+   // Check before sending
+   if (wouldExceedContext(prompt, model.maxTokens)) {
+     prompt = compactPrompt(prompt, 0.5).compactedPrompt;
+   }
+   ```
+
+2. **Preserve Essential Info**
+   ```typescript
+   // For critical prompts, use lower reduction target
+   const result = compactPrompt(criticalPrompt, 0.3); // Only 30% reduction
+   ```
+
+3. **Monitor Compaction**
+   ```typescript
+   const result = compactPrompt(prompt);
+   if (result.reductionPercent < 40) {
+     console.warn('Low reduction achieved, prompt may still be too long');
+   }
+   ```
+
+4. **Test Compaction Quality**
+   ```typescript
+   // Verify essential keywords preserved
+   const result = compactPrompt(prompt);
+   expect(result.compactedPrompt).toContain('authentication');
+   expect(result.compactedPrompt).toContain('validation');
+   ```
 
 ---
 

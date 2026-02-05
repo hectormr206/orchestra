@@ -13,13 +13,16 @@ Orchestra is designed as a **multi-agent orchestration system** with automatic f
 ┌─────────────────────────────────────────────────────────────┐
 │                    Orchestrator                             │
 │  ┌──────────────────────────────────────────────────────┐   │
-│  │           Agent Chain Fallback System                │   │
+│  │      Agent Chain with Optimized Model Hierarchy       │   │
 │  │  ┌────────┐  ┌────────┐  ┌────────┐  ┌────────┐ │   │
 │  │  │Architect│→ │Executor│→ │Auditor │  │Consultant│ │   │
-│  │  │  Codex  │  │  GLM 4.7│  │Gemini │  │  Codex  │ │   │
-│  │  │ Gemini │  │        │  │        │  │        │ │   │
-│  │  │  GLM   │  │        │  │        │  │        │ │   │
+│  │  │ Kimi k2.5│ │GLM-4.7 │  │Gemini 3│  │GPT-5.2  │ │   │
+│  │  │ Gemini 3 │ │ Kimi   │  │ Codex  │  │ Kimi   │ │   │
 │  │  └────────┘  └────────┘  └────────┘  └────────┘ │   │
+│  │                                                       │   │
+│  │  Cost Optimization: GLM-4.7 primary, Kimi fallback   │   │
+│  │  Context Compaction: Auto-retry on CONTEXT_EXCEEDED  │   │
+│  │  Model Performance: Token/cost/latency tracking      │   │
 │  └──────────────────────────────────────────────────────┘   │
 │                                                             │
 │  Execution Modes:                                           │
@@ -54,23 +57,40 @@ The Orchestrator is the main coordinator that:
 6. **Optional Tests** - Run test framework
 7. **Optional Git Commit** - Conventional commits
 
-#### Agent Flow
+#### Agent Flow (Optimized Model Hierarchy)
 
 ```
 User Task
     ↓
-Architect (creates plan)
+🏗️  Architect (Kimi k2.5 → Gemini 3 Pro)
+    → Creates plan with Agent Swarm
+    → Cost: ~$0.30/M tokens
     ↓
 User Approval
     ↓
-Executor (generates code)
+⚡ Executor (GLM-4.7 → Kimi k2.5)
+    → Generates code (most economical)
+    → Cost: ~$0.05/M tokens
     ↓
-Auditor (reviews code)
+🔍 Auditor (Gemini 3 Pro → GPT-5.2-Codex)
+    → Reviews code quality (massive context)
+    → Cost: ~$0.15/M tokens
     ↓
 Issues?
     ├─ No → Tests → Git Commit → Done
-    └─ Yes → Consultant → Fix → Audit Again → Loop
+    └─ Yes → 🧠 Consultant (GPT-5.2-Codex → Kimi k2.5)
+                → Surgical algorithmic help
+                → Cost: ~$0.50/M tokens (use sparingly)
+                ↓
+                Fix → Audit Again → Loop (max iterations)
 ```
+
+**Cost Optimization:**
+- Target: < $0.10 per session for typical tasks
+- GLM-4.7 handles 80% of execution work
+- Expensive models (GPT-5.2-Codex) reserved for complex issues
+- Automatic fallback on rate limits (RATE_LIMIT_429)
+- Context compaction on CONTEXT_EXCEEDED errors
 
 ### 2. Adapter System
 
@@ -88,21 +108,46 @@ interface Adapter {
 
 #### Available Adapters
 
-- **CodexAdapter** - Claude/Codex CLI integration
-- **GeminiAdapter** - Google Gemini API
-- **GLMAdapter** - Zhipu GLM 4.7
+- **KimiAdapter** - Moonshot Kimi k2.5 (Agent Swarm, 200K context, bilingual)
+- **GLMAdapter** - Zhipu GLM-4.7 via z.ai (most economical, fast execution)
+- **GeminiAdapter** - Google Gemini 3 Pro (massive context window)
+- **CodexAdapter** - OpenAI GPT-5.2-Codex (surgical use, algorithmic problems)
+- **ClaudeAdapter** - Anthropic Claude Opus 4.5 (premium quality)
 - **FallbackAdapter** - Chains multiple adapters with automatic fallback
 
-#### Fallback Chain
+**New Features (All Adapters):**
+- ✅ Automatic CONTEXT_EXCEEDED detection and retry
+- ✅ Context compaction with 5-strategy approach (50-70% reduction)
+- ✅ RATE_LIMIT_429 detection with fallback rotation
+- ✅ Bilingual error detection (English + Chinese)
+- ✅ Model performance tracking (tokens, latency, cost)
+
+#### Optimized Fallback Chains
 
 ```typescript
-const fallback = new FallbackAdapter(
-  [
-    new CodexAdapter(),      // Primary
-    new GeminiAdapter(),     // Fallback 1
-    new GLMAdapter(),        // Fallback 2
-  ]
-);
+// Architect: Planning with Agent Swarm
+const architectChain = new FallbackAdapter([
+  new KimiAdapter(),           // Primary: Agent Swarm
+  new GeminiAdapter(),         // Fallback: Massive context
+]);
+
+// Executor: Most economical
+const executorChain = new FallbackAdapter([
+  new GLMAdapter(),            // Primary: Lowest cost
+  new KimiAdapter(),           // Fallback: Good value
+]);
+
+// Auditor: Thorough review
+const auditorChain = new FallbackAdapter([
+  new GeminiAdapter(),         // Primary: Best for review
+  new CodexAdapter(),          // Fallback: Deep analysis
+]);
+
+// Consultant: Algorithmic expertise
+const consultantChain = new FallbackAdapter([
+  new CodexAdapter(),          // Primary: Best for algorithms
+  new KimiAdapter(),           // Fallback: Good alternative
+]);
 ```
 
 ### 3. State Management
@@ -203,6 +248,116 @@ Done? → No → Retry (up to maxRecoveryAttempts)
     │
     └→ Yes → Save File
 ```
+
+### 6. Context Compaction System
+
+**File:** `src/adapters/contextCompaction.ts`
+
+When context limits are exceeded, Orchestra automatically compacts prompts using a 5-strategy approach:
+
+#### Compaction Strategies
+
+1. **Whitespace Removal** - Collapses excessive whitespace while preserving structure
+2. **Repeated Phrase Detection** - Removes duplicate sentences and instructions
+3. **Code Block Summarization** - Summarizes code blocks > 500 chars
+4. **Verbose Phrase Removal** - Strips common verbose patterns
+5. **Aggressive Summarization** - Ranks sentences by importance, keeps only essential content
+
+#### Automatic Retry Flow
+
+```typescript
+async execute(options, retryCount = 0) {
+  // Execute request
+  const result = await runCommand(options);
+
+  // Detect CONTEXT_EXCEEDED
+  if (isContextExceededError(result.stderr)) {
+    if (retryCount < 2) {
+      // Compact prompt
+      const compacted = compactPrompt(options.prompt);
+      console.log(`Compacted: ${compacted.reductionPercent}% reduction`);
+
+      // Retry with compacted prompt
+      return await this.execute({
+        ...options,
+        prompt: compacted.compactedPrompt
+      }, retryCount + 1);
+    }
+  }
+
+  return result;
+}
+```
+
+**Features:**
+- ✅ 50-70% typical reduction in prompt size
+- ✅ Preserves action-oriented sentences and key terms
+- ✅ Maximum 2 retry attempts to prevent loops
+- ✅ Bilingual error detection (English + Chinese)
+- ✅ Proactive checking with `wouldExceedContext()`
+
+### 7. Model Performance Tracking
+
+**File:** `src/utils/StateManager.ts`
+
+The system now tracks detailed performance metrics for each model:
+
+#### ModelUsage Interface
+
+```typescript
+interface ModelUsage {
+  modelId: string;                // "glm-4.7", "kimi-k2.5", etc.
+  provider: string;               // "zai", "moonshot", "openai"
+  tokensUsed: number;             // Tokens consumed
+  latencyMs: number;              // Response time
+  success: boolean;               // Execution success
+  errorCode?: 'RATE_LIMIT_429' | 'CONTEXT_EXCEEDED' | 'TIMEOUT' | 'API_ERROR';
+  errorMessage?: string;          // Detailed error
+  timestamp: string;              // ISO timestamp
+  estimatedCost?: number;         // Cost in USD
+}
+```
+
+#### GlobalMetrics Tracking
+
+```typescript
+interface GlobalMetrics {
+  totalCostEstimate: number;      // Total session cost
+  startTime: number;              // Session start
+  endTime?: number;               // Session end
+  totalTokens: number;            // All tokens used
+  totalAttempts: number;          // All API calls
+  successfulAttempts: number;     // Successful calls
+  failedAttempts: number;         // Failed calls
+  fallbackRotations: number;      // Fallback switches
+  avgLatencyMs: number;           // Average response time
+}
+```
+
+#### TaskStep Tracking
+
+Each workflow step is tracked with complete history:
+
+```typescript
+interface TaskStep {
+  id: string;                     // Unique identifier
+  agentRole: 'architect' | 'executor' | 'auditor' | 'consultant';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  filePath?: string;              // File being processed
+  attempts: ModelUsage[];         // All attempts (including retries)
+  outputHash?: string;            // Output deduplication
+  startTime?: string;             // Start timestamp
+  endTime?: string;               // End timestamp
+  duration?: number;              // Duration in ms
+}
+```
+
+**Benefits:**
+- 📊 Real-time cost monitoring
+- 🎯 Model performance comparison
+- 🔄 Fallback pattern analysis
+- 🧠 Reinforcement learning data for optimization
+- 📈 Session analytics and reporting
 
 ## Data Flow
 

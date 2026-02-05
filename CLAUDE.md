@@ -77,24 +77,24 @@ orchestra tui                # Launch Terminal UI
 
 Orchestra follows a **multi-agent orchestration pattern** with automatic fallback chains:
 
-### Agent Workflow
+### Agent Workflow (Optimized Model Hierarchy)
 
 ```
 User Request
     ↓
-Architect (Codex → Gemini → GLM 4.7)
-    → Creates implementation plan
+🏗️  Architect (Kimi k2.5 → Gemini 3 Pro)
+    → Creates implementation plan with Agent Swarm
     ↓
 [Plan Approval]
     ↓
-Executor (GLM 4.7)
-    → Generates code
+⚡ Executor (GLM-4.7 → Kimi k2.5)
+    → Generates code (most economical)
     ↓
-Auditor (Gemini → GLM 4.7)
-    → Reviews code quality
+🔍 Auditor (Gemini 3 Pro → GPT-5.2-Codex)
+    → Reviews code quality (massive context)
     ↓
-[Issues Found?] → Consultant (Codex → Gemini → GLM 4.7)
-    → Helps with algorithmic problems
+[Issues Found?] → 🧠 Consultant (GPT-5.2-Codex → Kimi k2.5)
+    → Surgical algorithmic help
     ↓
 [Loop until approved or max iterations]
     ↓
@@ -102,6 +102,21 @@ Auditor (Gemini → GLM 4.7)
     ↓
 [Optional] Git commit (conventional commits)
 ```
+
+**Model Rationale:**
+
+| Agent | Primary Model | Cost/M tokens | Rationale | Fallback |
+|-------|--------------|---------------|-----------|----------|
+| **Architect** | Kimi k2.5 | $0.30 | Agent Swarm capabilities, 200K context | Gemini 3 Pro |
+| **Executor** | GLM-4.7 | $0.05 | Most economical, fast execution | Kimi k2.5 |
+| **Auditor** | Gemini 3 Pro | $0.15 | Massive context window, thorough review | GPT-5.2-Codex |
+| **Consultant** | GPT-5.2-Codex | $0.50 | Surgical use only, best for algorithms | Kimi k2.5 |
+
+**Cost Optimization Strategy:**
+- GLM-4.7 as primary executor minimizes per-session costs
+- Kimi k2.5 provides excellent value for planning and fallback
+- GPT-5.2-Codex reserved for algorithmic problems only
+- Automatic fallback rotation on rate limits or failures
 
 ### Execution Modes
 
@@ -117,10 +132,14 @@ src/
 ├── orchestrator/
 │   └── Orchestrator.ts          # Main orchestration engine
 ├── adapters/                    # AI provider adapters
-│   ├── CodexAdapter.ts          # Claude/Codex integration
-│   ├── GeminiAdapter.ts         # Google Gemini integration
-│   ├── GLMAdapter.ts            # Zhipu GLM integration
-│   └── FallbackAdapter.ts       # Fallback chain management
+│   ├── CodexAdapter.ts          # OpenAI Codex/GPT-5.2 integration
+│   ├── GeminiAdapter.ts         # Google Gemini 3 Pro integration
+│   ├── GLMAdapter.ts            # Zhipu GLM-4.7 integration
+│   ├── KimiAdapter.ts           # Moonshot Kimi k2.5 integration
+│   ├── ClaudeAdapter.ts         # Anthropic Claude Opus 4.5
+│   ├── FallbackAdapter.ts       # Fallback chain management
+│   ├── contextCompaction.ts     # Context compaction helper
+│   └── contextCompaction.test.ts # Tests for context compaction
 ├── prompts/                     # Agent prompt templates
 │   ├── architect.ts             # Planning phase prompts
 │   ├── executor.ts              # Code generation prompts
@@ -160,6 +179,54 @@ ai-core/                         # Universal patterns and skills
 4. **Recovery Mode**: Automatic error recovery with configurable attempts and timeout
 5. **Syntax Validation**: Language-specific validation before code application
 6. **Test Integration**: Auto-detection of test frameworks (pytest, jest, vitest, go test, cargo test)
+7. **Context Compaction**: Automatic prompt reduction on CONTEXT_EXCEEDED errors with 5-strategy compaction (50-70% reduction)
+8. **Model Performance Tracking**: Token usage, latency, costs, and error rates per model for reinforcement learning
+
+### Context Compaction System
+
+When context limits are exceeded, Orchestra automatically compacts prompts using a 5-strategy approach:
+
+**Compaction Strategies:**
+
+1. **Whitespace Removal**: Eliminates excessive whitespace while preserving code structure
+2. **Repeated Phrase Detection**: Removes duplicate sentences and repeated instructions
+3. **Code Block Summarization**: Summarizes code blocks > 500 chars with `... (code omitted for brevity) ...`
+4. **Verbose Phrase Removal**: Strips common verbose patterns ("Please note that", "Make sure to", etc.)
+5. **Aggressive Summarization**: If target reduction not met, applies sentence ranking and keeps only essential content
+
+**Automatic Retry Flow:**
+
+```typescript
+// All adapters support automatic retry on CONTEXT_EXCEEDED
+try {
+  result = await adapter.execute(options);
+} catch (error) {
+  if (isContextExceededError(error)) {
+    const compacted = compactPrompt(originalPrompt, targetReduction: 0.5);
+    result = await adapter.execute({ ...options, prompt: compacted });
+  }
+}
+```
+
+**Features:**
+
+- **Bilingual Error Detection**: Supports English and Chinese error messages (上下文過長, 請求過於頻繁)
+- **Maximum 2 Retries**: Prevents infinite compaction loops
+- **Preservation of Essential Info**: Action-oriented sentences and key technical terms are preserved
+- **Token Estimation**: Approximate token count (1 token ≈ 4 chars) for proactive checking
+- **Test Coverage**: 19 comprehensive tests ensuring quality compaction
+
+**Usage:**
+
+```typescript
+import { compactPrompt, isContextExceededError, wouldExceedContext } from './adapters/contextCompaction.js';
+
+// Check before sending
+if (wouldExceedContext(prompt, maxTokens)) {
+  const result = compactPrompt(prompt, 0.6); // 60% reduction target
+  console.log(`Reduced ${result.reductionPercent}%`);
+}
+```
 
 ---
 

@@ -114,19 +114,23 @@ Parameters:
 
 ---
 
-## 💰 Reward Function
+## 💰 Reward Function (Enhanced with Cost Optimization)
 
 Rango: [-100, +180]
 
 ```python
 reward = (
-    success * 100 +                    # Éxito/fallo (dominante)
-    time_efficiency * 20 +             # Velocidad de ejecución
-    resource_efficiency * 10 +         # Eficiencia de recursos
-    (zero_errors ? 15 : -errors*10) +  # Calidad (errores)
-    user_satisfaction * 10 +           # Modificaciones del usuario
-    safety_adherence * 10 +            # Cumplimiento de seguridad
-    (tests_passed ? 5 : 0)             # Tests exitosos
+    success * 100 +                          # Éxito/fallo (dominante)
+    time_efficiency * 20 +                   # Velocidad de ejecución
+    resource_efficiency * 10 +               # Eficiencia de recursos
+    (zero_errors ? 15 : -errors*10) +        # Calidad (errores)
+    user_satisfaction * 10 +                 # Modificaciones del usuario
+    safety_adherence * 10 +                  # Cumplimiento de seguridad
+    (tests_passed ? 5 : 0) +                 # Tests exitosos
+    cost_efficiency_bonus +                  # NUEVO: Bonificación por bajo costo
+    glm_usage_bonus +                        # NUEVO: Bonificación por uso de GLM
+    expensive_model_penalty +                # NUEVO: Penalización por modelos caros
+    fallback_penalty                         # NUEVO: Penalización por fallbacks
 )
 ```
 
@@ -141,6 +145,168 @@ reward = (
 | User Satisfaction | ±10 | Sin modificaciones post-generación |
 | Safety | +10/-50 | Cumplimiento vs violación de seguridad |
 | Tests | +5 | Tests pasando exitosamente |
+| **Cost Efficiency** | **+50** | **🆕 Sesión muy económica (< $0.10)** |
+| **GLM Usage** | **+10/success** | **🆕 Bonificación por cada éxito con GLM-4.7** |
+| **Expensive Models** | **-5/usage** | **🆕 Penalización por uso excesivo de modelos caros** |
+| **Fallback Rotations** | **-10/rotation** | **🆕 Penalización por fallbacks** |
+
+### Nuevo: Tracking de Modelos
+
+El sistema ahora rastrea el rendimiento detallado de cada modelo:
+
+```typescript
+interface ModelUsage {
+  modelId: string;                    // "glm-4.7", "kimi-k2.5", etc.
+  provider: string;                   // "zai", "moonshot", "openai", etc.
+  tokensUsed: number;                 // Tokens consumidos
+  latencyMs: number;                  // Latencia en ms
+  success: boolean;                   // ¿Exitoso?
+  errorCode?: 'RATE_LIMIT_429' | 'CONTEXT_EXCEEDED' | 'TIMEOUT' | 'API_ERROR';
+  errorMessage?: string;              // Mensaje de error
+  timestamp: string;                  // ISO timestamp
+  estimatedCost?: number;             // Costo estimado en USD
+}
+```
+
+### Cálculo de Recompensas Optimizado
+
+```typescript
+private calculateReward(state: EnhancedSessionState): number {
+  let reward = 0;
+
+  // Base: éxito/fallo
+  reward += state.phase === 'completed' ? 100 : -100;
+
+  // 🆕 Eficiencia de costo
+  if (state.globalMetrics.totalCostEstimate < 0.10) {
+    reward += 50; // Muy económico
+  } else if (state.globalMetrics.totalCostEstimate > 0.50) {
+    reward -= 20; // Muy costoso
+  }
+
+  // 🆕 Bonificación por uso de GLM (económico)
+  const glmSuccesses = state.workflow
+    .flatMap(s => s.attempts)
+    .filter(a => a.modelId.includes('glm') && a.success)
+    .length;
+  reward += glmSuccesses * 10;
+
+  // 🆕 Penalización por uso excesivo de modelos caros (GPT-5.2-Codex)
+  const expensiveUsages = state.workflow
+    .flatMap(s => s.attempts)
+    .filter(a => a.modelId.includes('gpt-5.2') || a.modelId.includes('opus'))
+    .length;
+  if (expensiveUsages > 3) {
+    reward -= (expensiveUsages - 3) * 5; // -5 por cada uso extra
+  }
+
+  // 🆕 Penalización por fallback rotations
+  reward -= state.globalMetrics.fallbackRotations * 10;
+
+  // Eficiencia de tiempo
+  const timeEfficiency = state.globalMetrics.avgLatencyMs < 30000 ? 1.0 : 0.5;
+  reward += timeEfficiency * 20;
+
+  // Calidad (sin errores)
+  const errorCount = state.workflow.filter(s => s.status === 'failed').length;
+  reward += errorCount === 0 ? 15 : -errorCount * 10;
+
+  return reward;
+}
+```
+
+### 🆕 Global Metrics Tracking
+
+El sistema ahora mantiene métricas globales de cada sesión para optimización de costos:
+
+```typescript
+interface GlobalMetrics {
+  totalCostEstimate: number;          // Costo total estimado en USD
+  startTime: number;                  // Timestamp de inicio
+  endTime?: number;                   // Timestamp de fin
+  totalTokens: number;                // Total de tokens consumidos
+  totalAttempts: number;              // Total de intentos realizados
+  successfulAttempts: number;         // Intentos exitosos
+  failedAttempts: number;             // Intentos fallidos
+  fallbackRotations: number;          // Número de rotaciones de fallback
+  avgLatencyMs: number;               // Latencia promedio en ms
+}
+```
+
+**Beneficios:**
+- **Visibilidad de costos**: Tracking en tiempo real del costo de cada sesión
+- **Optimización automática**: El sistema aprende a minimizar costos usando modelos económicos
+- **Detección de problemas**: Identifica patrones de fallbacks excesivos o errores repetidos
+- **Análisis de rendimiento**: Compara latencia y eficiencia entre modelos
+
+### 🆕 Workflow Step Tracking
+
+Cada paso del workflow se rastrea con detalle completo:
+
+```typescript
+interface TaskStep {
+  id: string;                         // Identificador único
+  agentRole: 'architect' | 'executor' | 'auditor' | 'consultant';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  filePath?: string;                  // Archivo afectado
+  attempts: ModelUsage[];             // Historial de intentos
+  outputHash?: string;                // Hash del output (para deduplicación)
+  startTime?: string;                 // ISO timestamp de inicio
+  endTime?: string;                   // ISO timestamp de fin
+  duration?: number;                  // Duración en ms
+}
+```
+
+**Ejemplo de workflow completo:**
+
+```json
+{
+  "workflow": [
+    {
+      "id": "step-1",
+      "agentRole": "architect",
+      "status": "completed",
+      "attempts": [
+        {
+          "modelId": "kimi-k2.5",
+          "provider": "moonshot",
+          "tokensUsed": 1500,
+          "latencyMs": 4500,
+          "success": true,
+          "estimatedCost": 0.045
+        }
+      ],
+      "duration": 4500
+    },
+    {
+      "id": "step-2",
+      "agentRole": "executor",
+      "status": "completed",
+      "filePath": "src/auth/login.ts",
+      "attempts": [
+        {
+          "modelId": "glm-4.7",
+          "provider": "zai",
+          "tokensUsed": 2000,
+          "latencyMs": 3000,
+          "success": true,
+          "estimatedCost": 0.010
+        }
+      ],
+      "duration": 3000
+    }
+  ],
+  "globalMetrics": {
+    "totalCostEstimate": 0.055,
+    "totalTokens": 3500,
+    "totalAttempts": 2,
+    "successfulAttempts": 2,
+    "failedAttempts": 0,
+    "fallbackRotations": 0,
+    "avgLatencyMs": 3750
+  }
+}
+```
 
 ---
 
