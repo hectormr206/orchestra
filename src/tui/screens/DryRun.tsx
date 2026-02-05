@@ -89,20 +89,27 @@ export const DryRun: React.FC<DryRunProps> = ({
   const scrollPercent =
     dryRunData && dryRunData.estimatedFiles.length > 8
       ? Math.round(
-          (scrollOffset / (dryRunData.estimatedFiles.length - 8)) * 100
+          (scrollOffset / (dryRunData.estimatedFiles.length - 8)) * 100,
         )
       : 0;
 
   if (loading) {
     return (
-      <Box flexDirection="column" padding={1}>
-        <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-          <Text bold color="cyan">
+      <Box flexDirection="column" padding={1} backgroundColor="black">
+        <Box
+          borderStyle="double"
+          borderColor="cyan"
+          paddingX={2}
+          backgroundColor="black"
+        >
+          <Text bold color="cyan" backgroundColor="black">
             🔍 DRY RUN ANALYSIS
           </Text>
         </Box>
-        <Box marginTop={2}>
-          <Text color="yellow">Analyzing task...</Text>
+        <Box marginTop={2} backgroundColor="black">
+          <Text color="yellow" backgroundColor="black">
+            Analyzing task...
+          </Text>
         </Box>
       </Box>
     );
@@ -110,55 +117,80 @@ export const DryRun: React.FC<DryRunProps> = ({
 
   if (!dryRunData) {
     return (
-      <Box flexDirection="column" padding={1}>
-        <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-          <Text bold color="cyan">
+      <Box flexDirection="column" padding={1} backgroundColor="black">
+        <Box
+          borderStyle="double"
+          borderColor="cyan"
+          paddingX={2}
+          backgroundColor="black"
+        >
+          <Text bold color="cyan" backgroundColor="black">
             🔍 DRY RUN ANALYSIS
           </Text>
         </Box>
-        <Box marginTop={2}>
-          <Text color="red">Failed to analyze task</Text>
+        <Box marginTop={2} backgroundColor="black">
+          <Text color="red" backgroundColor="black">
+            Failed to analyze task
+          </Text>
         </Box>
-        <Box marginTop={1}>
-          <Text color="gray">Press Esc or Back to return</Text>
+        <Box marginTop={1} backgroundColor="black">
+          <Text color="gray" backgroundColor="black">
+            Press Esc or Back to return
+          </Text>
         </Box>
       </Box>
     );
   }
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">
+    <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Box
+        borderStyle="double"
+        borderColor="cyan"
+        paddingX={2}
+        backgroundColor="black"
+      >
+        <Text bold color="cyan" backgroundColor="black">
           🔍 DRY RUN ANALYSIS
         </Text>
       </Box>
 
       {/* Task */}
-      <Box marginTop={1}>
-        <Text bold color="white">
+      <Box marginTop={1} backgroundColor="black">
+        <Text bold color="white" backgroundColor="black">
           📋 Task:
         </Text>
       </Box>
-      <Box marginLeft={2}>
-        <Text color="gray">{dryRunData.task}</Text>
+      <Box marginLeft={2} backgroundColor="black">
+        <Text color="gray" backgroundColor="black">
+          {dryRunData.task}
+        </Text>
       </Box>
 
       {/* Adapters */}
-      <Box marginTop={1}>
-        <Text bold color="white">
+      <Box marginTop={1} backgroundColor="black">
+        <Text bold color="white" backgroundColor="black">
           🤖 Adapters:
         </Text>
       </Box>
-      <Box marginLeft={2} flexDirection="column">
-        <Text color="gray">
-          Architect: <Text color="green">{dryRunData.adaptersToUse.architect}</Text>
+      <Box marginLeft={2} flexDirection="column" backgroundColor="black">
+        <Text color="gray" backgroundColor="black">
+          Architect:{" "}
+          <Text color="green" backgroundColor="black">
+            {dryRunData.adaptersToUse.architect}
+          </Text>
         </Text>
-        <Text color="gray">
-          Executor: <Text color="green">{dryRunData.adaptersToUse.executor}</Text>
+        <Text color="gray" backgroundColor="black">
+          Executor:{" "}
+          <Text color="green" backgroundColor="black">
+            {dryRunData.adaptersToUse.executor}
+          </Text>
         </Text>
-        <Text color="gray">
-          Auditor: <Text color="green">{dryRunData.adaptersToUse.auditor}</Text>
+        <Text color="gray" backgroundColor="black">
+          Auditor:{" "}
+          <Text color="green" backgroundColor="black">
+            {dryRunData.adaptersToUse.auditor}
+          </Text>
         </Text>
       </Box>
 
@@ -175,12 +207,15 @@ export const DryRun: React.FC<DryRunProps> = ({
         borderColor="gray"
         padding={1}
         height={10}
+        backgroundColor="black"
       >
         {dryRunData.estimatedFiles.length === 0 ? (
-          <Text color="gray">No files detected</Text>
+          <Text color="gray" backgroundColor="black">
+            No files detected
+          </Text>
         ) : (
           visibleFiles.map((file, index) => (
-            <Text key={index} color="yellow">
+            <Text key={index} color="yellow" backgroundColor="black">
               {"  "}• {file}
             </Text>
           ))
@@ -189,8 +224,7 @@ export const DryRun: React.FC<DryRunProps> = ({
       {dryRunData.estimatedFiles.length > 8 && (
         <Box justifyContent="flex-end">
           <Text color="gray">
-            Scroll: {scrollPercent}% │{" "}
-            {scrollOffset + 1}-
+            Scroll: {scrollPercent}% │ {scrollOffset + 1}-
             {Math.min(scrollOffset + 8, dryRunData.estimatedFiles.length)}/
             {dryRunData.estimatedFiles.length}
           </Text>
@@ -248,8 +282,14 @@ export const DryRun: React.FC<DryRunProps> = ({
       </Box>
 
       {/* Help */}
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
+      <Box
+        marginTop={2}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="gray" backgroundColor="black">
           ←/→: Select action │ ↑/↓: Scroll files │ Enter: Confirm │ e/c/b: Quick
           select
         </Text>

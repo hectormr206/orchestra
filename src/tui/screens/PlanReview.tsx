@@ -115,9 +115,14 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
       : 0;
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">
+    <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Box
+        borderStyle="double"
+        borderColor="cyan"
+        paddingX={2}
+        backgroundColor="black"
+      >
+        <Text bold color="cyan" backgroundColor="black">
           📋 PLAN REVIEW
         </Text>
       </Box>
@@ -130,6 +135,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
         padding={1}
         marginTop={1}
         height={visibleLines + 2}
+        backgroundColor="black"
       >
         {visiblePlan.map((line, index) => {
           // Simple Markdown Parsing for Visual Structure
@@ -138,8 +144,13 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
           // H1: # Title
           if (trimmed.startsWith("# ")) {
             return (
-              <Box key={index} marginTop={1} marginBottom={1}>
-                <Text color="cyan" bold underline>
+              <Box
+                key={index}
+                marginTop={1}
+                marginBottom={1}
+                backgroundColor="black"
+              >
+                <Text color="cyan" bold underline backgroundColor="black">
                   {trimmed.replace(/^#\s/, "").toUpperCase()}
                 </Text>
               </Box>
@@ -203,7 +214,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
 
           // Default Text
           return (
-            <Text key={index} color="white">
+            <Text key={index} color="white" backgroundColor="black">
               {line || " "}
             </Text>
           );
@@ -233,8 +244,14 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
       </Box>
 
       {/* Help */}
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
+      <Box
+        marginTop={2}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="gray" backgroundColor="black">
           ←/→: Select action │ ↑/↓: Scroll │ Enter: Confirm │ a/r/e: Quick
           select
         </Text>

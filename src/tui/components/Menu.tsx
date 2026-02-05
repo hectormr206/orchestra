@@ -30,10 +30,10 @@ export const Menu: React.FC<MenuProps> = ({ items, onSelect, title }) => {
   });
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" backgroundColor="black">
       {title && (
-        <Box marginBottom={1}>
-          <Text bold color="cyan">
+        <Box marginBottom={1} backgroundColor="black">
+          <Text bold color="cyan" backgroundColor="black">
             {title}
           </Text>
         </Box>
@@ -41,14 +41,18 @@ export const Menu: React.FC<MenuProps> = ({ items, onSelect, title }) => {
       {items.map((item, index) => {
         const isSelected = index === selectedIndex;
         return (
-          <Box key={item.value}>
-            <Text color={isSelected ? "green" : "gray"}>
+          <Box key={item.value} backgroundColor="black">
+            <Text color={isSelected ? "green" : "cyan"} backgroundColor="black">
               {isSelected ? "▶ " : "  "}
             </Text>
-            <Box width={4}>
-              <Text>{item.icon || "→"}</Text>
+            <Box width={4} backgroundColor="black">
+              <Text backgroundColor="black">{item.icon || "→"}</Text>
             </Box>
-            <Text color={isSelected ? "green" : "white"} bold={isSelected}>
+            <Text
+              color={isSelected ? "green" : "cyan"}
+              backgroundColor="black"
+              bold={isSelected}
+            >
               {item.label}
             </Text>
           </Box>

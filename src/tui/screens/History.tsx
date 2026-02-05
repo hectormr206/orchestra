@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
-import { Box, Text, useInput } from 'ink';
-import { SessionHistory } from '../../utils/sessionHistory.js';
-import { existsSync } from 'fs';
-import { unlink, rm } from 'fs/promises';
-import path from 'path';
+import React, { useState } from "react";
+import { Box, Text, useInput } from "ink";
+import { SessionHistory } from "../../utils/sessionHistory.js";
+import { existsSync } from "fs";
+import { unlink, rm } from "fs/promises";
+import path from "path";
 
 interface SessionSummary {
   id: string;
   task: string;
   startTime: string;
-  status: 'completed' | 'failed' | 'running' | 'cancelled';
+  status: "completed" | "failed" | "running" | "cancelled";
   filesCreated: number;
   duration?: number;
 }
@@ -37,10 +37,10 @@ export const History: React.FC<HistoryProps> = ({
 
   const handleDeleteSession = async (sessionId: string) => {
     try {
-      setDeleteStatus('Deleting...');
+      setDeleteStatus("Deleting...");
 
       // Delete session directory
-      const sessionDir = path.join('.orchestra', 'sessions', sessionId);
+      const sessionDir = path.join(".orchestra", "sessions", sessionId);
       if (existsSync(sessionDir)) {
         await rm(sessionDir, { recursive: true, force: true });
       }
@@ -50,7 +50,7 @@ export const History: React.FC<HistoryProps> = ({
       await history.init();
       await history.deleteSession(sessionId);
 
-      setDeleteStatus('Deleted!');
+      setDeleteStatus("Deleted!");
       onSessionsChange(); // Refresh sessions list
       onDelete(sessionId); // Notify parent
 
@@ -59,7 +59,7 @@ export const History: React.FC<HistoryProps> = ({
         setConfirmDelete(null);
       }, 1000);
     } catch (error) {
-      setDeleteStatus('Failed: ' + String(error));
+      setDeleteStatus("Failed: " + String(error));
       setTimeout(() => {
         setDeleteStatus(null);
       }, 2000);
@@ -88,13 +88,13 @@ export const History: React.FC<HistoryProps> = ({
         onSessionDetails(sessions[selectedIndex].id);
       }
     }
-    if (input === 'd' && sessions[selectedIndex] && !confirmDelete) {
+    if (input === "d" && sessions[selectedIndex] && !confirmDelete) {
       setConfirmDelete(sessions[selectedIndex].id);
     }
-    if (input === 'v' && sessions[selectedIndex] && !confirmDelete) {
+    if (input === "v" && sessions[selectedIndex] && !confirmDelete) {
       onSessionDetails(sessions[selectedIndex].id);
     }
-    if ((input === 'n' || input === 'c') && confirmDelete) {
+    if ((input === "n" || input === "c") && confirmDelete) {
       setConfirmDelete(null);
       setDeleteStatus(null);
     }
@@ -102,26 +102,36 @@ export const History: React.FC<HistoryProps> = ({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return '✅';
-      case 'failed': return '❌';
-      case 'running': return '🔄';
-      case 'cancelled': return '⚠️';
-      default: return '❓';
+      case "completed":
+        return "✅";
+      case "failed":
+        return "❌";
+      case "running":
+        return "🔄";
+      case "cancelled":
+        return "⚠️";
+      default:
+        return "❓";
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'green';
-      case 'failed': return 'red';
-      case 'running': return 'yellow';
-      case 'cancelled': return 'yellow';
-      default: return 'gray';
+      case "completed":
+        return "green";
+      case "failed":
+        return "red";
+      case "running":
+        return "yellow";
+      case "cancelled":
+        return "yellow";
+      default:
+        return "gray";
     }
   };
 
   const formatDuration = (ms?: number) => {
-    if (!ms) return '-';
+    if (!ms) return "-";
     if (ms < 1000) return `${ms}ms`;
     if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
     const minutes = Math.floor(ms / 60000);
@@ -131,59 +141,136 @@ export const History: React.FC<HistoryProps> = ({
 
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString().substring(0, 5);
+    return (
+      date.toLocaleDateString() +
+      " " +
+      date.toLocaleTimeString().substring(0, 5)
+    );
   };
 
   return (
     <Box flexDirection="column" padding={1}>
       <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">📜 SESSION HISTORY</Text>
+        <Text bold color="cyan" backgroundColor="black">
+          📜 SESSION HISTORY
+        </Text>
       </Box>
 
       {sessions.length === 0 ? (
         <Box marginTop={2}>
-          <Text color="gray">No sessions found. Start a new task to create one!</Text>
+          <Text color="gray">
+        <Box marginTop={2} borderStyle="single" borderColor="gray" padding={1} backgroundColor="black">
+          <Text color="white" backgroundColor="black">
+            No sessions found. Start a new task to create one!
+          </Text>
         </Box>
       ) : (
         <Box flexDirection="column" marginTop={1}>
           {/* Header */}
           <Box borderStyle="single" borderColor="gray">
-            <Box width={10}><Text bold color="white">ID</Text></Box>
-            <Box width={8}><Text bold color="white">Status</Text></Box>
-            <Box width={18}><Text bold color="white">Date</Text></Box>
-            <Box width={10}><Text bold color="white">Duration</Text></Box>
-            <Box width={6}><Text bold color="white">Files</Text></Box>
-            <Box flexGrow={1}><Text bold color="white">Task</Text></Box>
+            <Box width={10} backgroundColor="black">
+              <Text bold color="white" backgroundColor="black">
+                ID
+              </Text>
+            </Box>
+            <Box width={8} backgroundColor="black">
+              <Text bold color="white" backgroundColor="black">
+                Status
+              </Text>
+            </Box>
+            <Box width={18} backgroundColor="black">
+              <Text bold color="white" backgroundColor="black">
+                Date
+              </Text>
+            </Box>
+            <Box width={10} backgroundColor="black">
+              <Text bold color="white" backgroundColor="black">
+                Duration
+              </Text>
+            </Box>
+            <Box width={6} backgroundColor="black">
+              <Text bold color="white" backgroundColor="black">
+                Files
+              </Text>
+            </Box>
+            <Box flexGrow={1} backgroundColor="black">
+              <Text bold color="white" backgroundColor="black">
+                Task
+              </Text>
+            </Box>
           </Box>
 
           {/* Sessions */}
           {sessions.map((session, index) => (
             <Box
               key={session.id}
-              backgroundColor={selectedIndex === index ? 'blue' : undefined}
+              backgroundColor={selectedIndex === index ? "blue" : "black"}
             >
-              <Box width={10}>
-                <Text color={selectedIndex === index ? 'white' : 'cyan'}>
+              <Box
+                width={10}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
+                <Text
+                  color={selectedIndex === index ? "white" : "cyan"}
+                  backgroundColor={selectedIndex === index ? "blue" : "black"}
+                >
                   {session.id.substring(0, 8)}
                 </Text>
               </Box>
-              <Box width={8}>
-                <Text color={getStatusColor(session.status)}>
+              <Box
+                width={8}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
+                <Text
+                  color={getStatusColor(session.status)}
+                  backgroundColor={selectedIndex === index ? "blue" : "black"}
+                >
                   {getStatusIcon(session.status)}
                 </Text>
               </Box>
-              <Box width={18}>
-                <Text color="gray">{formatDate(session.startTime)}</Text>
+              <Box
+                width={18}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
+                <Text
+                  color="gray"
+                  backgroundColor={selectedIndex === index ? "blue" : "black"}
+                >
+                  {formatDate(session.startTime)}
+                </Text>
               </Box>
-              <Box width={10}>
-                <Text color="white">{formatDuration(session.duration)}</Text>
+              <Box
+                width={10}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
+                <Text
+                  color="white"
+                  backgroundColor={selectedIndex === index ? "blue" : "black"}
+                >
+                  {formatDuration(session.duration)}
+                </Text>
               </Box>
-              <Box width={6}>
-                <Text color="green">{session.filesCreated}</Text>
+              <Box
+                width={6}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
+                <Text
+                  color="green"
+                  backgroundColor={selectedIndex === index ? "blue" : "black"}
+                >
+                  {session.filesCreated}
+                </Text>
               </Box>
-              <Box flexGrow={1}>
-                <Text color={selectedIndex === index ? 'white' : 'gray'}>
-                  {session.task.substring(0, 40)}{session.task.length > 40 ? '...' : ''}
+              <Box
+                flexGrow={1}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
+                <Text
+                  color={selectedIndex === index ? "white" : "gray"}
+                  backgroundColor={selectedIndex === index ? "blue" : "black"}
+                >
+                  {session.task.substring(0, 40)}
+                  {session.task.length > 40 ? "..." : ""}
                 </Text>
               </Box>
             </Box>
@@ -199,16 +286,20 @@ export const History: React.FC<HistoryProps> = ({
           borderColor="red"
           padding={1}
           flexDirection="column"
+          backgroundColor="black"
         >
-          <Text color="red">
+          <Text color="red" backgroundColor="black">
             ⚠️ Delete session {confirmDelete.substring(0, 8)}?
           </Text>
           {deleteStatus ? (
-            <Text color={deleteStatus === 'Deleted!' ? 'green' : 'red'}>
+            <Text
+              color={deleteStatus === "Deleted!" ? "green" : "red"}
+              backgroundColor="black"
+            >
               {deleteStatus}
             </Text>
           ) : (
-            <Text color="gray">
+            <Text color="gray" backgroundColor="black">
               Press y to confirm, n to cancel
             </Text>
           )}
@@ -216,8 +307,8 @@ export const History: React.FC<HistoryProps> = ({
       )}
 
       {/* Help */}
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
+      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1} backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           ↑/↓: Navigate │ Enter/v: View details │ d: Delete │ Esc: Back
         </Text>
       </Box>

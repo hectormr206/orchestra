@@ -43,7 +43,9 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
         if (currentLine < lines.length - 1) {
           setCurrentLine(currentLine + 1);
           if (currentLine + 1 - scrollOffset >= visibleLines - 2) {
-            setScrollOffset(Math.min(lines.length - visibleLines, scrollOffset + 1));
+            setScrollOffset(
+              Math.min(lines.length - visibleLines, scrollOffset + 1),
+            );
           }
         }
       }
@@ -84,7 +86,9 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
     if (key.downArrow) {
       setCurrentLine((prev) => Math.min(lines.length - 1, prev + 1));
       if (currentLine + 1 - scrollOffset >= visibleLines - 2) {
-        setScrollOffset(Math.min(lines.length - visibleLines, scrollOffset + 1));
+        setScrollOffset(
+          Math.min(lines.length - visibleLines, scrollOffset + 1),
+        );
       }
     }
 
@@ -127,15 +131,20 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
     }
 
     if (key.pageDown) {
-      const newScroll = Math.min(lines.length - visibleLines, scrollOffset + visibleLines / 2);
+      const newScroll = Math.min(
+        lines.length - visibleLines,
+        scrollOffset + visibleLines / 2,
+      );
       setScrollOffset(Math.floor(newScroll));
-      setCurrentLine(Math.min(lines.length - 1, currentLine + Math.floor(visibleLines / 2)));
+      setCurrentLine(
+        Math.min(lines.length - 1, currentLine + Math.floor(visibleLines / 2)),
+      );
     }
   });
 
   const visibleLinesSlice = lines.slice(
     scrollOffset,
-    scrollOffset + visibleLines
+    scrollOffset + visibleLines,
   );
 
   const scrollPercent =
@@ -144,9 +153,14 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
       : 0;
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">
+    <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Box
+        borderStyle="double"
+        borderColor="cyan"
+        paddingX={2}
+        backgroundColor="black"
+      >
+        <Text bold color="cyan" backgroundColor="black">
           ✎ PLAN EDITOR
         </Text>
       </Box>
@@ -159,6 +173,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
         borderColor="gray"
         padding={1}
         height={visibleLines + 2}
+        backgroundColor="black"
       >
         {visibleLinesSlice.map((line, index) => {
           const actualIndex = scrollOffset + index;
@@ -198,7 +213,8 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
           } else if (trimmed.startsWith("- ")) {
             content = (
               <Text color="white">
-                {"  "}<Text color="green">●</Text> {trimmed.substring(2)}
+                {"  "}
+                <Text color="green">●</Text> {trimmed.substring(2)}
               </Text>
             );
           } else if (/^\d+\./.test(trimmed)) {
@@ -206,7 +222,8 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
             if (match) {
               content = (
                 <Text color="white">
-                  {"  "}<Text color="yellow">{match[1]}</Text> {match[2]}
+                  {"  "}
+                  <Text color="yellow">{match[1]}</Text> {match[2]}
                 </Text>
               );
             } else {
@@ -225,40 +242,79 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
           return (
             <Box
               key={actualIndex}
-              backgroundColor={isCurrentLine ? "blue" : undefined}
+              backgroundColor={isCurrentLine ? "blue" : "black"}
               width="100%"
             >
-              <Box width={5}>
+              <Box width={5} backgroundColor={isCurrentLine ? "blue" : "black"}>
                 <Text
                   color={isCurrentLine ? "white" : "gray"}
                   dimColor={!isCurrentLine}
+                  backgroundColor={isCurrentLine ? "blue" : "black"}
                 >
                   {(actualIndex + 1).toString().padStart(3, " ")}:
                 </Text>
               </Box>
-              <Box flexGrow={1}>{content}</Box>
+              <Box
+                flexGrow={1}
+                backgroundColor={isCurrentLine ? "blue" : "black"}
+              >
+                {content}
+              </Box>
             </Box>
           );
         })}
       </Box>
 
       {/* Status Bar */}
-      <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
-          Line: <Text color="white">{currentLine + 1}</Text>/{lines.length} │{" "}
-          Scroll: <Text color="white">{scrollPercent}%</Text> │{" "}
-          Lines: <Text color="white">{scrollOffset + 1}-{Math.min(scrollOffset + visibleLines, lines.length)}</Text>
+      <Box
+        marginTop={1}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="gray" backgroundColor="black">
+          Line:{" "}
+          <Text color="white" backgroundColor="black">
+            {currentLine + 1}
+          </Text>
+          /{lines.length} │ Scroll:{" "}
+          <Text color="white" backgroundColor="black">
+            {scrollPercent}%
+          </Text>{" "}
+          │ Lines:{" "}
+          <Text color="white" backgroundColor="black">
+            {scrollOffset + 1}-
+            {Math.min(scrollOffset + visibleLines, lines.length)}
+          </Text>
         </Text>
       </Box>
 
       {/* Help */}
       {showHelp && (
-        <Box marginTop={1} borderStyle="single" borderColor="cyan" paddingX={1}>
-          <Box flexDirection="column">
-            <Text color="cyan" bold>Commands:</Text>
-            <Text color="gray">  ↑/↓: Navigate │ e: Edit line │ i: Insert line │ d: Delete line</Text>
-            <Text color="gray">  n: New line at end │ PgUp/PgDn: Scroll │ s: Save │ Esc: Cancel</Text>
-            <Text color="gray">  h: Toggle help</Text>
+        <Box
+          marginTop={1}
+          borderStyle="single"
+          borderColor="cyan"
+          paddingX={1}
+          backgroundColor="black"
+        >
+          <Box flexDirection="column" backgroundColor="black">
+            <Text color="cyan" bold backgroundColor="black">
+              Commands:
+            </Text>
+            <Text color="gray" backgroundColor="black">
+              {" "}
+              ↑/↓: Navigate │ e: Edit line │ i: Insert line │ d: Delete line
+            </Text>
+            <Text color="gray" backgroundColor="black">
+              {" "}
+              n: New line at end │ PgUp/PgDn: Scroll │ s: Save │ Esc: Cancel
+            </Text>
+            <Text color="gray" backgroundColor="black">
+              {" "}
+              h: Toggle help
+            </Text>
           </Box>
         </Box>
       )}

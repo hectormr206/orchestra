@@ -79,7 +79,9 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
           const fs = await import("fs/promises");
           const logContent = await fs.readFile(logPath, "utf-8");
           const logData = JSON.parse(logContent);
-          logs.push(...(Array.isArray(logData) ? logData : logData.entries || []));
+          logs.push(
+            ...(Array.isArray(logData) ? logData : logData.entries || []),
+          );
         } catch {
           // Logs not available
         }
@@ -242,14 +244,21 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
 
   if (loading) {
     return (
-      <Box flexDirection="column" padding={1}>
-        <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-          <Text bold color="cyan">
+      <Box flexDirection="column" padding={1} backgroundColor="black">
+        <Box
+          borderStyle="double"
+          borderColor="cyan"
+          paddingX={2}
+          backgroundColor="black"
+        >
+          <Text bold color="cyan" backgroundColor="black">
             📄 SESSION DETAILS
           </Text>
         </Box>
-        <Box marginTop={2}>
-          <Text color="yellow">Loading session data...</Text>
+        <Box marginTop={2} backgroundColor="black">
+          <Text color="yellow" backgroundColor="black">
+            Loading session data...
+          </Text>
         </Box>
       </Box>
     );
@@ -274,27 +283,37 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
   }
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">
+    <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Box
+        borderStyle="double"
+        borderColor="cyan"
+        paddingX={2}
+        backgroundColor="black"
+      >
+        <Text bold color="cyan" backgroundColor="black">
           📄 SESSION DETAILS
         </Text>
       </Box>
 
       {/* Session ID */}
-      <Box marginTop={1}>
-        <Text color="gray">ID: </Text>
-        <Text color="cyan">{session.id}</Text>
+      <Box marginTop={1} backgroundColor="black">
+        <Text color="gray" backgroundColor="black">
+          ID:{" "}
+        </Text>
+        <Text color="cyan" backgroundColor="black">
+          {session.id}
+        </Text>
       </Box>
 
       {/* Tabs */}
-      <Box marginTop={1}>
+      <Box marginTop={1} backgroundColor="black">
         {tabs.map((tab, index) => (
-          <Box key={tab} marginX={1}>
+          <Box key={tab} marginX={1} backgroundColor="black">
             <Text
               color={currentTab === index ? "cyan" : "gray"}
               bold={currentTab === index}
               underline={currentTab === index}
+              backgroundColor="black"
             >
               {index + 1}. {tab}
             </Text>
@@ -310,57 +329,85 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
         padding={1}
         height={visibleLines + 2}
         flexDirection="column"
+        backgroundColor="black"
       >
         {tabs[currentTab] === "Overview" && (
           <Box flexDirection="column">
             <Box>
-              <Text bold color="white">Task: </Text>
+              <Text bold color="white">
+                Task:{" "}
+              </Text>
               <Text color="gray">{session.task}</Text>
             </Box>
             <Box marginTop={1}>
-              <Text bold color="white">Status: </Text>
+              <Text bold color="white">
+                Status:{" "}
+              </Text>
               <Text color={getStatusColor(session.status)}>
                 {session.status.toUpperCase()}
               </Text>
             </Box>
             <Box marginTop={1}>
-              <Text bold color="white">Started: </Text>
+              <Text bold color="white">
+                Started:{" "}
+              </Text>
               <Text color="gray">{formatDate(session.startTime)}</Text>
             </Box>
             {session.endTime && (
               <Box marginTop={1}>
-                <Text bold color="white">Ended: </Text>
+                <Text bold color="white">
+                  Ended:{" "}
+                </Text>
                 <Text color="gray">{formatDate(session.endTime)}</Text>
               </Box>
             )}
             <Box marginTop={1}>
-              <Text bold color="white">Duration: </Text>
-              <Text color="white">{formatDuration(session.metrics.duration)}</Text>
+              <Text bold color="white">
+                Duration:{" "}
+              </Text>
+              <Text color="white">
+                {formatDuration(session.metrics.duration)}
+              </Text>
             </Box>
             <Box marginTop={1}>
-              <Text bold color="white">Iterations: </Text>
+              <Text bold color="white">
+                Iterations:{" "}
+              </Text>
               <Text color="white">{session.metrics.iterations}</Text>
             </Box>
             <Box marginTop={1}>
-              <Text bold color="white">Files: </Text>
+              <Text bold color="white">
+                Files:{" "}
+              </Text>
               <Text color="white">{session.files.length}</Text>
             </Box>
             <Box marginTop={1}>
-              <Text bold color="white">Times:</Text>
-            </Box>
-            <Box marginLeft={2}>
-              <Text color="gray">
-                Architect: <Text color="cyan">{formatDuration(session.metrics.architectTime)}</Text>
+              <Text bold color="white">
+                Times:
               </Text>
             </Box>
             <Box marginLeft={2}>
               <Text color="gray">
-                Executor: <Text color="cyan">{formatDuration(session.metrics.executorTime)}</Text>
+                Architect:{" "}
+                <Text color="cyan">
+                  {formatDuration(session.metrics.architectTime)}
+                </Text>
               </Text>
             </Box>
             <Box marginLeft={2}>
               <Text color="gray">
-                Auditor: <Text color="cyan">{formatDuration(session.metrics.auditorTime)}</Text>
+                Executor:{" "}
+                <Text color="cyan">
+                  {formatDuration(session.metrics.executorTime)}
+                </Text>
+              </Text>
+            </Box>
+            <Box marginLeft={2}>
+              <Text color="gray">
+                Auditor:{" "}
+                <Text color="cyan">
+                  {formatDuration(session.metrics.auditorTime)}
+                </Text>
               </Text>
             </Box>
           </Box>
@@ -428,7 +475,7 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
           <Text color="gray">
             Scroll:{" "}
             {Math.round(
-              (scrollOffset / Math.max(1, getMaxScrollForTab())) * 100
+              (scrollOffset / Math.max(1, getMaxScrollForTab())) * 100,
             )}
             %
           </Text>
@@ -436,8 +483,14 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
       )}
 
       {/* Help */}
-      <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
+      <Box
+        marginTop={1}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="gray" backgroundColor="black">
           1-4: Switch tabs │ ←/→: Navigate tabs │ ↑/↓: Scroll │ Esc/q: Back
         </Text>
       </Box>

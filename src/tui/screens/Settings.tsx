@@ -28,13 +28,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editingText, setEditingText] = useState(false);
 
-  const models = [
-    "Kimi",
-    "Claude (GLM 4.7)",
-    "Gemini",
-    "Codex",
-    "Claude",
-  ];
+  const models = ["Kimi", "Claude (GLM 4.7)", "Gemini", "Codex", "Claude"];
 
   const settings: readonly SettingItem[] = [
     // --- Architect ---
@@ -248,8 +242,8 @@ export const Settings: React.FC<SettingsProps> = ({
 
     if (setting.type === "boolean") {
       return (
-        <Box width={16}>
-          <Text color={value ? "green" : "red"}>
+        <Box width={16} backgroundColor="black">
+          <Text color={value ? "green" : "red"} backgroundColor="black">
             [{value ? "x" : " "}] {value ? "Enabled " : "Disabled"}
           </Text>
         </Box>
@@ -259,8 +253,8 @@ export const Settings: React.FC<SettingsProps> = ({
     if (setting.type === "number") {
       const paddedValue = String(value).padStart(2, " ");
       return (
-        <Box width={10}>
-          <Text color="cyan">
+        <Box width={10} backgroundColor="black">
+          <Text color="cyan" backgroundColor="black">
             {"<"} {paddedValue} {">"}
           </Text>
         </Box>
@@ -268,18 +262,28 @@ export const Settings: React.FC<SettingsProps> = ({
     }
 
     if (setting.type === "select") {
+      const options = setting.options || []; // Ensure options is an array
       return (
-        <Box width={25}>
-          <Text color="magenta">
-            {"<"} {String(value)} {">"}
-          </Text>
+        <Box flexGrow={1} backgroundColor="black">
+          {options.map((option) => (
+            <Box key={option} backgroundColor="black">
+              <Text
+                color={value === option ? "green" : "white"}
+                backgroundColor="black"
+              >
+                {value === option ? "●" : "○"} {option}
+              </Text>
+            </Box>
+          ))}
         </Box>
       );
     }
 
     return (
-      <Box width={20}>
-        <Text color="yellow">{String(value) || "(not set)"}</Text>
+      <Box width={20} backgroundColor="black">
+        <Text color="yellow" backgroundColor="black">
+          {String(value) || "(not set)"}
+        </Text>
       </Box>
     );
   };
@@ -287,7 +291,7 @@ export const Settings: React.FC<SettingsProps> = ({
   return (
     <Box flexDirection="column" padding={1}>
       <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">
+        <Text bold color="cyan" backgroundColor="black">
           ⚙️ SETTINGS
         </Text>
       </Box>
@@ -296,16 +300,28 @@ export const Settings: React.FC<SettingsProps> = ({
         {settings.map((setting, index) => (
           <Box
             key={setting.key}
-            backgroundColor={selectedIndex === index ? "blue" : undefined}
+            backgroundColor={selectedIndex === index ? "blue" : "black"}
             paddingX={1}
           >
-            <Box width={3}>
-              <Text color={selectedIndex === index ? "white" : "gray"}>
+            <Box
+              width={3}
+              backgroundColor={selectedIndex === index ? "blue" : "black"}
+            >
+              <Text
+                color={selectedIndex === index ? "white" : "gray"}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
                 {selectedIndex === index ? "> " : "  "}
               </Text>
             </Box>
-            <Box width={26}>
-              <Text color={selectedIndex === index ? "white" : "gray"}>
+            <Box
+              width={26}
+              backgroundColor={selectedIndex === index ? "blue" : "black"}
+            >
+              <Text
+                color={selectedIndex === index ? "white" : "gray"}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
+              >
                 {setting.label}
               </Text>
             </Box>
@@ -333,8 +349,14 @@ export const Settings: React.FC<SettingsProps> = ({
       </Box>
 
       {/* Help */}
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
+      <Box
+        marginTop={2}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="white" backgroundColor="black">
           ↑/↓: Navigate │ s: Save │ Esc: Back (without saving)
         </Text>
       </Box>

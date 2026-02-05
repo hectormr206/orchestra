@@ -73,29 +73,34 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     checked: boolean;
     focused: boolean;
   }> = ({ label, checked, focused }) => (
-    <Box>
-      <Text color={focused ? "cyan" : "white"}>
+    <Box backgroundColor="black">
+      <Text color={focused ? "cyan" : "white"} backgroundColor="black">
         {focused ? "▶ " : "  "}[{checked ? "✓" : " "}] {label}
       </Text>
     </Box>
   );
 
   return (
-    <Box flexDirection="column" padding={1}>
-      <Text bold color="cyan">
+    <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Text bold color="cyan" backgroundColor="black">
         📝 Enter Your Task
       </Text>
-      <Text color="gray">Describe what you want to build or accomplish</Text>
-      <Text color="gray">
+      <Text color="white" backgroundColor="black">
+        Describe what you want to build or accomplish
+      </Text>
+      <Text color="white" backgroundColor="black">
         ─────────────────────────────────────────────────
       </Text>
 
-      <Box marginTop={1} marginBottom={1}>
-        <Text color="yellow">Task: </Text>
+      <Box marginTop={1} marginBottom={1} backgroundColor="black">
+        <Text color="yellow" backgroundColor="black">
+          Task:{" "}
+        </Text>
         <Box
           borderStyle="single"
           borderColor={focusedOption === -1 ? "cyan" : "gray"}
           paddingX={1}
+          backgroundColor="black"
         >
           <TextInput
             value={task}
@@ -106,8 +111,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
         </Box>
       </Box>
 
-      <Box marginTop={1} flexDirection="column">
-        <Text bold color="white">
+      <Box marginTop={1} flexDirection="column" backgroundColor="black">
+        <Text bold color="white" backgroundColor="black">
           Options (Tab to navigate, Space to toggle):
         </Text>
         <Box marginTop={1} flexDirection="column">
@@ -139,15 +144,24 @@ export const TaskInput: React.FC<TaskInputProps> = ({
         </Box>
       </Box>
 
-      <Box marginTop={2}>
-        <Text color={focusedOption === 5 ? "green" : "gray"}>
+      <Box marginTop={2} backgroundColor="black">
+        <Text
+          color={focusedOption === 5 ? "green" : "white"}
+          backgroundColor="black"
+        >
           {focusedOption === 5 ? "▶ " : "  "}
           [Enter] Start Orchestration
         </Text>
       </Box>
 
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
+      <Box
+        marginTop={2}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="white" backgroundColor="black">
           Tab: Navigate options │ Space: Toggle │ Enter: Submit │ Esc: Cancel
         </Text>
       </Box>

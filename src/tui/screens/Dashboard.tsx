@@ -63,28 +63,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats }) => {
         >
           <Box flexDirection="row" justifyContent="space-around" width="100%">
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="white">
+              <Text bold color="cyan" backgroundColor="black">
                 {String(stats.totalSessions)}
               </Text>
-              <Text color="gray">Total</Text>
+              <Text color="cyan">Total</Text>
             </Box>
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="green">
+              <Text bold color="green" backgroundColor="black">
                 {String(stats.completedToday)}
               </Text>
-              <Text color="gray">Completed</Text>
+              <Text color="green">Completed</Text>
             </Box>
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="red">
+              <Text bold color="red" backgroundColor="black">
                 {String(stats.failedToday)}
               </Text>
-              <Text color="gray">Failed</Text>
+              <Text color="red">Failed</Text>
             </Box>
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="blue">
+              <Text bold color="blue" backgroundColor="black">
                 {String(stats.cacheEntries)}
               </Text>
-              <Text color="gray">Cached</Text>
+              <Text color="blue">Cached</Text>
             </Box>
           </Box>
         </Box>
@@ -98,36 +98,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats }) => {
 
         {/* Shortcuts */}
         <Box flexDirection="column" marginLeft={4}>
-          <Text bold color="cyan">
+          <Text bold color="cyan" backgroundColor="black">
             Keyboard Shortcuts
           </Text>
-          <Text color="gray">─────────────────────</Text>
+          <Text color="cyan">─────────────────────</Text>
           <Box marginTop={1}>
-            <Text color="yellow">n</Text>
-            <Text color="gray"> - New task</Text>
+            <Text color="yellow" backgroundColor="black">n</Text>
+            <Text color="cyan"> - New task</Text>
           </Box>
           <Box>
-            <Text color="yellow">r</Text>
-            <Text color="gray"> - Resume session</Text>
+            <Text color="yellow" backgroundColor="black">r</Text>
+            <Text color="cyan"> - Resume session</Text>
           </Box>
           <Box>
-            <Text color="yellow">h</Text>
-            <Text color="gray"> - History</Text>
+            <Text color="yellow" backgroundColor="black">h</Text>
+            <Text color="cyan"> - History</Text>
           </Box>
           <Box>
-            <Text color="yellow">s</Text>
-            <Text color="gray"> - Settings</Text>
+            <Text color="yellow" backgroundColor="black">s</Text>
+            <Text color="cyan"> - Settings</Text>
           </Box>
           <Box>
-            <Text color="yellow">q</Text>
-            <Text color="gray"> - Quit</Text>
+            <Text color="yellow" backgroundColor="black">q</Text>
+            <Text color="cyan"> - Quit</Text>
           </Box>
         </Box>
       </Box>
 
       {/* Footer hint */}
       <Box marginTop={2}>
-        <Text color="gray">Use ↑/↓ to navigate, Enter to select</Text>
+        <Text color="yellow" backgroundColor="black">Use ↑/↓ to navigate, Enter to select</Text>
       </Box>
     </Box>
   );

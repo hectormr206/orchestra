@@ -69,20 +69,21 @@ export const StatusBar: React.FC<StatusBarProps> = ({
       borderColor={getStatusColor()}
       paddingX={1}
       justifyContent="space-between"
+      backgroundColor="black"
     >
       <Box>
         <Box width={4}>
-          <Text color={getStatusColor()}>{getStatusIcon()}</Text>
+          <Text color={getStatusColor()} backgroundColor="black">{getStatusIcon()}</Text>
         </Box>
-        <Text color={getStatusColor()}>{status.toUpperCase()}</Text>
-        {currentFile && <Text color="gray"> │ {currentFile}</Text>}
+        <Text color={getStatusColor()} backgroundColor="black">{status.toUpperCase()}</Text>
+        {currentFile && <Text color="cyan" backgroundColor="black"> │ {currentFile}</Text>}
       </Box>
       <Box>
         {progress && (
-          <Text color="cyan">{`[${progress.current}/${progress.total}]`}</Text>
+          <Text color="cyan" backgroundColor="black">{`[${progress.current}/${progress.total}]`}</Text>
         )}
         {sessionId && (
-          <Text color="gray"> │ Session: {sessionId.substring(0, 8)}</Text>
+          <Text color="cyan" backgroundColor="black"> │ Session: {sessionId.substring(0, 8)}</Text>
         )}
       </Box>
     </Box>

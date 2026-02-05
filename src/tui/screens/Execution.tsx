@@ -86,7 +86,7 @@ export const Execution: React.FC<ExecutionProps> = ({
     progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column" height="100%" backgroundColor="black">
       <Header compact />
 
       <StatusBar
@@ -97,9 +97,11 @@ export const Execution: React.FC<ExecutionProps> = ({
       />
 
       {/* Task Display */}
-      <Box marginY={1} paddingX={1}>
-        <Text color="gray">Task: </Text>
-        <Text color="white">
+      <Box marginY={1} paddingX={1} backgroundColor="black">
+        <Text color="gray" backgroundColor="black">
+          Task:{" "}
+        </Text>
+        <Text color="white" backgroundColor="black">
           {task.substring(0, 70)}
           {task.length > 70 ? "..." : ""}
         </Text>
@@ -117,12 +119,15 @@ export const Execution: React.FC<ExecutionProps> = ({
             borderStyle="round"
             borderColor="green"
             padding={1}
+            backgroundColor="black"
           >
-            <Text bold color="green">
+            <Text bold color="green" backgroundColor="black">
               Progress
             </Text>
-            <Text color="cyan">─────────────────────────────</Text>
-            <Box marginTop={1}>
+            <Text color="cyan" backgroundColor="black">
+              ─────────────────────────────
+            </Text>
+            <Box marginTop={1} backgroundColor="black">
               <ProgressBar
                 percent={progressPercent}
                 width={30}
@@ -130,13 +135,20 @@ export const Execution: React.FC<ExecutionProps> = ({
                 color={phase === "error" ? "red" : "green"}
               />
             </Box>
-            <Box marginTop={1}>
-              <Text color="gray">Duration: </Text>
+            <Box marginTop={1} backgroundColor="black">
+              <Text color="gray" backgroundColor="black">
+                Duration:{" "}
+              </Text>
               <DurationDisplay startTime={startTime} isRunning={isRunning} />
             </Box>
-            <Box>
-              <Text color="gray">Phase: </Text>
-              <Text color={phase === "recovery" ? "yellow" : "cyan"}>
+            <Box backgroundColor="black">
+              <Text color="gray" backgroundColor="black">
+                Phase:{" "}
+              </Text>
+              <Text
+                color={phase === "recovery" ? "yellow" : "cyan"}
+                backgroundColor="black"
+              >
                 {phase === "recovery" ? "🔄 Recovery" : phase}
               </Text>
             </Box>
@@ -145,12 +157,20 @@ export const Execution: React.FC<ExecutionProps> = ({
 
         {/* Right Panel - Files and Logs */}
         <Box flexDirection="column" width="60%" marginLeft={1}>
-          <Box borderStyle="round" borderColor="yellow" padding={1} height={12}>
-            <Box flexDirection="column">
-              <Text bold color="yellow">
+          <Box
+            borderStyle="round"
+            borderColor="yellow"
+            padding={1}
+            height={12}
+            backgroundColor="black"
+          >
+            <Box flexDirection="column" backgroundColor="black">
+              <Text bold color="yellow" backgroundColor="black">
                 {`Files (${progress.current}/${progress.total})`}
               </Text>
-              <Text color="cyan">─────────────────────────────────</Text>
+              <Text color="cyan" backgroundColor="black">
+                ─────────────────────────────────
+              </Text>
               <FileList files={files} maxVisible={8} />
             </Box>
           </Box>
@@ -162,15 +182,25 @@ export const Execution: React.FC<ExecutionProps> = ({
       </Box>
 
       {/* Footer */}
-      <Box borderStyle="single" borderColor="gray" paddingX={1} marginTop={1}>
+      <Box
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        marginTop={1}
+        backgroundColor="black"
+      >
         {phase === "complete" ? (
-          <Text color="green">
+          <Text color="green" backgroundColor="black">
             ✅ Complete! Press Enter to continue, Esc to exit
           </Text>
         ) : phase === "error" ? (
-          <Text color="red">❌ Error occurred. Press Esc to return</Text>
+          <Text color="red" backgroundColor="black">
+            ❌ Error occurred. Press Esc to return
+          </Text>
         ) : (
-          <Text color="gray">Press Esc to cancel</Text>
+          <Text color="gray" backgroundColor="black">
+            Press Esc to cancel
+          </Text>
         )}
       </Box>
     </Box>

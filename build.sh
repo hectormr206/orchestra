@@ -16,3 +16,6 @@ fi
 echo ""
 echo "📦 Built files:"
 ls -la dist/ 2>/dev/null | grep -E "\.(js|json)$" | head -20
+
+# Ensure CLI entry point is executable
+chmod +x dist/cli/index.js

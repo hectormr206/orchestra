@@ -2,7 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Box, Text, useInput } from "ink";
 import TextInput from "ink-text-input";
 import SelectInput from "ink-select-input";
-import { loadSettings, saveSettings, type TUISettings } from "../../utils/configLoader.js";
+import {
+  loadSettings,
+  saveSettings,
+  type TUISettings,
+} from "../../utils/configLoader.js";
 
 interface AdvancedSettingsProps {
   config: TUISettings;
@@ -33,7 +37,8 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   onSave,
   onBack,
 }) => {
-  const [currentCategory, setCurrentCategory] = useState<SettingCategory>("adapters");
+  const [currentCategory, setCurrentCategory] =
+    useState<SettingCategory>("adapters");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editingValue, setEditingValue] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -50,9 +55,27 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
 
   const settingItems: SettingItem[] = [
     // Adapters
-    { key: "zaiApiKey", label: "ZAI API Key", type: "text", value: "", category: "adapters" },
-    { key: "geminiApiKey", label: "Gemini API Key", type: "text", value: "", category: "adapters" },
-    { key: "openaiApiKey", label: "OpenAI API Key", type: "text", value: "", category: "adapters" },
+    {
+      key: "zaiApiKey",
+      label: "ZAI API Key",
+      type: "text",
+      value: "",
+      category: "adapters",
+    },
+    {
+      key: "geminiApiKey",
+      label: "Gemini API Key",
+      type: "text",
+      value: "",
+      category: "adapters",
+    },
+    {
+      key: "openaiApiKey",
+      label: "OpenAI API Key",
+      type: "text",
+      value: "",
+      category: "adapters",
+    },
 
     // Recovery
     {
@@ -103,7 +126,9 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     },
   ];
 
-  const visibleItems = settingItems.filter((item) => item.category === currentCategory);
+  const visibleItems = settingItems.filter(
+    (item) => item.category === currentCategory,
+  );
 
   useInput((input, key) => {
     if (isEditing) {
@@ -230,7 +255,10 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
       errors.push("Max recovery attempts must be between 1 and 10");
     }
 
-    if (config.recoveryTimeoutMinutes < 1 || config.recoveryTimeoutMinutes > 60) {
+    if (
+      config.recoveryTimeoutMinutes < 1 ||
+      config.recoveryTimeoutMinutes > 60
+    ) {
       errors.push("Recovery timeout must be between 1 and 60 minutes");
     }
 
@@ -281,33 +309,47 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     switch (item.type) {
       case "boolean":
         return (
-          <Text color={item.value ? "green" : "red"}>
+          <Text color={item.value ? "green" : "red"} backgroundColor="black">
             {item.value ? "✓ Enabled" : "✗ Disabled"}
           </Text>
         );
       case "number":
-        return <Text color="cyan">{String(item.value)}</Text>;
+        return (
+          <Text color="cyan" backgroundColor="black">
+            {String(item.value)}
+          </Text>
+        );
       default:
-        return <Text color="white">{String(item.value || "-")}</Text>;
+        return (
+          <Text color="white" backgroundColor="black">
+            {String(item.value || "-")}
+          </Text>
+        );
     }
   };
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">
+      <Box
+        borderStyle="double"
+        borderColor="cyan"
+        paddingX={2}
+        backgroundColor="black"
+      >
+        <Text bold color="cyan" backgroundColor="black">
           ⚙️ ADVANCED SETTINGS
         </Text>
       </Box>
 
       {/* Category Tabs */}
-      <Box marginTop={1}>
+      <Box marginTop={1} backgroundColor="black">
         {categories.map((cat) => (
-          <Box key={cat.value} marginX={1}>
+          <Box key={cat.value} marginX={1} backgroundColor="black">
             <Text
               color={currentCategory === cat.value ? "cyan" : "gray"}
               bold={currentCategory === cat.value}
               underline={currentCategory === cat.value}
+              backgroundColor="black"
             >
               {cat.label}
             </Text>
@@ -323,22 +365,32 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         borderColor="gray"
         padding={1}
         height={18}
+        backgroundColor="black"
       >
         {visibleItems.map((item, index) => (
           <Box
             key={item.key}
-            backgroundColor={selectedIndex === index ? "blue" : undefined}
+            backgroundColor={selectedIndex === index ? "blue" : "black"}
             paddingX={1}
           >
-            <Box width={35}>
+            <Box
+              width={35}
+              backgroundColor={selectedIndex === index ? "blue" : "black"}
+            >
               <Text
                 color={selectedIndex === index ? "white" : "gray"}
                 bold={selectedIndex === index}
+                backgroundColor={selectedIndex === index ? "blue" : "black"}
               >
                 {item.label}:
               </Text>
             </Box>
-            <Box flexGrow={1}>{renderValue(item)}</Box>
+            <Box
+              flexGrow={1}
+              backgroundColor={selectedIndex === index ? "blue" : "black"}
+            >
+              {renderValue(item)}
+            </Box>
           </Box>
         ))}
       </Box>
@@ -371,8 +423,8 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
               saveStatus.includes("failed") || saveStatus.includes("Invalid")
                 ? "red"
                 : saveStatus.includes("Saved")
-                ? "green"
-                : "yellow"
+                  ? "green"
+                  : "yellow"
             }
           >
             {saveStatus}
@@ -384,10 +436,12 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
       <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
         <Box flexDirection="column">
           <Text color="gray">
-            ↑/↓: Navigate │ c: Switch category │ e: Edit │ Space: Toggle boolean │ s: Save │ Esc: Back
+            ↑/↓: Navigate │ c: Switch category │ e: Edit │ Space: Toggle boolean
+            │ s: Save │ Esc: Back
           </Text>
           <Text color="gray">
-            💡 API keys are set as environment variables: ZAI_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY
+            💡 API keys are set as environment variables: ZAI_API_KEY,
+            GEMINI_API_KEY, OPENAI_API_KEY
           </Text>
         </Box>
       </Box>

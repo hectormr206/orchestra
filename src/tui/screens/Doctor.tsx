@@ -18,6 +18,7 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
     { name: "Claude CLI", status: "checking" },
     { name: "Codex CLI", status: "checking" },
     { name: "Gemini CLI", status: "checking" },
+    { name: "Kimi CLI", status: "checking" },
     { name: "Python 3", status: "checking" },
     { name: "ZAI_API_KEY", status: "checking" },
     { name: "GitHub CLI", status: "checking" },
@@ -79,6 +80,17 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
         updateCheck("Gemini CLI", {
           status: "warning",
           message: "Optional - for fallback",
+        });
+      }
+
+      // Kimi CLI
+      try {
+        const { stdout } = await execFileAsync("kimi", ["--version"]);
+        updateCheck("Kimi CLI", { status: "ok", version: stdout.trim() });
+      } catch {
+        updateCheck("Kimi CLI", {
+          status: "warning",
+          message: "Optional - for Architect",
         });
       }
 
@@ -174,8 +186,13 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan">
+      <Box
+        borderStyle="double"
+        borderColor="cyan"
+        paddingX={2}
+        backgroundColor="black"
+      >
+        <Text bold color="cyan" backgroundColor="black">
           🩺 SYSTEM DOCTOR
         </Text>
       </Box>
@@ -186,25 +203,37 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
         borderStyle="single"
         borderColor="gray"
         padding={1}
+        backgroundColor="black"
       >
         {checks.map((check) => (
-          <Box key={check.name}>
-            <Box width={4}>
-              <Text color={getStatusColor(check.status)}>
+          <Box key={check.name} backgroundColor="black">
+            <Box width={4} backgroundColor="black">
+              <Text
+                color={getStatusColor(check.status)}
+                backgroundColor="black"
+              >
                 {getStatusIcon(check.status)}
               </Text>
             </Box>
-            <Box width={15}>
-              <Text color="white">{check.name}</Text>
+            <Box width={15} backgroundColor="black">
+              <Text color="white" backgroundColor="black">
+                {check.name}
+              </Text>
             </Box>
-            <Box>
+            <Box backgroundColor="black">
               {check.version && (
-                <Text color={getStatusColor(check.status)}>
+                <Text
+                  color={getStatusColor(check.status)}
+                  backgroundColor="black"
+                >
                   {check.version}
                 </Text>
               )}
               {check.message && (
-                <Text color={getStatusColor(check.status)}>
+                <Text
+                  color={getStatusColor(check.status)}
+                  backgroundColor="black"
+                >
                   {" "}
                   {check.message}
                 </Text>
@@ -215,23 +244,50 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
       </Box>
 
       {/* Summary */}
-      <Box marginTop={1} borderStyle="round" padding={1}>
+      <Box
+        marginTop={1}
+        borderStyle="round"
+        padding={1}
+        backgroundColor="black"
+      >
         {checkingCount > 0 ? (
-          <Text color="gray">Checking... {checkingCount} remaining</Text>
+          <Text color="gray" backgroundColor="black">
+            Checking... {checkingCount} remaining
+          </Text>
         ) : (
-          <Box>
-            <Text color="green">{okCount} OK</Text>
-            <Text color="gray"> │ </Text>
-            <Text color="yellow">{warningCount} Warnings</Text>
-            <Text color="gray"> │ </Text>
-            <Text color="red">{errorCount} Errors</Text>
+          <Box backgroundColor="black">
+            <Text color="green" backgroundColor="black">
+              {okCount} OK
+            </Text>
+            <Text color="gray" backgroundColor="black">
+              {" "}
+              │{" "}
+            </Text>
+            <Text color="yellow" backgroundColor="black">
+              {warningCount} Warnings
+            </Text>
+            <Text color="gray" backgroundColor="black">
+              {" "}
+              │{" "}
+            </Text>
+            <Text color="red" backgroundColor="black">
+              {errorCount} Errors
+            </Text>
           </Box>
         )}
       </Box>
 
       {/* Help */}
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">Press Esc or q to go back</Text>
+      <Box
+        marginTop={2}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="gray" backgroundColor="black">
+          Press Esc or q to go back
+        </Text>
       </Box>
     </Box>
   );
