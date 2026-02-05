@@ -8,6 +8,7 @@
 import { spawn } from 'child_process';
 import { writeFile } from 'fs/promises';
 import type { AdapterConfig, ExecuteOptions, AgentResult } from '../types.js';
+import { isContextExceededError, compactPrompt } from './contextCompaction.js';
 
 export class CodexAdapter {
   private config: AdapterConfig;
@@ -22,8 +23,9 @@ export class CodexAdapter {
 
   /**
    * Ejecuta un prompt con Codex CLI
+   * Incluye retry automático con compactación si se excede el contexto
    */
-  async execute(options: ExecuteOptions): Promise<AgentResult> {
+  async execute(options: ExecuteOptions, retryCount: number = 0): Promise<AgentResult> {
     const startTime = Date.now();
 
     return new Promise((resolve) => {
@@ -85,6 +87,32 @@ export class CodexAdapter {
             error: 'RATE_LIMIT: Codex alcanzó su límite de uso',
           });
           return;
+        }
+
+        // Detectar contexto excedido y aplicar compactación automática
+        if (isContextExceededError(stderr) || isContextExceededError(stdout)) {
+          if (retryCount < 2) {
+            console.warn(`⚠️  [CodexAdapter] Contexto excedido. Compactando prompt (intento ${retryCount + 1}/2)...`);
+
+            const compactionResult = compactPrompt(options.prompt);
+            console.log(`📦 [CodexAdapter] Prompt compactado: ${compactionResult.originalLength} → ${compactionResult.compactedLength} chars (${compactionResult.reductionPercent}% reducción)`);
+
+            // Reintentar con prompt compactado
+            const retryResult = await this.execute({
+              ...options,
+              prompt: compactionResult.compactedPrompt
+            }, retryCount + 1);
+
+            resolve(retryResult);
+            return;
+          } else {
+            resolve({
+              success: false,
+              duration,
+              error: 'CONTEXT_EXCEEDED: El prompt es demasiado largo incluso después de compactación',
+            });
+            return;
+          }
         }
 
         if (code === 0 || stdout.length > 0) {
