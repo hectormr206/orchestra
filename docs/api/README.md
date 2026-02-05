@@ -51,10 +51,10 @@ const orchestrator = new Orchestrator(
     maxConcurrency: 3,
     pipeline: false,
     agents: {
-      architect: ['Codex'],
-      executor: ['Claude (GLM 4.7)'],
-      auditor: ['Gemini'],
-      consultant: ['Codex'],
+      architect: ['Kimi', 'Gemini'],
+      executor: ['Claude (GLM 4.7)', 'Kimi'],
+      auditor: ['Gemini', 'Codex'],
+      consultant: ['Codex', 'Kimi'],
     },
   },
   {
@@ -561,9 +561,10 @@ const orchestrator = new Orchestrator(
     timeout: 600000,
     maxIterations: 3,
     agents: {
-      architect: ['Codex'],
-      executor: ['Claude (GLM 4.7)'],
-      auditor: ['Gemini'],
+      architect: ['Kimi', 'Gemini'],
+      executor: ['Claude (GLM 4.7)', 'Kimi'],
+      auditor: ['Gemini', 'Codex'],
+      consultant: ['Codex', 'Kimi'],
     },
   },
   {

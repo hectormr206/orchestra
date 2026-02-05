@@ -434,10 +434,10 @@ Create `.orchestrarc.json` in your project root:
     "autoRevertOnFailure": true
   },
   "agents": {
-    "architect": ["Claude (Opus 4.5)", "Gemini", "Claude (GLM 4.7)"],
-    "executor": ["Claude (GLM 4.7)", "Gemini", "Claude (Opus 4.5)"],
-    "auditor": ["Gemini", "Claude (GLM 4.7)", "Claude (Opus 4.5)"],
-    "consultant": ["Claude (Opus 4.5)", "Gemini", "Claude (GLM 4.7)"]
+    "architect": ["Kimi", "Gemini"],
+    "executor": ["Claude (GLM 4.7)", "Kimi"],
+    "auditor": ["Gemini", "Codex"],
+    "consultant": ["Codex", "Kimi"]
   }
 }
 ```
@@ -835,7 +835,7 @@ Frameworks:
   - Express (backend)
 
 Recommendations:
-  Agent Preference: Claude (Opus 4.5), Gemini, Claude (GLM 4.7)
+  Agent Preference: Claude (GLM 4.7), Kimi, Gemini
   Max Concurrency: 3
   Use Cache: Yes
   Test Command: npm test
