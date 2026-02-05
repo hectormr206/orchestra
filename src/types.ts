@@ -52,8 +52,12 @@ export interface AgentConfig {
 export type ModelType =
   | "Claude (GLM 4.7)"
   | "Gemini"
+  | "Gemini 3 Pro"
   | "Codex"
-  | "Claude (Opus 4.5)";
+  | "GPT-5.2-Codex"
+  | "Claude (Opus 4.5)"
+  | "Kimi k2.5"
+  | "GLM-4.7";
 
 /** Custom prompt templates */
 export interface CustomPrompts {
@@ -210,4 +214,92 @@ export interface ExecuteOptions {
   prompt: string;
   outputFile?: string;
   workingDir?: string;
+}
+
+/**
+ * Model Usage Tracking
+ * Tracks performance metrics for each model attempt
+ */
+export interface ModelUsage {
+  /** Model identifier (e.g., 'glm-4.7', 'gpt-5.2-codex', 'kimi-k2.5') */
+  modelId: string;
+  /** Provider name (e.g., 'zai', 'openai', 'moonshot', 'google') */
+  provider: string;
+  /** Number of tokens consumed */
+  tokensUsed: number;
+  /** Latency in milliseconds */
+  latencyMs: number;
+  /** Whether the attempt was successful */
+  success: boolean;
+  /** Error code if failed (e.g., 'RATE_LIMIT_429', 'CONTEXT_EXCEEDED', 'TIMEOUT') */
+  errorCode?: 'RATE_LIMIT_429' | 'CONTEXT_EXCEEDED' | 'TIMEOUT' | 'API_ERROR' | 'INVALID_RESPONSE';
+  /** Error message details */
+  errorMessage?: string;
+  /** Timestamp of the attempt */
+  timestamp: string;
+  /** Estimated cost in USD */
+  estimatedCost?: number;
+}
+
+/**
+ * Task Step
+ * Represents a single step in the orchestration workflow
+ */
+export interface TaskStep {
+  /** Unique step identifier */
+  id: string;
+  /** Agent role for this step */
+  agentRole: 'architect' | 'executor' | 'auditor' | 'consultant';
+  /** Current status of the step */
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  /** File path if this step operates on a specific file */
+  filePath?: string;
+  /** All attempts made for this step (including retries and fallbacks) */
+  attempts: ModelUsage[];
+  /** Hash of the output to detect if code actually changed */
+  outputHash?: string;
+  /** Start time of the step */
+  startTime?: string;
+  /** End time of the step */
+  endTime?: string;
+  /** Total duration in milliseconds */
+  duration?: number;
+}
+
+/**
+ * Global Metrics
+ * Tracks overall session metrics
+ */
+export interface GlobalMetrics {
+  /** Total estimated cost in USD */
+  totalCostEstimate: number;
+  /** Session start timestamp */
+  startTime: number;
+  /** Session end timestamp */
+  endTime?: number;
+  /** Total tokens used across all models */
+  totalTokens: number;
+  /** Total number of model attempts */
+  totalAttempts: number;
+  /** Number of successful attempts */
+  successfulAttempts: number;
+  /** Number of failed attempts */
+  failedAttempts: number;
+  /** Number of fallback rotations */
+  fallbackRotations: number;
+  /** Average latency in milliseconds */
+  avgLatencyMs: number;
+}
+
+/**
+ * Enhanced Session State with Model Tracking
+ * Extends the base SessionState with detailed model usage tracking
+ */
+export interface EnhancedSessionState extends SessionState {
+  /** Workflow steps with model tracking */
+  workflow: TaskStep[];
+  /** Global session metrics */
+  globalMetrics: GlobalMetrics;
+  /** Learning mode active */
+  learningMode?: 'disabled' | 'shadow' | 'ab_test' | 'production';
 }

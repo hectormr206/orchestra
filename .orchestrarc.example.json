@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json.schemastore.org/orchestrarc.json",
+  "description": "Orchestra configuration with optimized model hierarchy for cost efficiency",
+  "agents": {
+    "architect": {
+      "provider": "kimi",
+      "model": "kimi-k2.5",
+      "fallback": ["gemini-3-pro"],
+      "description": "Uses Kimi k2.5 Agent Swarm for complex planning and dependency analysis"
+    },
+    "executor": {
+      "provider": "zai",
+      "model": "glm-4.7",
+      "fallback": ["kimi-k2.5"],
+      "description": "Uses GLM-4.7 as primary (most economical) for code generation"
+    },
+    "auditor": {
+      "provider": "google",
+      "model": "gemini-3-pro",
+      "fallback": ["gpt-5.2-codex"],
+      "description": "Uses Gemini 3 Pro for quality review with massive context window"
+    },
+    "consultant": {
+      "provider": "openai",
+      "model": "gpt-5.2-codex",
+      "fallback": ["kimi-k2.5"],
+      "description": "Uses GPT-5.2-Codex only for complex algorithmic problems (cost-effective usage)"
+    }
+  },
+  "execution": {
+    "parallel": true,
+    "maxConcurrency": 3,
+    "maxIterations": 10,
+    "timeout": 300000
+  },
+  "test": {
+    "command": "npm test",
+    "runAfterGeneration": true,
+    "timeout": 120000
+  },
+  "git": {
+    "autoCommit": true,
+    "commitMessageTemplate": "feat: {task}"
+  },
+  "languages": ["typescript", "javascript", "python"],
+  "tui": {
+    "autoApprove": false,
+    "notifications": true,
+    "cacheEnabled": true,
+    "maxRecoveryAttempts": 3,
+    "recoveryTimeoutMinutes": 10,
+    "autoRevertOnFailure": true
+  },
+  "learning": {
+    "mode": "shadow",
+    "experienceBufferPath": ".orchestra/experiences.jsonl",
+    "experienceBufferSize": 1000,
+    "policyPath": "data/models/policy_v1",
+    "description": "Learning system tracks model performance and optimizes future decisions"
+  },
+  "costOptimization": {
+    "enabled": true,
+    "maxCostPerSession": 2.0,
+    "preferredModels": ["glm-4.7", "kimi-k2.5"],
+    "expensiveModelsThreshold": 3,
+    "description": "Penalizes excessive use of expensive models (GPT-5, Opus)"
+  }
+}

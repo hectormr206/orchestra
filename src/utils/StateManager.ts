@@ -5,7 +5,16 @@
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import type { SessionState, Phase, Checkpoint } from "../types.js";
+import type {
+  SessionState,
+  Phase,
+  Checkpoint,
+  EnhancedSessionState,
+  TaskStep,
+  ModelUsage,
+  GlobalMetrics
+} from "../types.js";
+import { createHash } from 'crypto';
 
 export class StateManager {
   private orchestraDir: string;
@@ -179,6 +188,267 @@ export class StateManager {
    */
   getFilePath(filename: string): string {
     return path.join(this.orchestraDir, filename);
+  }
+
+  /**
+   * Inicializa el workflow con tracking de modelos
+   */
+  async initWorkflow(state: SessionState): Promise<void> {
+    const enhancedState = state as EnhancedSessionState;
+
+    if (!enhancedState.workflow) {
+      enhancedState.workflow = [];
+    }
+
+    if (!enhancedState.globalMetrics) {
+      enhancedState.globalMetrics = {
+        totalCostEstimate: 0,
+        startTime: Date.now(),
+        totalTokens: 0,
+        totalAttempts: 0,
+        successfulAttempts: 0,
+        failedAttempts: 0,
+        fallbackRotations: 0,
+        avgLatencyMs: 0,
+      };
+    }
+
+    await this.save(enhancedState);
+  }
+
+  /**
+   * Registra el inicio de un intento con un modelo específico
+   */
+  async recordAttempt(
+    stepId: string,
+    agentRole: 'architect' | 'executor' | 'auditor' | 'consultant',
+    modelId: string,
+    provider: string
+  ): Promise<void> {
+    const state = await this.load() as EnhancedSessionState;
+    if (!state) return;
+
+    // Inicializar workflow si no existe
+    if (!state.workflow) {
+      await this.initWorkflow(state);
+      return this.recordAttempt(stepId, agentRole, modelId, provider);
+    }
+
+    // Buscar o crear el step
+    let step = state.workflow.find(s => s.id === stepId);
+
+    if (!step) {
+      step = {
+        id: stepId,
+        agentRole,
+        status: 'running',
+        attempts: [],
+        startTime: new Date().toISOString(),
+      };
+      state.workflow.push(step);
+    }
+
+    // Registrar nuevo intento
+    const attempt: ModelUsage = {
+      modelId,
+      provider,
+      tokensUsed: 0,
+      latencyMs: 0,
+      success: false,
+      timestamp: new Date().toISOString(),
+    };
+
+    step.attempts.push(attempt);
+    state.globalMetrics.totalAttempts++;
+
+    await this.save(state);
+  }
+
+  /**
+   * Actualiza el resultado del intento
+   */
+  async updateAttemptResult(
+    stepId: string,
+    success: boolean,
+    metrics: Partial<ModelUsage>,
+    output?: string
+  ): Promise<void> {
+    const state = await this.load() as EnhancedSessionState;
+    if (!state || !state.workflow) return;
+
+    const step = state.workflow.find(s => s.id === stepId);
+    if (!step || step.attempts.length === 0) return;
+
+    const lastAttempt = step.attempts[step.attempts.length - 1];
+
+    // Actualizar métricas del intento
+    Object.assign(lastAttempt, { ...metrics, success });
+
+    // Actualizar estado del step
+    if (success) {
+      step.status = 'completed';
+      step.endTime = new Date().toISOString();
+
+      if (step.startTime) {
+        step.duration = new Date(step.endTime).getTime() - new Date(step.startTime).getTime();
+      }
+
+      // Calcular hash del output si se proporciona
+      if (output) {
+        step.outputHash = createHash('sha256').update(output).digest('hex').substring(0, 16);
+      }
+
+      state.globalMetrics.successfulAttempts++;
+    } else {
+      state.globalMetrics.failedAttempts++;
+
+      // Logging específico por tipo de error
+      if (lastAttempt.errorCode === 'RATE_LIMIT_429') {
+        console.warn(`⚠️  [StateManager] Modelo ${lastAttempt.modelId} agotado (Rate Limit 429). Rotando al backup.`);
+        state.globalMetrics.fallbackRotations++;
+      } else if (lastAttempt.errorCode === 'CONTEXT_EXCEEDED') {
+        console.warn(`⚠️  [StateManager] Modelo ${lastAttempt.modelId} excedió contexto. Rotando al backup.`);
+        state.globalMetrics.fallbackRotations++;
+      } else if (lastAttempt.errorCode === 'TIMEOUT') {
+        console.warn(`⚠️  [StateManager] Modelo ${lastAttempt.modelId} timeout. Rotando al backup.`);
+      }
+    }
+
+    // Actualizar métricas globales
+    if (metrics.tokensUsed) {
+      state.globalMetrics.totalTokens += metrics.tokensUsed;
+    }
+
+    if (metrics.estimatedCost) {
+      state.globalMetrics.totalCostEstimate += metrics.estimatedCost;
+    }
+
+    // Recalcular latencia promedio
+    const totalLatency = state.workflow
+      .flatMap(s => s.attempts)
+      .reduce((sum, a) => sum + a.latencyMs, 0);
+    state.globalMetrics.avgLatencyMs = totalLatency / state.globalMetrics.totalAttempts;
+
+    await this.save(state);
+  }
+
+  /**
+   * Obtiene estadísticas de uso de modelos
+   */
+  async getModelStats(): Promise<Map<string, { attempts: number; successes: number; failures: number; avgLatency: number; totalCost: number }>> {
+    const state = await this.load() as EnhancedSessionState;
+    if (!state || !state.workflow) {
+      return new Map();
+    }
+
+    const stats = new Map<string, { attempts: number; successes: number; failures: number; avgLatency: number; totalCost: number }>();
+
+    for (const step of state.workflow) {
+      for (const attempt of step.attempts) {
+        const key = attempt.modelId;
+
+        if (!stats.has(key)) {
+          stats.set(key, {
+            attempts: 0,
+            successes: 0,
+            failures: 0,
+            avgLatency: 0,
+            totalCost: 0,
+          });
+        }
+
+        const modelStats = stats.get(key)!;
+        modelStats.attempts++;
+
+        if (attempt.success) {
+          modelStats.successes++;
+        } else {
+          modelStats.failures++;
+        }
+
+        modelStats.avgLatency = (modelStats.avgLatency * (modelStats.attempts - 1) + attempt.latencyMs) / modelStats.attempts;
+        modelStats.totalCost += attempt.estimatedCost || 0;
+      }
+    }
+
+    return stats;
+  }
+
+  /**
+   * Exporta el Experience Buffer para el Learning System
+   */
+  async exportExperienceBuffer(): Promise<void> {
+    const state = await this.load() as EnhancedSessionState;
+    if (!state || !state.workflow) return;
+
+    const experienceBufferPath = path.join(this.orchestraDir, 'experience-buffer.jsonl');
+    const { appendFile } = await import('fs/promises');
+
+    // Calcular recompensa basada en el rendimiento
+    const reward = this.calculateReward(state);
+
+    const experience = {
+      sessionId: state.sessionId,
+      task: state.task,
+      workflow: state.workflow,
+      globalMetrics: state.globalMetrics,
+      reward,
+      timestamp: new Date().toISOString(),
+      success: state.phase === 'completed',
+    };
+
+    // Agregar al buffer (formato JSONL)
+    await appendFile(experienceBufferPath, JSON.stringify(experience) + '\n', 'utf-8');
+  }
+
+  /**
+   * Calcula la recompensa para el Learning System
+   */
+  private calculateReward(state: EnhancedSessionState): number {
+    let reward = 0;
+
+    // Éxito/Fracaso base
+    reward += state.phase === 'completed' ? 100 : -100;
+
+    // Eficiencia de costo
+    if (state.globalMetrics.totalCostEstimate < 0.10) {
+      reward += 50; // Muy económico (< $0.10)
+    } else if (state.globalMetrics.totalCostEstimate < 0.50) {
+      reward += 20; // Económico (< $0.50)
+    } else if (state.globalMetrics.totalCostEstimate > 2.0) {
+      reward -= 30; // Costoso (> $2.00)
+    }
+
+    // Penalizar uso excesivo de modelos caros
+    const expensiveModelsUsed = state.workflow
+      .flatMap(s => s.attempts)
+      .filter(a => a.modelId.includes('gpt-5') || a.modelId.includes('opus'))
+      .length;
+
+    if (expensiveModelsUsed > 3) {
+      reward -= expensiveModelsUsed * 5;
+    }
+
+    // Bonus por usar GLM exitosamente (modelo económico)
+    const glmSuccesses = state.workflow
+      .flatMap(s => s.attempts)
+      .filter(a => a.modelId.includes('glm') && a.success)
+      .length;
+
+    reward += glmSuccesses * 10;
+
+    // Penalizar rotaciones de fallback excesivas
+    reward -= state.globalMetrics.fallbackRotations * 10;
+
+    // Penalizar rate limits
+    const rateLimitErrors = state.workflow
+      .flatMap(s => s.attempts)
+      .filter(a => a.errorCode === 'RATE_LIMIT_429')
+      .length;
+
+    reward -= rateLimitErrors * 10;
+
+    return reward;
   }
 
   /**
