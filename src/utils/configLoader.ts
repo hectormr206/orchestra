@@ -295,30 +295,27 @@ export async function loadSettings(
     return null;
   }
 
+  // Optimized Model Hierarchy (Cost-Aware)
   const defaultAgents = {
+    // Architect: Agent Swarm capabilities with massive context fallback
     architect: [
-      "Claude (Opus 4.5)",
-      "Gemini",
-      "Claude (GLM 4.7)",
-      "Codex",
+      "Kimi k2.5",        // Primary: Agent Swarm, 200K context ($0.30/M)
+      "Gemini 3 Pro",     // Fallback: Massive context window ($0.15/M)
     ] as ModelType[],
+    // Executor: Most economical model with good fallback
     executor: [
-      "Claude (GLM 4.7)",
-      "Gemini",
-      "Claude (Opus 4.5)",
-      "Codex",
+      "GLM-4.7",          // Primary: Most economical ($0.05/M)
+      "Kimi k2.5",        // Fallback: Good value ($0.30/M)
     ] as ModelType[],
+    // Auditor: Thorough review with deep analysis fallback
     auditor: [
-      "Gemini",
-      "Claude (GLM 4.7)",
-      "Claude (Opus 4.5)",
-      "Codex",
+      "Gemini 3 Pro",     // Primary: Best for thorough review ($0.15/M)
+      "GPT-5.2-Codex",    // Fallback: Deep analysis ($0.50/M)
     ] as ModelType[],
+    // Consultant: Algorithmic expertise with good alternative
     consultant: [
-      "Claude (Opus 4.5)",
-      "Gemini",
-      "Claude (GLM 4.7)",
-      "Codex",
+      "GPT-5.2-Codex",    // Primary: Best for algorithms ($0.50/M, use sparingly)
+      "Kimi k2.5",        // Fallback: Good alternative ($0.30/M)
     ] as ModelType[],
   };
 
