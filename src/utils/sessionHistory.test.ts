@@ -68,14 +68,16 @@ describe('SessionHistory', () => {
     });
 
     it('should handle corrupted index gracefully', async () => {
-      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(existsSync).mockReturnValueOnce(true).mockReturnValueOnce(true); // directory exists, index exists
       vi.mocked(readFile).mockResolvedValue('invalid json{');
-      vi.mocked(mkdir).mockResolvedValue(undefined);
+      vi.mocked(readdir).mockResolvedValue([]);
 
-      await history.init();
+      // Should not throw
+      await expect(history.init()).resolves.not.toThrow();
 
-      // Should not throw, just clear the sessions
-      expect(mkdir).toHaveBeenCalled();
+      // Sessions should be cleared
+      const sessions = history.list();
+      expect(sessions).toHaveLength(0);
     });
   });
 
