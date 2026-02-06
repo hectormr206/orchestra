@@ -1298,77 +1298,144 @@ program
 // ============================================================================
 program
   .command('web')
-  .description('Inicia la interfaz web de Orchestra (requiere servidor)')
-  .option('-p, --port <n>', 'Puerto de la interfaz web', '3000')
-  .option('--server-url <url>', 'URL del servidor Orchestra', 'http://localhost:8080')
-  .option('--dev', 'Modo desarrollo con hot-reload')
+  .description('Inicia servidor API y UI web de Orchestra')
+  .option('--api-port <n>', 'Puerto del servidor API', '3001')
+  .option('--ui-port <n>', 'Puerto de la interfaz web', '3002')
+  .option('--no-open', 'No abrir navegador automáticamente')
   .action(async (options: {
-    port: string;
-    serverUrl: string;
-    dev?: boolean;
+    apiPort: string;
+    uiPort: string;
+    open: boolean;
   }) => {
-    const { exec } = await import('child_process');
+    const { spawn } = await import('child_process');
     const { existsSync } = await import('fs');
+    const open = await import('open');
 
     console.log(chalk.cyan('╔════════════════════════════════════════════════════════════╗'));
-    console.log(chalk.cyan('║') + chalk.cyan.bold('                    Orchestra Web UI') + chalk.cyan('                       ║'));
+    console.log(chalk.cyan('║') + chalk.cyan.bold('               Orchestra Web Interface') + chalk.cyan('                  ║'));
     console.log(chalk.cyan('╚════════════════════════════════════════════════════════════╝'));
     console.log();
-    console.log(chalk.gray('Web UI configuration:'));
-    console.log(`  URL: ${chalk.cyan(`http://localhost:${options.port}`)}`);
-    console.log(`  Server: ${chalk.cyan(options.serverUrl)}`);
-    console.log(`  Mode: ${options.dev ? chalk.green('development') : chalk.yellow('production')}`);
+    console.log(chalk.bold('Working Directory:'));
+    console.log(`  ${chalk.cyan(process.cwd())}`);
+    console.log();
+    console.log(chalk.bold('Services:'));
+    console.log(`  API Server:  ${chalk.green(`http://localhost:${options.apiPort}`)}`);
+    console.log(`  Web UI:      ${chalk.green(`http://localhost:${options.uiPort}`)}`);
     console.log();
 
-    const webPath = path.resolve('src/web');
+    // Find Orchestra installation directory
+    const orchestraRoot = path.resolve(__dirname, '../..');
+    const webPath = path.join(orchestraRoot, 'src/web');
+    const serverPath = path.join(orchestraRoot, 'src/web/server.ts');
     const nodeModulesPath = path.join(webPath, 'node_modules');
 
     // Check if dependencies are installed
     if (!existsSync(nodeModulesPath)) {
-      console.log(chalk.yellow('⚠️  Web UI dependencies not installed.'));
-      console.log(chalk.gray('  Installing dependencies in src/web...'));
-      console.log();
-
-      await new Promise<void>((resolve, reject) => {
-        exec('npm install', { cwd: webPath }, (error) => {
-          if (error) {
-            console.error(chalk.red('Failed to install dependencies:'), error.message);
-            reject(error);
-            return;
-          }
-          console.log(chalk.green('✓ Dependencies installed'));
-          console.log();
-          resolve();
-        });
-      });
+      console.log(chalk.yellow('⚠️  Installing web dependencies...'));
+      const { execSync } = await import('child_process');
+      try {
+        execSync('npm install', { cwd: webPath, stdio: 'inherit' });
+        console.log(chalk.green('✓ Dependencies installed'));
+        console.log();
+      } catch (error) {
+        console.error(chalk.red('Failed to install dependencies'));
+        process.exit(1);
+      }
     }
 
-    // Set environment variable for server URL
-    const env = { ...process.env, VITE_API_URL: options.serverUrl };
+    const processes: any[] = [];
 
-    console.log(chalk.green('✓ Starting Web UI...'));
-    console.log();
-    console.log(chalk.yellow('Press Ctrl+C to stop the Web UI'));
+    // Start API Server
+    console.log(chalk.yellow('Starting API server...'));
+    const apiProcess = spawn('npx', ['tsx', serverPath], {
+      env: { ...process.env, PORT: options.apiPort },
+      shell: true,
+    });
+
+    apiProcess.stdout?.on('data', (data) => {
+      const output = data.toString().trim();
+      if (output) console.log(chalk.gray('[API]'), output);
+    });
+
+    apiProcess.stderr?.on('data', (data) => {
+      const output = data.toString().trim();
+      if (output && !output.includes('ExperimentalWarning')) {
+        console.error(chalk.red('[API ERROR]'), output);
+      }
+    });
+
+    processes.push(apiProcess);
+
+    // Wait a bit for API server to start
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log(chalk.green('✓ API server started'));
     console.log();
 
-    const { spawn } = await import('child_process');
+    // Start Web UI
+    console.log(chalk.yellow('Starting web UI...'));
     const webProcess = spawn('npm', ['run', 'dev'], {
       cwd: webPath,
-      env,
+      env: { ...process.env, VITE_API_URL: `http://localhost:${options.apiPort}` },
       shell: true,
-      stdio: 'inherit' as any,
     });
 
-    webProcess.on('error', (error: Error) => {
-      console.error(chalk.red('Failed to start Web UI:'), error);
-      process.exit(1);
+    webProcess.stdout?.on('data', (data) => {
+      const output = data.toString().trim();
+      if (output) console.log(chalk.gray('[WEB]'), output);
     });
+
+    webProcess.stderr?.on('data', (data) => {
+      const output = data.toString().trim();
+      if (output) console.error(chalk.red('[WEB ERROR]'), output);
+    });
+
+    processes.push(webProcess);
+
+    // Wait for web server to start
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    console.log(chalk.green('✓ Web UI started'));
+    console.log();
+
+    // Open browser
+    if (options.open) {
+      console.log(chalk.cyan('Opening browser...'));
+      try {
+        await open.default(`http://localhost:${options.uiPort}`);
+      } catch (error) {
+        console.log(chalk.yellow('Could not open browser automatically'));
+        console.log(chalk.gray('Open manually: ') + chalk.cyan(`http://localhost:${options.uiPort}`));
+      }
+    }
+
+    console.log();
+    console.log(chalk.green.bold('✓ Orchestra Web is ready!'));
+    console.log();
+    console.log(chalk.gray('  The API server is running in the current directory:'));
+    console.log(chalk.gray(`  ${process.cwd()}`));
+    console.log();
+    console.log(chalk.gray('  All file operations will be performed here.'));
+    console.log(chalk.gray('  Sessions are stored in: .orchestra/'));
+    console.log();
+    console.log(chalk.yellow('Press Ctrl+C to stop all services'));
+    console.log();
 
     // Handle graceful shutdown
     const shutdownHandler = async () => {
       console.log();
-      console.log(chalk.yellow('Stopping Web UI...'));
-      webProcess.kill('SIGTERM');
+      console.log(chalk.yellow('Shutting down services...'));
+
+      for (const proc of processes) {
+        try {
+          proc.kill('SIGTERM');
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+
+      // Give processes time to clean up
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      console.log(chalk.green('✓ All services stopped'));
       process.exit(0);
     };
 
