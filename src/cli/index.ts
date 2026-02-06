@@ -26,10 +26,37 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { TestResult } from '../types.js';
 import type { CommitResult } from '../utils/gitIntegration.js';
+import { createServer } from 'net';
 
 // ES module equivalents for __dirname and __filename
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+/**
+ * Find an available port starting from the given port
+ */
+async function findAvailablePort(startPort: number): Promise<number> {
+  const isPortAvailable = (port: number): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const server = createServer();
+      server.once('error', () => resolve(false));
+      server.once('listening', () => {
+        server.close();
+        resolve(true);
+      });
+      server.listen(port);
+    });
+  };
+
+  let port = startPort;
+  while (port < startPort + 100) {
+    if (await isPortAvailable(port)) {
+      return port;
+    }
+    port++;
+  }
+  throw new Error(`No available ports found in range ${startPort}-${startPort + 100}`);
+}
 
 /**
  * Pregunta al usuario y retorna la respuesta
@@ -1323,9 +1350,20 @@ program
     console.log(chalk.bold('Working Directory:'));
     console.log(`  ${chalk.cyan(process.cwd())}`);
     console.log();
+
+    // Find available port for API server
+    console.log(chalk.gray('Finding available port for API server...'));
+    const requestedApiPort = parseInt(options.apiPort);
+    const actualApiPort = await findAvailablePort(requestedApiPort);
+
+    if (actualApiPort !== requestedApiPort) {
+      console.log(chalk.yellow(`  Port ${requestedApiPort} in use, using ${actualApiPort} for API`));
+    }
+
+    console.log();
     console.log(chalk.bold('Services:'));
-    console.log(`  API Server:  ${chalk.green(`http://localhost:${options.apiPort}`)}`);
-    console.log(`  Web UI:      ${chalk.green(`http://localhost:${options.uiPort}`)}`);
+    console.log(`  API Server:  ${chalk.green(`http://localhost:${actualApiPort}`)}`);
+    console.log(`  Web UI:      ${chalk.gray('Starting...')} (Vite will auto-select port)`);
     console.log();
 
     // Find Orchestra installation directory
@@ -1349,12 +1387,11 @@ program
     }
 
     const processes: any[] = [];
-    let apiServerFailed = false;
 
     // Start API Server
     console.log(chalk.yellow('Starting API server...'));
     const apiProcess = spawn('npx', ['tsx', serverPath], {
-      env: { ...process.env, PORT: options.apiPort },
+      env: { ...process.env, PORT: actualApiPort.toString() },
       shell: true,
     });
 
@@ -1367,15 +1404,6 @@ program
       const output = data.toString().trim();
       if (output && !output.includes('ExperimentalWarning')) {
         console.error(chalk.red('[API ERROR]'), output);
-        if (output.includes('EADDRINUSE') || output.includes('address already in use')) {
-          apiServerFailed = true;
-        }
-      }
-    });
-
-    apiProcess.on('exit', (code) => {
-      if (code !== 0 && code !== null) {
-        apiServerFailed = true;
       }
     });
 
@@ -1383,40 +1411,37 @@ program
 
     // Wait for API server to start
     await new Promise(resolve => setTimeout(resolve, 2000));
-
-    if (apiServerFailed) {
-      console.log();
-      console.error(chalk.red('✗ API server failed to start'));
-      console.error(chalk.yellow(`\nPort ${options.apiPort} may be in use. Try:`));
-      console.error(chalk.gray(`  1. Kill existing processes: lsof -ti:${options.apiPort} | xargs kill -9`));
-      console.error(chalk.gray(`  2. Use a different port: orchestra web --api-port 4001`));
-      console.log();
-
-      // Kill any started processes
-      for (const proc of processes) {
-        try {
-          proc.kill('SIGTERM');
-        } catch (e) {
-          // Ignore
-        }
-      }
-      process.exit(1);
-    }
-
     console.log(chalk.green('✓ API server started'));
     console.log();
 
     // Start Web UI
     console.log(chalk.yellow('Starting web UI...'));
+    let actualWebPort: number | null = null;
+
     const webProcess = spawn('npm', ['run', 'dev'], {
       cwd: webPath,
-      env: { ...process.env, VITE_API_URL: `http://localhost:${options.apiPort}` },
+      env: {
+        ...process.env,
+        VITE_API_URL: `http://localhost:${actualApiPort}`,
+        PORT: options.uiPort // Hint for Vite, but it may use another
+      },
       shell: true,
     });
 
     webProcess.stdout?.on('data', (data) => {
       const output = data.toString().trim();
-      if (output) console.log(chalk.gray('[WEB]'), output);
+      if (output) {
+        console.log(chalk.gray('[WEB]'), output);
+
+        // Detect actual port from Vite output: "Local:   http://localhost:3003/"
+        const portMatch = output.match(/Local:\s+http:\/\/localhost:(\d+)/);
+        if (portMatch && !actualWebPort) {
+          actualWebPort = parseInt(portMatch[1]);
+          console.log();
+          console.log(chalk.green(`✓ Web UI started on port ${actualWebPort}`));
+          console.log();
+        }
+      }
     });
 
     webProcess.stderr?.on('data', (data) => {
@@ -1426,19 +1451,24 @@ program
 
     processes.push(webProcess);
 
-    // Wait for web server to start
+    // Wait for web server to start and detect port
     await new Promise(resolve => setTimeout(resolve, 3000));
-    console.log(chalk.green('✓ Web UI started'));
-    console.log();
+
+    if (!actualWebPort) {
+      // Fallback if we couldn't detect the port
+      actualWebPort = parseInt(options.uiPort);
+      console.log(chalk.yellow('⚠️  Could not detect Web UI port, assuming ') + chalk.cyan(`${actualWebPort}`));
+      console.log();
+    }
 
     // Open browser
     if (options.open) {
       console.log(chalk.cyan('Opening browser...'));
       try {
-        await open.default(`http://localhost:${options.uiPort}`);
+        await open.default(`http://localhost:${actualWebPort}`);
       } catch (error) {
         console.log(chalk.yellow('Could not open browser automatically'));
-        console.log(chalk.gray('Open manually: ') + chalk.cyan(`http://localhost:${options.uiPort}`));
+        console.log(chalk.gray('Open manually: ') + chalk.cyan(`http://localhost:${actualWebPort}`));
       }
     }
 
