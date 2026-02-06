@@ -1,53 +1,83 @@
 /**
- * Kimi Adapter
+ * Kimi Adapter via Claude Code
  *
- * Usa Kimi CLI para el rol de Architect (con Agent Swarm)
- * Kimi k2.5 puede lanzar sub-agentes para investigar dependencias y riesgos
+ * Usa Claude CLI redirigido a la API de Kimi (kimi.com/code)
+ * Similar a GLMAdapter pero usando el provider de Kimi
  */
 
-import { spawn } from 'child_process';
-import { writeFile } from 'fs/promises';
-import type { AdapterConfig, ExecuteOptions, AgentResult } from '../types.js';
+import { spawn } from "child_process";
+import { writeFile } from "fs/promises";
+import type { AdapterConfig, ExecuteOptions, AgentResult } from "../types.js";
+import { isContextExceededError, compactPrompt } from "./contextCompaction.js";
 
 export class KimiAdapter {
   private config: AdapterConfig;
+  private isWindows: boolean;
 
   constructor() {
+    const apiKey = process.env.KIMI_API_KEY;
+
+    if (!apiKey) {
+      throw new Error(
+        "KIMI_API_KEY no está configurada. Agrégala a tu .zshrc:\n" +
+          '  export KIMI_API_KEY="tu-api-key"',
+      );
+    }
+
+    this.isWindows = process.platform === "win32";
+
     this.config = {
-      command: 'kimi',
+      command: this.isWindows ? "wsl" : "claude",
       timeout: 600000, // 10 minutos (planning puede ser complejo)
-      env: {},
+      env: {
+        ANTHROPIC_API_KEY: apiKey,
+        ANTHROPIC_BASE_URL: "https://api.kimi.com/coding/",
+        API_TIMEOUT_MS: "3000000",
+        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+      },
     };
   }
 
   /**
    * Ejecuta un prompt y guarda el resultado en un archivo
+   * Incluye retry automático con compactación si se excede el contexto
    */
-  async execute(options: ExecuteOptions): Promise<AgentResult> {
+  async execute(options: ExecuteOptions, retryCount: number = 0): Promise<AgentResult> {
     const startTime = Date.now();
 
     return new Promise((resolve) => {
-      // Kimi CLI usa el prompt como argumento posicional
-      // -y (yolo) para aprobar automáticamente
-      const args = ['-y', options.prompt];
+      // En Windows usamos WSL con zsh para cargar claude-kimi desde .zshrc
+      // En Linux/Mac ejecutamos claude directamente con env vars
+      let args: string[];
+      let spawnEnv;
+
+      if (this.isWindows) {
+        // Usar función claude-kimi de .zshrc (carga env vars automáticamente)
+        args = ["zsh", "-i", "-c", `claude --print -p ${this.escapeShellArg(options.prompt)}`];
+        spawnEnv = process.env; // No necesitamos configurar ANTHROPIC_* aquí
+      } else {
+        // En Linux/Mac configurar env vars manualmente
+        args = ["--print", "-p", options.prompt];
+        spawnEnv = {
+          ...process.env,
+          ...this.config.env,
+        };
+      }
 
       const proc = spawn(this.config.command, args, {
         cwd: options.workingDir || process.cwd(),
-        env: {
-          ...process.env,
-          ...this.config.env,
-        },
-        stdio: ['pipe', 'pipe', 'pipe'],
+        env: spawnEnv,
+        stdio: ["pipe", "pipe", "pipe"],
       });
 
-      let stdout = '';
-      let stderr = '';
+      let stdout = "";
+      let stderr = "";
 
-      proc.stdout.on('data', (data) => {
+      proc.stdout.on("data", (data) => {
         stdout += data.toString();
       });
 
-      proc.stderr.on('data', (data) => {
+      proc.stderr.on("data", (data) => {
         stderr += data.toString();
       });
 
@@ -56,43 +86,59 @@ export class KimiAdapter {
 
       // Timeout
       const timeoutId = setTimeout(() => {
-        proc.kill('SIGTERM');
+        proc.kill("SIGTERM");
         resolve({
           success: false,
           duration: Date.now() - startTime,
-          error: 'TIMEOUT: El proceso tardó más de 10 minutos',
+          error: "Timeout: el proceso tardó más de 10 minutos",
         });
       }, this.config.timeout);
 
-      proc.on('close', async (code) => {
+      proc.on("close", async (code) => {
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
 
-        // Detectar límite de uso (429)
+        // Detectar límite de uso
         if (this.isRateLimitError(stderr) || this.isRateLimitError(stdout)) {
           resolve({
             success: false,
             duration,
-            error: 'RATE_LIMIT_429: Kimi alcanzó su límite de uso',
+            error: "RATE_LIMIT: Kimi alcanzó su límite de uso",
           });
           return;
         }
 
-        // Detectar contexto excedido
-        if (this.isContextExceededError(stderr) || this.isContextExceededError(stdout)) {
-          resolve({
-            success: false,
-            duration,
-            error: 'CONTEXT_EXCEEDED: La solicitud excede el contexto máximo de Kimi',
-          });
-          return;
+        // Detectar contexto excedido y aplicar compactación automática
+        if (isContextExceededError(stderr) || isContextExceededError(stdout)) {
+          if (retryCount < 2) {
+            console.warn(`⚠️  [KimiAdapter] Contexto excedido. Compactando prompt (intento ${retryCount + 1}/2)...`);
+
+            const compactionResult = compactPrompt(options.prompt);
+            console.log(`📦 [KimiAdapter] Prompt compactado: ${compactionResult.originalLength} → ${compactionResult.compactedLength} chars (${compactionResult.reductionPercent}% reducción)`);
+
+            // Reintentar con prompt compactado
+            const retryResult = await this.execute({
+              ...options,
+              prompt: compactionResult.compactedPrompt
+            }, retryCount + 1);
+
+            resolve(retryResult);
+            return;
+          } else {
+            resolve({
+              success: false,
+              duration,
+              error: "CONTEXT_EXCEEDED: El prompt es demasiado largo incluso después de compactación",
+            });
+            return;
+          }
         }
 
-        if (code === 0 || stdout.length > 0) {
+        if (code === 0) {
           // Si hay archivo de salida, escribir el resultado
           if (options.outputFile) {
             try {
-              await writeFile(options.outputFile, stdout, 'utf-8');
+              await writeFile(options.outputFile, stdout, "utf-8");
             } catch (err) {
               resolve({
                 success: false,
@@ -117,19 +163,27 @@ export class KimiAdapter {
         }
       });
 
-      proc.on('error', (error) => {
+      proc.on("error", (error) => {
         clearTimeout(timeoutId);
         resolve({
           success: false,
           duration: Date.now() - startTime,
-          error: `API_ERROR: ${error.message}`,
+          error: error.message,
         });
       });
     });
   }
 
   /**
-   * Detecta si el error es por límite de uso (429)
+   * Escapa argumentos para shell en WSL
+   */
+  private escapeShellArg(arg: string): string {
+    // Reemplazar comillas simples con '\''
+    return `'${arg.replace(/'/g, "'\\''")}'`;
+  }
+
+  /**
+   * Detecta si el error es por límite de uso
    */
   private isRateLimitError(output: string): boolean {
     const rateLimitPatterns = [
@@ -140,26 +194,10 @@ export class KimiAdapter {
       /resource exhausted/i,
       /limit reached/i,
       /usage limit/i,
-      /RESOURCE_EXHAUSTED/i,
-      /请求过于频繁/i, // Kimi puede devolver mensajes en chino
-      /配额已用完/i,
+      /用量已达上限/i, // Mensaje en chino
+      /请求过于频繁/i,
     ];
-    return rateLimitPatterns.some(pattern => pattern.test(output));
-  }
-
-  /**
-   * Detecta si el error es por contexto excedido
-   */
-  private isContextExceededError(output: string): boolean {
-    const contextPatterns = [
-      /context.{0,20}exceed/i,
-      /maximum context/i,
-      /context.{0,20}limit/i,
-      /too.{0,10}long/i,
-      /token.{0,20}limit/i,
-      /上下文过长/i, // Kimi mensajes en chino
-    ];
-    return contextPatterns.some(pattern => pattern.test(output));
+    return rateLimitPatterns.some((pattern) => pattern.test(output));
   }
 
   /**
@@ -167,24 +205,36 @@ export class KimiAdapter {
    */
   async isAvailable(): Promise<boolean> {
     return new Promise((resolve) => {
-      const proc = spawn('which', ['kimi']);
-      proc.on('close', (code) => {
-        resolve(code === 0);
-      });
-      proc.on('error', () => {
-        resolve(false);
-      });
+      if (this.isWindows) {
+        // En Windows, verificar si WSL está disponible
+        const proc = spawn("wsl", ["which", "claude"]);
+        proc.on("close", (code) => {
+          resolve(code === 0);
+        });
+        proc.on("error", () => {
+          resolve(false);
+        });
+      } else {
+        // En Linux/Mac, verificar directamente
+        const proc = spawn("which", ["claude"]);
+        proc.on("close", (code) => {
+          resolve(code === 0);
+        });
+        proc.on("error", () => {
+          resolve(false);
+        });
+      }
     });
   }
 
   /**
-   * Implementa la interfaz Adapter
+   * Obtiene información del adapter
    */
   getInfo(): { name: string; model: string; provider: string } {
     return {
       name: "KimiAdapter",
-      model: "Kimi",
-      provider: "Moonshot",
+      model: "Claude (Kimi k2.5)",
+      provider: "kimi.com",
     };
   }
 
@@ -193,16 +243,17 @@ export class KimiAdapter {
    */
   getModelInfo() {
     return {
-      id: 'kimi-k2.5',
-      provider: 'moonshot',
-      name: 'Kimi k2.5',
+      id: "kimi-k2.5",
+      provider: "moonshot",
+      name: "Kimi k2.5",
       contextWindow: 200000, // 200K tokens
-      capabilities: ['agent-swarm', 'long-context', 'code-generation'],
-      recommendedFor: ['architect', 'consultant'],
+      capabilities: ["agent-swarm", "long-context", "code-generation"],
+      recommendedFor: ["architect", "consultant"],
       cost: {
         input: 0.001, // USD por 1K tokens (estimado)
         output: 0.002,
       },
+      status: "active",
     };
   }
 }
