@@ -297,7 +297,7 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
 
       {/* Session ID */}
       <Box marginTop={1} backgroundColor="black">
-        <Text color="gray" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           ID:{" "}
         </Text>
         <Text color="cyan" backgroundColor="black">
@@ -310,7 +310,7 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
         {tabs.map((tab, index) => (
           <Box key={tab} marginX={1} backgroundColor="black">
             <Text
-              color={currentTab === index ? "cyan" : "gray"}
+              color={currentTab === index ? "cyan" : "white"}
               bold={currentTab === index}
               underline={currentTab === index}
               backgroundColor="black"
@@ -490,7 +490,7 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
         paddingX={1}
         backgroundColor="black"
       >
-        <Text color="gray" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           1-4: Switch tabs │ ←/→: Navigate tabs │ ↑/↓: Scroll │ Esc/q: Back
         </Text>
       </Box>

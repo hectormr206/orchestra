@@ -247,7 +247,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
             >
               <Box width={5} backgroundColor={isCurrentLine ? "blue" : "black"}>
                 <Text
-                  color={isCurrentLine ? "white" : "gray"}
+                  color={isCurrentLine ? "white" : "white"}
                   dimColor={!isCurrentLine}
                   backgroundColor={isCurrentLine ? "blue" : "black"}
                 >
@@ -273,7 +273,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
         paddingX={1}
         backgroundColor="black"
       >
-        <Text color="gray" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           Line:{" "}
           <Text color="white" backgroundColor="black">
             {currentLine + 1}
@@ -303,15 +303,15 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
             <Text color="cyan" bold backgroundColor="black">
               Commands:
             </Text>
-            <Text color="gray" backgroundColor="black">
+            <Text color="white" backgroundColor="black">
               {" "}
               ↑/↓: Navigate │ e: Edit line │ i: Insert line │ d: Delete line
             </Text>
-            <Text color="gray" backgroundColor="black">
+            <Text color="white" backgroundColor="black">
               {" "}
               n: New line at end │ PgUp/PgDn: Scroll │ s: Save │ Esc: Cancel
             </Text>
-            <Text color="gray" backgroundColor="black">
+            <Text color="white" backgroundColor="black">
               {" "}
               h: Toggle help
             </Text>

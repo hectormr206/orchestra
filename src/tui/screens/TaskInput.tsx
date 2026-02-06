@@ -98,16 +98,25 @@ export const TaskInput: React.FC<TaskInputProps> = ({
         </Text>
         <Box
           borderStyle="single"
-          borderColor={focusedOption === -1 ? "cyan" : "gray"}
+          borderColor={focusedOption === -1 ? "cyan" : "white"}
           paddingX={1}
           backgroundColor="black"
         >
-          <TextInput
-            value={task}
-            onChange={setTask}
-            onSubmit={handleSubmit}
-            placeholder="e.g., Create a REST API with Flask and SQLAlchemy"
-          />
+          <Box backgroundColor="black">
+            {task === "" && (
+              <Box position="absolute" backgroundColor="black">
+                <Text color="blue" backgroundColor="black">
+                  e.g., Create a REST API with Flask and SQLAlchemy
+                </Text>
+              </Box>
+            )}
+            <TextInput
+              value={task}
+              onChange={setTask}
+              onSubmit={handleSubmit}
+              placeholder=""
+            />
+          </Box>
         </Box>
       </Box>
 

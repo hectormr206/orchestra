@@ -262,19 +262,17 @@ export const Settings: React.FC<SettingsProps> = ({
     }
 
     if (setting.type === "select") {
-      const options = setting.options || []; // Ensure options is an array
       return (
-        <Box flexGrow={1} backgroundColor="black">
-          {options.map((option) => (
-            <Box key={option} backgroundColor="black">
-              <Text
-                color={value === option ? "green" : "white"}
-                backgroundColor="black"
-              >
-                {value === option ? "●" : "○"} {option}
-              </Text>
-            </Box>
-          ))}
+        <Box backgroundColor="black" width={30}>
+          <Text color="cyan" backgroundColor="black">
+            {"< "}
+          </Text>
+          <Text color="green" bold backgroundColor="black">
+            {value as string}
+          </Text>
+          <Text color="cyan" backgroundColor="black">
+            {" >"}
+          </Text>
         </Box>
       );
     }
@@ -308,7 +306,7 @@ export const Settings: React.FC<SettingsProps> = ({
               backgroundColor={selectedIndex === index ? "blue" : "black"}
             >
               <Text
-                color={selectedIndex === index ? "white" : "gray"}
+                color="white"
                 backgroundColor={selectedIndex === index ? "blue" : "black"}
               >
                 {selectedIndex === index ? "> " : "  "}
@@ -319,7 +317,7 @@ export const Settings: React.FC<SettingsProps> = ({
               backgroundColor={selectedIndex === index ? "blue" : "black"}
             >
               <Text
-                color={selectedIndex === index ? "white" : "gray"}
+                color="white"
                 backgroundColor={selectedIndex === index ? "blue" : "black"}
               >
                 {setting.label}

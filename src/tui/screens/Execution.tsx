@@ -98,7 +98,7 @@ export const Execution: React.FC<ExecutionProps> = ({
 
       {/* Task Display */}
       <Box marginY={1} paddingX={1} backgroundColor="black">
-        <Text color="gray" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           Task:{" "}
         </Text>
         <Text color="white" backgroundColor="black">
@@ -136,13 +136,13 @@ export const Execution: React.FC<ExecutionProps> = ({
               />
             </Box>
             <Box marginTop={1} backgroundColor="black">
-              <Text color="gray" backgroundColor="black">
+              <Text color="white" backgroundColor="black">
                 Duration:{" "}
               </Text>
               <DurationDisplay startTime={startTime} isRunning={isRunning} />
             </Box>
             <Box backgroundColor="black">
-              <Text color="gray" backgroundColor="black">
+              <Text color="white" backgroundColor="black">
                 Phase:{" "}
               </Text>
               <Text
@@ -176,7 +176,7 @@ export const Execution: React.FC<ExecutionProps> = ({
           </Box>
 
           <Box marginTop={1}>
-            <LogView logs={logs} maxLines={10} />
+            <LogView logs={logs} maxLines={10} enableScroll={true} />
           </Box>
         </Box>
       </Box>
@@ -198,7 +198,7 @@ export const Execution: React.FC<ExecutionProps> = ({
             ❌ Error occurred. Press Esc to return
           </Text>
         ) : (
-          <Text color="gray" backgroundColor="black">
+          <Text color="white" backgroundColor="black">
             Press Esc to cancel
           </Text>
         )}

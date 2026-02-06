@@ -292,7 +292,11 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
 
   const renderValue = (item: SettingItem) => {
     if (item.key.endsWith("ApiKey")) {
-      return <Text color="gray">(Environment Variable)</Text>;
+      return (
+        <Text color="white" backgroundColor="black">
+          (Environment Variable)
+        </Text>
+      );
     }
 
     if (isEditing && visibleItems[selectedIndex] === item) {
@@ -346,7 +350,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         {categories.map((cat) => (
           <Box key={cat.value} marginX={1} backgroundColor="black">
             <Text
-              color={currentCategory === cat.value ? "cyan" : "gray"}
+              color={currentCategory === cat.value ? "cyan" : "white"}
               bold={currentCategory === cat.value}
               underline={currentCategory === cat.value}
               backgroundColor="black"
@@ -378,7 +382,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
               backgroundColor={selectedIndex === index ? "blue" : "black"}
             >
               <Text
-                color={selectedIndex === index ? "white" : "gray"}
+                color="white"
                 bold={selectedIndex === index}
                 backgroundColor={selectedIndex === index ? "blue" : "black"}
               >
@@ -433,13 +437,19 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
       )}
 
       {/* Help */}
-      <Box marginTop={1} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Box flexDirection="column">
-          <Text color="gray">
+      <Box
+        marginTop={1}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Box flexDirection="column" backgroundColor="black">
+          <Text color="white" backgroundColor="black">
             ↑/↓: Navigate │ c: Switch category │ e: Edit │ Space: Toggle boolean
             │ s: Save │ Esc: Back
           </Text>
-          <Text color="gray">
+          <Text color="white" backgroundColor="black">
             💡 API keys are set as environment variables: ZAI_API_KEY,
             GEMINI_API_KEY, OPENAI_API_KEY
           </Text>

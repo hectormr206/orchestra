@@ -205,7 +205,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
           // Code block markers or content (simple heuristic)
           if (trimmed.startsWith("```")) {
             return (
-              <Text key={index} color="gray">
+              <Text key={index} color="white" backgroundColor="black">
                 {" "}
                 {line}
               </Text>
@@ -222,8 +222,8 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
       </Box>
 
       {/* Scroll indicator */}
-      <Box justifyContent="flex-end">
-        <Text color="gray">
+      <Box justifyContent="flex-end" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           {`Scroll: ${scrollPercent}% │ Lines: ${scrollOffset + 1}-${Math.min(scrollOffset + visibleLines, planLines.length)}/${planLines.length}`}
         </Text>
       </Box>
@@ -233,8 +233,9 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
         {actions.map((action, index) => (
           <Box key={action.label} marginX={2}>
             <Text
-              color={selectedAction === index ? action.color : "gray"}
+              color={selectedAction === index ? action.color : "white"}
               bold={selectedAction === index}
+              backgroundColor="black"
             >
               {selectedAction === index ? "▶ " : "  "}[{action.icon}]{" "}
               {action.label}
@@ -251,7 +252,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
         paddingX={1}
         backgroundColor="black"
       >
-        <Text color="gray" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           ←/→: Select action │ ↑/↓: Scroll │ Enter: Confirm │ a/r/e: Quick
           select
         </Text>

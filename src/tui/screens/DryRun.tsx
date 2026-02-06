@@ -260,8 +260,14 @@ export const DryRun: React.FC<DryRunProps> = ({
       )}
 
       {/* Notice */}
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1}>
-        <Text color="gray">
+      <Box
+        marginTop={2}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
+        <Text color="white" backgroundColor="black">
           This is a dry run. No files will be created or modified.
         </Text>
       </Box>
@@ -289,7 +295,7 @@ export const DryRun: React.FC<DryRunProps> = ({
         paddingX={1}
         backgroundColor="black"
       >
-        <Text color="gray" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           ←/→: Select action │ ↑/↓: Scroll files │ Enter: Confirm │ e/c/b: Quick
           select
         </Text>

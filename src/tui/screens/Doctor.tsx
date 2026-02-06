@@ -251,7 +251,7 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
         backgroundColor="black"
       >
         {checkingCount > 0 ? (
-          <Text color="gray" backgroundColor="black">
+          <Text color="white" backgroundColor="black">
             Checking... {checkingCount} remaining
           </Text>
         ) : (
@@ -259,14 +259,14 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
             <Text color="green" backgroundColor="black">
               {okCount} OK
             </Text>
-            <Text color="gray" backgroundColor="black">
+            <Text color="white" backgroundColor="black">
               {" "}
               │{" "}
             </Text>
             <Text color="yellow" backgroundColor="black">
               {warningCount} Warnings
             </Text>
-            <Text color="gray" backgroundColor="black">
+            <Text color="white" backgroundColor="black">
               {" "}
               │{" "}
             </Text>
@@ -285,7 +285,7 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
         paddingX={1}
         backgroundColor="black"
       >
-        <Text color="gray" backgroundColor="black">
+        <Text color="white" backgroundColor="black">
           Press Esc or q to go back
         </Text>
       </Box>
