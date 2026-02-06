@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-do
 import Dashboard from './components/Dashboard';
 import Sessions from './components/Sessions';
 import Plugins from './components/Plugins';
-import Settings from './components/Settings';
+import SettingsWeb from './screens/SettingsWeb';
 import History from './screens/History';
 import Analytics from './screens/Analytics';
 import SessionCompare from './screens/SessionCompare';
@@ -78,7 +78,7 @@ function App() {
             <Route path="/sessions" element={<Sessions />} />
             <Route path="/sessions/:sessionId" element={<Sessions />} />
             <Route path="/plugins" element={<Plugins />} />
-            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings" element={<SettingsWeb />} />
           </Routes>
         </main>
       </div>
