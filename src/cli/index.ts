@@ -23,8 +23,13 @@ import { createDefaultConfig } from '../utils/configLoader.js';
 import { readFile, writeFile } from 'fs/promises';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import type { TestResult } from '../types.js';
 import type { CommitResult } from '../utils/gitIntegration.js';
+
+// ES module equivalents for __dirname and __filename
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * Pregunta al usuario y retorna la respuesta
