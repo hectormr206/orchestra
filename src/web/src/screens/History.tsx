@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { SessionInfo } from '../types';
 import { format } from 'date-fns';
 import { Search, Filter, Trash2, Eye, RefreshCw, Download, CheckSquare, Square, X } from 'lucide-react';

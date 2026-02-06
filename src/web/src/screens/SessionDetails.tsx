@@ -5,7 +5,7 @@ import TabList from '../components/TabList';
 import LogView from '../components/LogView';
 import FileList from '../components/FileList';
 import ProgressBar from '../components/ProgressBar';
-import { api } from '../lib/api';
+import api from '../lib/api';
 
 interface SessionDetailsProps {
   sessionId: string;

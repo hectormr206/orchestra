@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import toast, { Toaster } from 'react-hot-toast';
-import { api } from '../lib/api';
+import api from '../lib/api';
 import { PlanData } from '../types';
 import MarkdownRenderer from './MarkdownRenderer';
 import PlanEditor from './PlanEditor';
