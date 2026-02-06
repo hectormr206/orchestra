@@ -158,6 +158,101 @@ export class SessionHistory {
   }
 
   /**
+   * Búsqueda full-text en sesiones (task, plan, logs, errors)
+   */
+  async fullTextSearch(query: string, options: {
+    dateFrom?: Date;
+    dateTo?: Date;
+    status?: string;
+    searchFields?: ('task' | 'plan' | 'logs' | 'errors')[];
+  } = {}): Promise<SessionSummary[]> {
+    const results: SessionSummary[] = [];
+    const searchLower = query.toLowerCase();
+    const fields = options.searchFields || ['task', 'plan', 'logs', 'errors'];
+
+    for (const summary of this.sessions.values()) {
+      // Filter by date range
+      if (options.dateFrom && new Date(summary.startTime) < options.dateFrom) continue;
+      if (options.dateTo && new Date(summary.startTime) > options.dateTo) continue;
+      if (options.status && summary.status !== options.status) continue;
+
+      let match = false;
+
+      // Search in task (from summary)
+      if (fields.includes('task') && summary.task.toLowerCase().includes(searchLower)) {
+        match = true;
+      }
+
+      // For plan, logs, and errors, load full session
+      if (!match && (fields.includes('plan') || fields.includes('logs') || fields.includes('errors'))) {
+        const fullSession = await this.getFullSession(summary.id);
+        if (fullSession) {
+          if (fields.includes('plan') && fullSession.plan) {
+            if (fullSession.plan.toLowerCase().includes(searchLower)) {
+              match = true;
+            }
+          }
+
+          if (!match && fields.includes('logs')) {
+            // Search in logs if available
+            const sessionWithLogs = fullSession as any;
+            if (sessionWithLogs.logs) {
+              const logsText = JSON.stringify(sessionWithLogs.logs).toLowerCase();
+              if (logsText.includes(searchLower)) {
+                match = true;
+              }
+            }
+          }
+
+          if (!match && fields.includes('errors')) {
+            // Search in iterations for errors
+            if (fullSession.iterations) {
+              const iterText = JSON.stringify(fullSession.iterations).toLowerCase();
+              if (iterText.includes(searchLower)) {
+                match = true;
+              }
+            }
+          }
+        }
+      }
+
+      if (match) {
+        results.push(summary);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Filtra sesiones por rango de fechas
+   */
+  filterByDateRange(from: Date, to: Date): SessionSummary[] {
+    return Array.from(this.sessions.values()).filter(s => {
+      const startTime = new Date(s.startTime);
+      return startTime >= from && startTime <= to;
+    }).sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+  }
+
+  /**
+   * Elimina múltiples sesiones (bulk delete)
+   */
+  async bulkDelete(sessionIds: string[]): Promise<{ success: boolean; deleted: number }> {
+    let deleted = 0;
+
+    for (const id of sessionIds) {
+      try {
+        const success = await this.deleteSession(id);
+        if (success) deleted++;
+      } catch (err) {
+        console.error(`Failed to delete ${id}:`, err);
+      }
+    }
+
+    return { success: true, deleted };
+  }
+
+  /**
    * Obtiene estadísticas del historial
    */
   getStats(): {

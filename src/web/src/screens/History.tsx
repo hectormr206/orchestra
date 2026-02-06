@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { SessionInfo } from '../types';
 import { format } from 'date-fns';
-import { Search, Filter, Trash2, Eye, RefreshCw } from 'lucide-react';
+import { Search, Filter, Trash2, Eye, RefreshCw, Download, CheckSquare, Square, X } from 'lucide-react';
 
 interface HistoryProps {
   className?: string;
@@ -20,6 +20,19 @@ export const History: React.FC<HistoryProps> = ({ className = '' }) => {
   const [sortBy, setSortBy] = useState<'date' | 'duration' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [deletingSession, setDeletingSession] = useState<string | null>(null);
+
+  // Bulk operations state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [showBulkExportMenu, setShowBulkExportMenu] = useState(false);
+  const [bulkOperationInProgress, setBulkOperationInProgress] = useState(false);
+
+  // Advanced filters state
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [fullTextQuery, setFullTextQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
     loadSessions();
@@ -100,6 +113,99 @@ export const History: React.FC<HistoryProps> = ({ className = '' }) => {
 
   const handleViewSession = (sessionId: string) => {
     navigate(`/session/${sessionId}`);
+  };
+
+  const toggleSelectSession = (sessionId: string) => {
+    const newSelected = new Set(selectedSessions);
+    if (newSelected.has(sessionId)) {
+      newSelected.delete(sessionId);
+    } else {
+      newSelected.add(sessionId);
+    }
+    setSelectedSessions(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSessions.size === filteredSessions.length) {
+      setSelectedSessions(new Set());
+    } else {
+      setSelectedSessions(new Set(filteredSessions.map(s => s.sessionId)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedSessions.size === 0) return;
+
+    try {
+      setBulkOperationInProgress(true);
+      const sessionIds = Array.from(selectedSessions);
+      const result = await api.bulkDelete(sessionIds);
+
+      if (result.success) {
+        setSessions(prev => prev.filter(s => !selectedSessions.has(s.sessionId)));
+        setSelectedSessions(new Set());
+        setShowBulkDeleteConfirm(false);
+        setSelectionMode(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete sessions');
+    } finally {
+      setBulkOperationInProgress(false);
+    }
+  };
+
+  const handleBulkExport = async (format: 'csv' | 'json' | 'html' | 'markdown') => {
+    if (selectedSessions.size === 0) return;
+
+    try {
+      setBulkOperationInProgress(true);
+      const sessionIds = Array.from(selectedSessions);
+      const result = await api.batchExport(sessionIds, format);
+
+      if (result.success) {
+        // Show success message or download files
+        alert(`Exported ${result.files.length} sessions to ${format.toUpperCase()}`);
+        setShowBulkExportMenu(false);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to export sessions');
+    } finally {
+      setBulkOperationInProgress(false);
+    }
+  };
+
+  const handleFullTextSearch = async () => {
+    if (!fullTextQuery.trim()) {
+      loadSessions();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const options: any = {
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        searchFields: ['task', 'plan', 'logs', 'errors']
+      };
+
+      if (dateFrom) options.dateFrom = new Date(dateFrom).toISOString();
+      if (dateTo) options.dateTo = new Date(dateTo).toISOString();
+
+      const results = await api.searchSessions(fullTextQuery, options);
+      setSessions(results);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to search sessions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearAdvancedFilters = () => {
+    setFullTextQuery('');
+    setDateFrom('');
+    setDateTo('');
+    loadSessions();
   };
 
   const getStatusColor = (status: string): string => {
@@ -198,8 +304,57 @@ export const History: React.FC<HistoryProps> = ({ className = '' }) => {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters and Bulk Operations */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm space-y-4">
+          {/* Action Bar */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                setSelectionMode(!selectionMode);
+                setSelectedSessions(new Set());
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                selectionMode
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  : 'bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white'
+              }`}
+            >
+              {selectionMode ? <X className="w-4 h-4" /> : <CheckSquare className="w-4 h-4" />}
+              {selectionMode ? 'Cancel Selection' : 'Select Multiple'}
+            </button>
+
+            {selectionMode && selectedSessions.size > 0 && (
+              <>
+                <button
+                  onClick={() => setShowBulkDeleteConfirm(true)}
+                  disabled={bulkOperationInProgress}
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete ({selectedSessions.size})
+                </button>
+
+                <button
+                  onClick={() => setShowBulkExportMenu(true)}
+                  disabled={bulkOperationInProgress}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Export ({selectedSessions.size})
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className="ml-auto flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-900 dark:text-white"
+            >
+              <Filter className="w-4 h-4" />
+              {showAdvancedFilters ? 'Hide' : 'Advanced'} Filters
+            </button>
+          </div>
+
+          {/* Basic Filters */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Search */}
             <div className="relative">
@@ -250,6 +405,69 @@ export const History: React.FC<HistoryProps> = ({ className = '' }) => {
               </select>
             </div>
           </div>
+
+          {/* Advanced Filters */}
+          {showAdvancedFilters && (
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Full-Text Search */}
+                <div className="md:col-span-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Full-Text Search (task, plan, logs, errors)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Search in all fields..."
+                      value={fullTextQuery}
+                      onChange={(e) => setFullTextQuery(e.target.value)}
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <button
+                      onClick={handleFullTextSearch}
+                      className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Search
+                    </button>
+                  </div>
+                </div>
+
+                {/* Date Range */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Date From
+                  </label>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Date To
+                  </label>
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    onClick={clearAdvancedFilters}
+                    className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-900 dark:text-white rounded-lg transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -275,6 +493,20 @@ export const History: React.FC<HistoryProps> = ({ className = '' }) => {
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
                 <tr>
+                  {selectionMode && (
+                    <th className="px-6 py-3 text-left">
+                      <button
+                        onClick={toggleSelectAll}
+                        className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
+                      >
+                        {selectedSessions.size === filteredSessions.length ? (
+                          <CheckSquare className="w-5 h-5" />
+                        ) : (
+                          <Square className="w-5 h-5" />
+                        )}
+                      </button>
+                    </th>
+                  )}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Session ID
                   </th>
@@ -302,8 +534,24 @@ export const History: React.FC<HistoryProps> = ({ className = '' }) => {
                 {filteredSessions.map((session) => (
                   <tr
                     key={session.sessionId}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors"
+                    className={`hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors ${
+                      selectedSessions.has(session.sessionId) ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''
+                    }`}
                   >
+                    {selectionMode && (
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => toggleSelectSession(session.sessionId)}
+                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
+                        >
+                          {selectedSessions.has(session.sessionId) ? (
+                            <CheckSquare className="w-5 h-5" />
+                          ) : (
+                            <Square className="w-5 h-5" />
+                          )}
+                        </button>
+                      </td>
+                    )}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-mono text-gray-900 dark:text-white">
                         {session.sessionId.slice(0, 8)}...
@@ -372,6 +620,104 @@ export const History: React.FC<HistoryProps> = ({ className = '' }) => {
       {filteredSessions.length > 0 && (
         <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
           Showing {filteredSessions.length} of {sessions.length} sessions
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Confirm Bulk Delete
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Are you sure you want to delete <strong>{selectedSessions.size}</strong> session(s)?
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                disabled={bulkOperationInProgress}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-900 dark:text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkOperationInProgress}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {bulkOperationInProgress ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Export Menu Modal */}
+      {showBulkExportMenu && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              Export {selectedSessions.size} Session(s)
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Choose export format:
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={() => handleBulkExport('csv')}
+                disabled={bulkOperationInProgress}
+                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors disabled:opacity-50 text-left flex items-center justify-between"
+              >
+                <span className="font-medium">CSV</span>
+                <span className="text-sm text-gray-500">Spreadsheet format</span>
+              </button>
+              <button
+                onClick={() => handleBulkExport('json')}
+                disabled={bulkOperationInProgress}
+                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors disabled:opacity-50 text-left flex items-center justify-between"
+              >
+                <span className="font-medium">JSON</span>
+                <span className="text-sm text-gray-500">Machine-readable</span>
+              </button>
+              <button
+                onClick={() => handleBulkExport('html')}
+                disabled={bulkOperationInProgress}
+                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors disabled:opacity-50 text-left flex items-center justify-between"
+              >
+                <span className="font-medium">HTML</span>
+                <span className="text-sm text-gray-500">Web page</span>
+              </button>
+              <button
+                onClick={() => handleBulkExport('markdown')}
+                disabled={bulkOperationInProgress}
+                className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white rounded-lg transition-colors disabled:opacity-50 text-left flex items-center justify-between"
+              >
+                <span className="font-medium">Markdown</span>
+                <span className="text-sm text-gray-500">Documentation format</span>
+              </button>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowBulkExportMenu(false)}
+                disabled={bulkOperationInProgress}
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-900 dark:text-white rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

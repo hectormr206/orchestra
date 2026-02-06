@@ -415,4 +415,187 @@ describe('SessionHistory', () => {
       expect(formatted).toContain('Test task');
     });
   });
+
+  describe('fullTextSearch', () => {
+    it('should find sessions by task keyword', async () => {
+      const sessionData = {
+        id: 'search-1',
+        task: 'Implement authentication with JWT',
+        startTime: '2024-01-01T10:00:00.000Z',
+        status: 'completed' as const,
+        files: [],
+        metrics: undefined,
+      };
+
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+      vi.mocked(readdir).mockResolvedValue(['search-1.json']);
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({
+        ...sessionData,
+        plan: 'Create login endpoint'
+      }));
+
+      await history.registerSession(sessionData as any);
+
+      const results = await history.fullTextSearch('authentication');
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe('search-1');
+    });
+
+    it('should be case insensitive', async () => {
+      const sessionData = {
+        id: 'search-2',
+        task: 'JWT implementation',
+        startTime: '2024-01-01T10:00:00.000Z',
+        status: 'completed' as const,
+        files: [],
+        metrics: undefined,
+      };
+
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+      vi.mocked(readdir).mockResolvedValue(['search-2.json']);
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify(sessionData));
+
+      await history.registerSession(sessionData as any);
+
+      const resultsLower = await history.fullTextSearch('jwt');
+      const resultsUpper = await history.fullTextSearch('JWT');
+
+      expect(resultsLower.length).toBe(resultsUpper.length);
+    });
+
+    it('should filter by status', async () => {
+      const sessions = [
+        {
+          id: 'status-1',
+          task: 'Completed task',
+          startTime: '2024-01-01T10:00:00.000Z',
+          status: 'completed' as const,
+          files: [],
+          metrics: undefined,
+        },
+        {
+          id: 'status-2',
+          task: 'Failed task',
+          startTime: '2024-01-02T10:00:00.000Z',
+          status: 'failed' as const,
+          files: [],
+          metrics: undefined,
+        },
+      ];
+
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+      for (const session of sessions) {
+        await history.registerSession(session as any);
+      }
+
+      const results = await history.fullTextSearch('task', { status: 'completed' });
+
+      expect(results.length).toBe(1);
+      expect(results[0].status).toBe('completed');
+    });
+
+    it('should return empty array when no matches found', async () => {
+      const results = await history.fullTextSearch('nonexistent-xyz-keyword');
+
+      expect(results).toHaveLength(0);
+    });
+  });
+
+  describe('filterByDateRange', () => {
+    beforeEach(async () => {
+      const sessions = [
+        {
+          id: 'date-1',
+          task: 'January task',
+          startTime: '2024-01-15T10:00:00.000Z',
+          status: 'completed' as const,
+          files: [],
+          metrics: undefined,
+        },
+        {
+          id: 'date-2',
+          task: 'February task',
+          startTime: '2024-02-15T10:00:00.000Z',
+          status: 'completed' as const,
+          files: [],
+          metrics: undefined,
+        },
+      ];
+
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+      for (const session of sessions) {
+        await history.registerSession(session as any);
+      }
+    });
+
+    it('should filter sessions within date range', () => {
+      const from = new Date('2024-02-01T00:00:00.000Z');
+      const to = new Date('2024-02-28T23:59:59.000Z');
+
+      const results = history.filterByDateRange(from, to);
+
+      expect(results.length).toBe(1);
+      expect(results[0].id).toBe('date-2');
+    });
+
+    it('should return sorted results (newest first)', () => {
+      const from = new Date('2024-01-01T00:00:00.000Z');
+      const to = new Date('2024-12-31T23:59:59.000Z');
+
+      const results = history.filterByDateRange(from, to);
+
+      // Verificar orden descendente
+      for (let i = 1; i < results.length; i++) {
+        const prevDate = new Date(results[i - 1].startTime);
+        const currDate = new Date(results[i].startTime);
+        expect(prevDate >= currDate).toBe(true);
+      }
+    });
+  });
+
+  describe('bulkDelete', () => {
+    beforeEach(async () => {
+      const sessions = [
+        {
+          id: 'bulk-1',
+          task: 'Task 1',
+          startTime: '2024-01-01T10:00:00.000Z',
+          status: 'completed' as const,
+          files: [],
+          metrics: undefined,
+        },
+        {
+          id: 'bulk-2',
+          task: 'Task 2',
+          startTime: '2024-01-02T10:00:00.000Z',
+          status: 'completed' as const,
+          files: [],
+          metrics: undefined,
+        },
+      ];
+
+      vi.mocked(writeFile).mockResolvedValue(undefined);
+      vi.mocked(readdir).mockResolvedValue(['bulk-1.json', 'bulk-2.json']);
+      vi.mocked(unlink).mockResolvedValue(undefined);
+
+      for (const session of sessions) {
+        await history.registerSession(session as any);
+      }
+    });
+
+    it('should delete multiple sessions', async () => {
+      const result = await history.bulkDelete(['bulk-1', 'bulk-2']);
+
+      expect(result.success).toBe(true);
+      expect(result.deleted).toBe(2);
+    });
+
+    it('should handle non-existent session IDs gracefully', async () => {
+      const result = await history.bulkDelete(['nonexistent', 'bulk-1']);
+
+      expect(result.success).toBe(true);
+      expect(result.deleted).toBe(1);
+    });
+  });
 });

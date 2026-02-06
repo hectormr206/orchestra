@@ -66,9 +66,15 @@ orchestra doctor             # Verify setup and dependencies
 orchestra validate           # Validate syntax of generated code
 orchestra init               # Create .orchestrarc.json config
 orchestra dry-run <task>      # Analyze without execution
-orchestra export             # Export session data
-orchestra history             # Show session history
-orchestra tui                # Launch Terminal UI
+
+# Export & Reporting
+orchestra export --format <type>    # Export session (markdown, json, csv, html)
+orchestra history                   # Show session history
+orchestra history --full-search <q> # Full-text search in all sessions
+orchestra history --from <date>     # Filter by date range
+orchestra history --stats           # Show statistics
+orchestra compare <id1> <id2>       # Compare two sessions
+orchestra tui                       # Launch Terminal UI with Analytics
 ```
 
 ---
@@ -82,7 +88,7 @@ Orchestra follows a **multi-agent orchestration pattern** with automatic fallbac
 ```
 User Request
     ↓
-🏗️  Architect (Kimi k2.5 → Gemini 3 Pro)
+🏗️  Architect (Claude via Kimi k2.5 → Gemini 3 Pro)
     → Creates implementation plan with Agent Swarm
     ↓
 [Plan Approval]
@@ -107,10 +113,10 @@ User Request
 
 | Agent | Primary Model | Cost/M tokens | Rationale | Fallback |
 |-------|--------------|---------------|-----------|----------|
-| **Architect** | Kimi k2.5 | $0.30 | Agent Swarm capabilities, 200K context | Gemini 3 Pro |
-| **Executor** | GLM-4.7 | $0.05 | Most economical, fast execution | Kimi k2.5 |
+| **Architect** | Claude (Kimi k2.5) | $0.30 | Agent Swarm capabilities, 200K context | Gemini 3 Pro |
+| **Executor** | Claude (GLM-4.7) | $0.05 | Most economical, fast execution | Claude (Kimi k2.5) |
 | **Auditor** | Gemini 3 Pro | $0.15 | Massive context window, thorough review | GPT-5.2-Codex |
-| **Consultant** | GPT-5.2-Codex | $0.50 | Surgical use only, best for algorithms | Kimi k2.5 |
+| **Consultant** | GPT-5.2-Codex | $0.50 | Surgical use only, best for algorithms | Claude (Kimi k2.5) |
 
 **Cost Optimization Strategy:**
 - GLM-4.7 as primary executor minimizes per-session costs
@@ -146,7 +152,11 @@ src/
 │   ├── auditor.ts               # Code review prompts
 │   └── consultant.ts            # Algorithmic help prompts
 ├── tui/                         # Terminal UI (React + Ink)
-│   ├── screens/                 # Main screens (Dashboard, Execution, etc.)
+│   ├── screens/                 # Main screens
+│   │   ├── History.tsx          # Session history with bulk operations
+│   │   ├── SessionDetails.tsx   # Detailed session view
+│   │   ├── Analytics.tsx        # Analytics dashboard
+│   │   └── SessionCompare.tsx   # Session comparison view
 │   ├── components/              # UI components (ProgressBar, LogView, etc.)
 │   ├── hooks/                   # Custom React hooks
 │   └── App.tsx                  # Main TUI app
@@ -160,7 +170,10 @@ src/
 │   ├── validators.ts            # Syntax validation (Python, JS, TS, Go, Rust)
 │   ├── metrics.ts               # Performance metrics collection
 │   ├── cache.ts                 # Response caching
-│   ├── sessionHistory.ts        # Historical session data
+│   ├── sessionHistory.ts        # Historical session data + full-text search
+│   ├── sessionExport.ts         # Export to Markdown/JSON/CSV/HTML
+│   ├── analytics.ts             # Analytics engine for trends and insights
+│   ├── sessionCompare.ts        # Session comparison and diff generation
 │   ├── notifications.ts         # Desktop notifications
 │   ├── dryRun.ts                # Dry-run mode simulation
 │   └── githubIntegration.ts     # GitHub integration
@@ -269,9 +282,23 @@ Create with `orchestra init` or manually.
 
 ## Environment Variables
 
-- **`ZAI_API_KEY`**: Required API key for AI providers (Zhipu AI platform)
-- **`GEMINI_API_KEY`**: Optional Gemini API key (if using Gemini adapter)
-- **`OPENAI_API_KEY`**: Optional OpenAI API key (if using Codex adapter)
+Orchestra uses Claude Code CLI with different AI providers via API proxies:
+
+- **`KIMI_API_KEY`**: Required for KimiAdapter (Architect role)
+  - Format: `sk-kimi-...`
+  - Get from: https://www.kimi.com/code/membership
+  - Used via: `claude-kimi` function in `.zshrc`
+  - Endpoint: `https://api.kimi.com/coding/`
+
+- **`ZAI_API_KEY`**: Required for GLMAdapter (Executor role)
+  - Get from: https://z.ai
+  - Used via: `claude-glm` function in `.zshrc`
+  - Endpoint: `https://api.z.ai/api/anthropic`
+
+- **`GEMINI_API_KEY`**: Optional Gemini API key (fallback for Architect/Auditor)
+- **`OPENAI_API_KEY`**: Optional OpenAI API key (for Codex adapter/Consultant)
+
+**Note**: Orchestra executes Claude Code CLI with configured providers. Ensure your `.zshrc` has the `claude-kimi` and `claude-glm` functions configured.
 
 ---
 
@@ -391,6 +418,140 @@ Orchestra auto-detects and runs tests using:
 - Rust: `cargo test` (Cargo.toml)
 
 Override with `test.command` in config.
+
+---
+
+## Analytics & Reporting
+
+Orchestra provides comprehensive analytics and reporting capabilities for tracking performance trends, agent effectiveness, and identifying common issues.
+
+### Features
+
+**1. Full-Text Search**
+
+Search across all session data including tasks, plans, logs, and errors:
+
+```bash
+# CLI - Search in all fields
+orchestra history --full-search "authentication error"
+
+# Search with date range
+orchestra history --full-search "API" --from 2026-01-01 --to 2026-02-01
+
+# Search specific fields
+orchestra history --full-search "timeout" --fields logs,errors
+
+# Search by status
+orchestra history --full-search "deploy" --status completed
+```
+
+**2. Export Formats**
+
+Export sessions to multiple formats for analysis and reporting:
+
+```bash
+# Export current session to CSV
+orchestra export --format csv --output ./reports
+
+# Export specific session (via ID)
+orchestra history --load sess_123456 --export csv
+
+# Supported formats: markdown, json, csv, html
+orchestra export --format html --output ./reports
+```
+
+**CSV Export Features:**
+- RFC 4180 compliant
+- Proper escaping of commas, quotes, newlines
+- Batch export for multiple sessions
+- Export manifest with metadata
+
+**3. Analytics Dashboard (TUI)**
+
+Launch the TUI and navigate to Analytics for:
+
+```bash
+npm run tui
+# Navigate to Analytics screen
+```
+
+**Analytics Views:**
+- **Success Rate Trends**: Weekly/monthly success rates with duration averages
+- **Agent Performance**: Success rates, latency, and costs per agent (Architect, Executor, Auditor, Consultant)
+- **Top Errors**: Most frequent errors with affected session counts
+- **Time Range Filters**: 7d, 30d, 90d, all
+
+**4. Session Comparison**
+
+Compare two sessions side-by-side to analyze differences:
+
+```bash
+# Via CLI (if implemented)
+orchestra compare sess_123456 sess_789012
+
+# Via TUI
+# Select two sessions and press 'c' for compare
+```
+
+**Comparison Features:**
+- **Metrics Delta**: Duration, iterations, files created
+- **Plan Diff**: Line-by-line unified diff of execution plans
+- **File Differences**: Added, removed, and status-changed files
+
+**5. Bulk Operations (TUI)**
+
+Manage multiple sessions efficiently:
+
+- **Selection Mode**: Press `s` to enter selection mode
+- **Toggle Selection**: Use `Space` to select/deselect sessions
+- **Bulk Delete**: Select multiple sessions and press `d`
+- **Bulk Export**: Export selected sessions to any format
+
+### Use Cases
+
+**Performance Analysis:**
+```bash
+# Find slow sessions
+orchestra history --full-search "timeout" --status failed
+
+# Export for Excel analysis
+orchestra history --status completed --export csv
+```
+
+**Error Investigation:**
+```bash
+# Search error logs
+orchestra history --full-search "ECONNREFUSED" --fields logs,errors
+
+# View analytics for error trends
+npm run tui  # Navigate to Analytics
+```
+
+**Cost Optimization:**
+```bash
+# Analyze agent performance
+# View Analytics → Agent Performance tab
+# Identify agents with low success rates or high costs
+```
+
+**Session Comparison:**
+```bash
+# Compare failed vs successful attempt
+orchestra compare sess_failed sess_success
+# Identify what changed between attempts
+```
+
+### Data Retention
+
+- **Default**: 50 sessions (configurable via `maxSessions` in `.orchestrarc.json`)
+- **Auto-cleanup**: Enabled by default, removes oldest sessions
+- **Manual cleanup**: `orchestra clean` or bulk delete via TUI
+
+### Export Locations
+
+- **Default**: `.orchestra/exports/`
+- **Sessions**: `.orchestra/sessions/`
+- **History Index**: `.orchestra/sessions/history-index.json`
 
 ---
 

@@ -990,10 +990,10 @@ program
 // ============================================================================
 program
   .command('export')
-  .description('Exporta la sesión actual a Markdown/JSON')
-  .option('--format <type>', 'Formato: markdown, json, both', 'both')
+  .description('Exporta la sesión actual a Markdown/JSON/CSV/HTML')
+  .option('--format <type>', 'Formato: markdown, json, csv, html, both', 'both')
   .option('--output <dir>', 'Directorio de salida', '.orchestra/exports')
-  .action(async (options: { format: 'markdown' | 'json' | 'both'; output: string }) => {
+  .action(async (options: { format: 'markdown' | 'json' | 'csv' | 'html' | 'both'; output: string }) => {
     const sessionExportModule = await import('../utils/sessionExport.js');
     const stateFile = '.orchestra/session-state.json';
     const planFile = '.orchestra/plan.md';
@@ -1048,6 +1048,10 @@ program
   .option('--limit <n>', 'Número de sesiones a mostrar', '10')
   .option('--status <status>', 'Filtrar por estado (completed, failed, running)')
   .option('--search <query>', 'Buscar en tareas')
+  .option('--full-search <query>', 'Búsqueda full-text (task, plan, logs, errors)')
+  .option('--from <date>', 'Fecha desde (YYYY-MM-DD)')
+  .option('--to <date>', 'Fecha hasta (YYYY-MM-DD)')
+  .option('--fields <fields>', 'Campos para búsqueda full-text (task,plan,logs,errors)', 'task,plan,logs,errors')
   .option('--stats', 'Mostrar estadísticas')
   .option('--load <id>', 'Cargar detalles de una sesión')
   .option('--delete <id>', 'Eliminar una sesión')
@@ -1055,6 +1059,10 @@ program
     limit: string;
     status?: string;
     search?: string;
+    fullSearch?: string;
+    from?: string;
+    to?: string;
+    fields?: string;
     stats?: boolean;
     load?: string;
     delete?: string;
@@ -1108,11 +1116,37 @@ program
       return;
     }
 
-    const sessions = history.list({
-      limit: parseInt(options.limit, 10),
-      status: options.status,
-      search: options.search,
-    });
+    let sessions;
+
+    // Full-text search if --full-search is provided
+    if (options.fullSearch) {
+      const searchOptions: any = { status: options.status };
+
+      if (options.from) {
+        searchOptions.dateFrom = new Date(options.from);
+      }
+      if (options.to) {
+        searchOptions.dateTo = new Date(options.to);
+      }
+      if (options.fields) {
+        searchOptions.searchFields = options.fields.split(',') as ('task' | 'plan' | 'logs' | 'errors')[];
+      }
+
+      const spinner = ora('Buscando en sesiones...').start();
+      sessions = await history.fullTextSearch(options.fullSearch, searchOptions);
+      spinner.succeed(`Encontradas ${sessions.length} sesiones`);
+
+      if (options.limit) {
+        sessions = sessions.slice(0, parseInt(options.limit, 10));
+      }
+    } else {
+      // Regular list with basic filters
+      sessions = history.list({
+        limit: parseInt(options.limit, 10),
+        status: options.status,
+        search: options.search,
+      });
+    }
 
     if (sessions.length === 0) {
       console.log(chalk.gray('No hay sesiones en el historial.'));

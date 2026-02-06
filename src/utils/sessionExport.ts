@@ -157,11 +157,177 @@ export function exportToJSON(session: SessionData, pretty: boolean = true): stri
 }
 
 /**
+ * Exporta sesiones a formato CSV
+ */
+export function exportToCSV(
+  sessions: SessionData[],
+  fields: string[] = ['id', 'task', 'status', 'startTime', 'endTime', 'duration', 'filesCreated', 'filesFailed', 'iterations']
+): string {
+  const headers = fields.join(',');
+  const rows = sessions.map(s => {
+    const row = fields.map(field => {
+      let value: any;
+
+      // Handle nested fields
+      if (field === 'filesCreated') {
+        value = s.files.filter(f => f.status === 'created').length;
+      } else if (field === 'filesFailed') {
+        value = s.files.filter(f => f.status === 'failed').length;
+      } else if (field === 'duration') {
+        value = s.metrics?.totalDuration || 0;
+      } else if (field === 'iterations') {
+        value = s.iterations?.length || 0;
+      } else {
+        value = (s as any)[field];
+      }
+
+      // Convert to string
+      if (value === undefined || value === null) {
+        return '';
+      }
+
+      let strValue = String(value);
+
+      // CSV escaping: escape quotes and wrap in quotes if contains comma, newline, or quote
+      if (typeof value === 'string') {
+        strValue = strValue.replace(/"/g, '""'); // Escape quotes
+        if (strValue.includes(',') || strValue.includes('\n') || strValue.includes('"')) {
+          strValue = `"${strValue}"`;
+        }
+      }
+
+      return strValue;
+    });
+    return row.join(',');
+  });
+
+  return [headers, ...rows].join('\n');
+}
+
+/**
+ * Exporta sesión a formato HTML
+ */
+export function exportToHTML(session: SessionData): string {
+  const statusColor = session.status === 'completed' ? '#22c55e' :
+                      session.status === 'failed' ? '#ef4444' :
+                      session.status === 'running' ? '#3b82f6' : '#f59e0b';
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orchestra Session - ${session.id}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h1 { color: #1a202c; margin-bottom: 10px; }
+    h2 { color: #2d3748; margin-top: 30px; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
+    h3 { color: #4a5568; margin-top: 20px; margin-bottom: 10px; }
+    .status-badge { display: inline-block; padding: 4px 12px; border-radius: 4px; color: white; font-weight: bold; background: ${statusColor}; }
+    table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+    th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    th { background: #f7fafc; font-weight: 600; color: #2d3748; }
+    tr:hover { background: #f7fafc; }
+    pre { background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    code { font-family: 'Courier New', monospace; }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin: 15px 0; }
+    .metric-card { background: #f7fafc; padding: 15px; border-radius: 4px; border-left: 4px solid #3b82f6; }
+    .metric-label { font-size: 0.875rem; color: #718096; }
+    .metric-value { font-size: 1.5rem; font-weight: bold; color: #1a202c; }
+    .file-item { margin: 15px 0; padding: 15px; background: #f7fafc; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎼 Orchestra Session Report</h1>
+    <p style="color: #718096; margin-bottom: 20px;">Generated on ${new Date().toLocaleString()}</p>
+
+    <h2>📋 Session Info</h2>
+    <table>
+      <tr><th>Property</th><th>Value</th></tr>
+      <tr><td>ID</td><td><code>${session.id}</code></td></tr>
+      <tr><td>Status</td><td><span class="status-badge">${session.status.toUpperCase()}</span></td></tr>
+      <tr><td>Start Time</td><td>${session.startTime}</td></tr>
+      ${session.endTime ? `<tr><td>End Time</td><td>${session.endTime}</td></tr>` : ''}
+    </table>
+
+    <h2>🎯 Task</h2>
+    <pre><code>${escapeHtml(session.task)}</code></pre>
+
+    ${session.plan ? `<h2>📝 Plan</h2><pre><code>${escapeHtml(session.plan)}</code></pre>` : ''}
+
+    ${session.files.length > 0 ? `
+    <h2>📁 Generated Files (${session.files.length})</h2>
+    ${session.files.map(file => `
+      <div class="file-item">
+        <h3>${file.status === 'created' ? '✅' : file.status === 'failed' ? '❌' : '⏳'} ${escapeHtml(file.path)}</h3>
+        <p><strong>Description:</strong> ${escapeHtml(file.description)}</p>
+        ${file.error ? `<p style="color: #ef4444;"><strong>Error:</strong> ${escapeHtml(file.error)}</p>` : ''}
+      </div>
+    `).join('')}
+    ` : ''}
+
+    ${session.iterations.length > 0 ? `
+    <h2>🔄 Execution Log (${session.iterations.length} iterations)</h2>
+    <table>
+      <tr><th>#</th><th>Agent</th><th>Adapter</th><th>Duration</th><th>Status</th></tr>
+      ${session.iterations.map(iter => `
+        <tr>
+          <td>${iter.number}</td>
+          <td>${iter.agent}</td>
+          <td>${iter.adapter}</td>
+          <td>${calculateDuration(iter.startTime, iter.endTime)}</td>
+          <td>${iter.success ? '✅' : '❌'}</td>
+        </tr>
+      `).join('')}
+    </table>
+    ` : ''}
+
+    ${session.metrics ? `
+    <h2>📊 Metrics</h2>
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="metric-label">Total Duration</div>
+        <div class="metric-value">${formatDuration(session.metrics.totalDuration)}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Files Created</div>
+        <div class="metric-value">${session.metrics.filesCreated}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Files Failed</div>
+        <div class="metric-value">${session.metrics.filesFailed}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Iterations</div>
+        <div class="metric-value">${session.metrics.iterations}</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Fallbacks</div>
+        <div class="metric-value">${session.metrics.fallbacks}</div>
+      </div>
+    </div>
+    ` : ''}
+
+    <hr style="margin: 30px 0; border: none; border-top: 1px solid #e2e8f0;">
+    <p style="text-align: center; color: #718096; font-size: 0.875rem;">
+      Generated by <strong>Orchestra Meta-Orchestrator</strong>
+    </p>
+  </div>
+</body>
+</html>`;
+
+  return html;
+}
+
+/**
  * Guarda sesión en archivo
  */
 export async function saveSession(
   session: SessionData,
-  format: 'markdown' | 'json' | 'both' = 'both',
+  format: 'markdown' | 'json' | 'csv' | 'html' | 'both' = 'both',
   outputDir: string = '.orchestra/sessions'
 ): Promise<string[]> {
   const savedFiles: string[] = [];
@@ -184,7 +350,95 @@ export async function saveSession(
     savedFiles.push(jsonPath);
   }
 
+  if (format === 'csv') {
+    const csvPath = path.join(outputDir, baseFileName + '.csv');
+    await writeFile(csvPath, exportToCSV([session]), 'utf-8');
+    savedFiles.push(csvPath);
+  }
+
+  if (format === 'html') {
+    const htmlPath = path.join(outputDir, baseFileName + '.html');
+    await writeFile(htmlPath, exportToHTML(session), 'utf-8');
+    savedFiles.push(htmlPath);
+  }
+
   return savedFiles;
+}
+
+/**
+ * Exporta múltiples sesiones en lote
+ */
+export async function batchExport(
+  sessionIds: string[],
+  format: 'markdown' | 'json' | 'csv' | 'html',
+  outputPath: string
+): Promise<{ success: boolean; files: string[] }> {
+  const files: string[] = [];
+  const { SessionHistory } = await import('./sessionHistory.js');
+  const history = new SessionHistory();
+  await history.init();
+
+  // Create output directory
+  if (!existsSync(outputPath)) {
+    await mkdir(outputPath, { recursive: true });
+  }
+
+  // Special handling for CSV - export all sessions to one file
+  if (format === 'csv') {
+    const sessions: SessionData[] = [];
+    for (const id of sessionIds) {
+      const session = await history.getFullSession(id);
+      if (session) sessions.push(session);
+    }
+
+    const csvPath = path.join(outputPath, `sessions-export-${formatDate(new Date().toISOString())}.csv`);
+    await writeFile(csvPath, exportToCSV(sessions), 'utf-8');
+    files.push(csvPath);
+  } else {
+    // Export each session to individual file
+    for (const id of sessionIds) {
+      const session = await history.getFullSession(id);
+      if (!session) continue;
+
+      const filename = `session-${id}-${formatDate(session.startTime)}`;
+      let filepath: string;
+      let content: string;
+
+      switch (format) {
+        case 'json':
+          filepath = path.join(outputPath, `${filename}.json`);
+          content = exportToJSON(session);
+          break;
+        case 'markdown':
+          filepath = path.join(outputPath, `${filename}.md`);
+          content = exportToMarkdown(session);
+          break;
+        case 'html':
+          filepath = path.join(outputPath, `${filename}.html`);
+          content = exportToHTML(session);
+          break;
+        default:
+          continue;
+      }
+
+      await writeFile(filepath, content, 'utf-8');
+      files.push(filepath);
+    }
+  }
+
+  // Create manifest
+  const manifest = {
+    exportDate: new Date().toISOString(),
+    format,
+    sessionCount: sessionIds.length,
+    filesExported: files.length,
+    files
+  };
+  const manifestPath = path.join(outputPath, 'export-manifest.json');
+  await writeFile(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
+  files.push(manifestPath);
+
+  return { success: true, files };
 }
 
 // Helper functions
@@ -215,4 +469,15 @@ function formatDuration(ms: number): string {
 function formatDate(isoString: string): string {
   const date = new Date(isoString);
   return date.toISOString().split('T')[0];
+}
+
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
 }

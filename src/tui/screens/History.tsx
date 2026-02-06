@@ -34,6 +34,10 @@ export const History: React.FC<HistoryProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleteStatus, setBulkDeleteStatus] = useState<string | null>(null);
 
   const handleDeleteSession = async (sessionId: string) => {
     try {
@@ -66,34 +70,103 @@ export const History: React.FC<HistoryProps> = ({
     }
   };
 
+  const handleBulkDelete = async () => {
+    try {
+      setBulkDeleteStatus(`Deleting ${selectedSessions.size} sessions...`);
+
+      const history = new SessionHistory();
+      await history.init();
+
+      const result = await history.bulkDelete(Array.from(selectedSessions));
+
+      setBulkDeleteStatus(`Deleted ${result.deleted} of ${selectedSessions.size} sessions!`);
+      onSessionsChange(); // Refresh sessions list
+
+      setTimeout(() => {
+        setBulkDeleteStatus(null);
+        setShowBulkDeleteConfirm(false);
+        setSelectionMode(false);
+        setSelectedSessions(new Set());
+      }, 2000);
+    } catch (error) {
+      setBulkDeleteStatus("Failed: " + String(error));
+      setTimeout(() => {
+        setBulkDeleteStatus(null);
+      }, 2000);
+    }
+  };
+
   useInput((input, key) => {
+    // Handle bulk delete confirmation
+    if (showBulkDeleteConfirm) {
+      if (input === "y") {
+        handleBulkDelete();
+      } else if (input === "n" || key.escape) {
+        setShowBulkDeleteConfirm(false);
+        setBulkDeleteStatus(null);
+      }
+      return;
+    }
+
     if (key.escape) {
       if (confirmDelete) {
         setConfirmDelete(null);
         setDeleteStatus(null);
+      } else if (selectionMode) {
+        setSelectionMode(false);
+        setSelectedSessions(new Set());
       } else {
         onBack();
       }
     }
+
     if (key.upArrow) {
       setSelectedIndex((prev) => Math.max(0, prev - 1));
     }
     if (key.downArrow) {
       setSelectedIndex((prev) => Math.min(sessions.length - 1, prev + 1));
     }
+
+    // Space bar to toggle selection in selection mode
+    if (input === ' ' && selectionMode && sessions[selectedIndex]) {
+      const sessionId = sessions[selectedIndex].id;
+      const newSelected = new Set(selectedSessions);
+      if (newSelected.has(sessionId)) {
+        newSelected.delete(sessionId);
+      } else {
+        newSelected.add(sessionId);
+      }
+      setSelectedSessions(newSelected);
+    }
+
     if (key.return && sessions[selectedIndex]) {
       if (confirmDelete) {
         handleDeleteSession(confirmDelete);
-      } else {
+      } else if (!selectionMode) {
         onSessionDetails(sessions[selectedIndex].id);
       }
     }
-    if (input === "d" && sessions[selectedIndex] && !confirmDelete) {
+
+    // Toggle selection mode with 's'
+    if (input === "s" && !confirmDelete) {
+      setSelectionMode(!selectionMode);
+      setSelectedSessions(new Set());
+    }
+
+    // Delete single session in normal mode
+    if (input === "d" && sessions[selectedIndex] && !confirmDelete && !selectionMode) {
       setConfirmDelete(sessions[selectedIndex].id);
     }
+
+    // Bulk delete in selection mode
+    if (input === "d" && selectionMode && selectedSessions.size > 0) {
+      setShowBulkDeleteConfirm(true);
+    }
+
     if (input === "v" && sessions[selectedIndex] && !confirmDelete) {
       onSessionDetails(sessions[selectedIndex].id);
     }
+
     if ((input === "n" || input === "c") && confirmDelete) {
       setConfirmDelete(null);
       setDeleteStatus(null);
@@ -157,9 +230,13 @@ export const History: React.FC<HistoryProps> = ({
       </Box>
 
       {sessions.length === 0 ? (
-        <Box marginTop={2}>
-          <Text color="gray">
-        <Box marginTop={2} borderStyle="single" borderColor="gray" padding={1} backgroundColor="black">
+        <Box
+          marginTop={2}
+          borderStyle="single"
+          borderColor="gray"
+          padding={1}
+          backgroundColor="black"
+        >
           <Text color="white" backgroundColor="black">
             No sessions found. Start a new task to create one!
           </Text>
@@ -206,6 +283,19 @@ export const History: React.FC<HistoryProps> = ({
               key={session.id}
               backgroundColor={selectedIndex === index ? "blue" : "black"}
             >
+              {selectionMode && (
+                <Box
+                  width={4}
+                  backgroundColor={selectedIndex === index ? "blue" : "black"}
+                >
+                  <Text
+                    color="cyan"
+                    backgroundColor={selectedIndex === index ? "blue" : "black"}
+                  >
+                    {selectedSessions.has(session.id) ? "[✓]" : "[ ]"}
+                  </Text>
+                </Box>
+              )}
               <Box
                 width={10}
                 backgroundColor={selectedIndex === index ? "blue" : "black"}
@@ -269,8 +359,7 @@ export const History: React.FC<HistoryProps> = ({
                   color={selectedIndex === index ? "white" : "gray"}
                   backgroundColor={selectedIndex === index ? "blue" : "black"}
                 >
-                  {session.task.substring(0, 40)}
-                  {session.task.length > 40 ? "..." : ""}
+                  {session.task}
                 </Text>
               </Box>
             </Box>
@@ -306,10 +395,61 @@ export const History: React.FC<HistoryProps> = ({
         </Box>
       )}
 
+      {/* Bulk Delete Confirmation */}
+      {showBulkDeleteConfirm && (
+        <Box
+          marginTop={2}
+          borderStyle="double"
+          borderColor="red"
+          padding={1}
+          flexDirection="column"
+          backgroundColor="black"
+        >
+          <Text color="red" backgroundColor="black">
+            ⚠️ Delete {selectedSessions.size} selected sessions?
+          </Text>
+          {bulkDeleteStatus ? (
+            <Text
+              color={bulkDeleteStatus.includes("Deleted") ? "green" : "red"}
+              backgroundColor="black"
+            >
+              {bulkDeleteStatus}
+            </Text>
+          ) : (
+            <Text color="gray" backgroundColor="black">
+              Press y to confirm, n/Esc to cancel
+            </Text>
+          )}
+        </Box>
+      )}
+
+      {/* Selection Mode Indicator */}
+      {selectionMode && (
+        <Box
+          marginTop={2}
+          borderStyle="single"
+          borderColor="cyan"
+          padding={1}
+          backgroundColor="black"
+        >
+          <Text color="cyan" backgroundColor="black">
+            🔘 Selection Mode: {selectedSessions.size} selected │ Space: Toggle │ d: Delete │ s: Exit
+          </Text>
+        </Box>
+      )}
+
       {/* Help */}
-      <Box marginTop={2} borderStyle="single" borderColor="gray" paddingX={1} backgroundColor="black">
+      <Box
+        marginTop={2}
+        borderStyle="single"
+        borderColor="gray"
+        paddingX={1}
+        backgroundColor="black"
+      >
         <Text color="white" backgroundColor="black">
-          ↑/↓: Navigate │ Enter/v: View details │ d: Delete │ Esc: Back
+          {selectionMode
+            ? "Space: Toggle │ d: Bulk delete │ s: Exit selection │ Esc: Back"
+            : "↑/↓: Navigate │ Enter/v: View │ d: Delete │ s: Selection mode │ Esc: Back"}
         </Text>
       </Box>
     </Box>
