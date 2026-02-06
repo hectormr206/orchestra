@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import Sessions from './components/Sessions';
 import Plugins from './components/Plugins';
@@ -7,9 +8,33 @@ import History from './screens/History';
 import Analytics from './screens/Analytics';
 import SessionCompare from './screens/SessionCompare';
 import SessionDetailsWeb from './screens/SessionDetailsWeb';
+import api from './lib/api';
+
+interface ProjectInfo {
+  projectName: string;
+  workingDir: string;
+  displayPath: string;
+  orchestraDir: string;
+  hostname: string;
+  platform: string;
+  nodeVersion: string;
+}
 
 function Navigation() {
   const location = useLocation();
+  const [projectInfo, setProjectInfo] = useState<ProjectInfo | null>(null);
+
+  useEffect(() => {
+    const loadProjectInfo = async () => {
+      try {
+        const info = await api.getProjectInfo();
+        setProjectInfo(info);
+      } catch (error) {
+        console.error('Failed to load project info:', error);
+      }
+    };
+    loadProjectInfo();
+  }, []);
 
   const isActive = (path: string) => {
     if (path === '/') {
@@ -30,8 +55,15 @@ function Navigation() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/" className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
-                🎼 Orchestra
+              <Link to="/" className="flex flex-col">
+                <span className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
+                  🎼 Orchestra
+                </span>
+                {projectInfo && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                    {projectInfo.displayPath}
+                  </span>
+                )}
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
@@ -55,6 +87,18 @@ function Navigation() {
               </Link>
             </div>
           </div>
+          {projectInfo && (
+            <div className="flex items-center">
+              <div className="text-right">
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {projectInfo.projectName}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  {projectInfo.hostname}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </nav>

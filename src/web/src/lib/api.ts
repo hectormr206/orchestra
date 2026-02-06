@@ -120,6 +120,12 @@ export default {
     return response.data;
   },
 
+  // Project info
+  async getProjectInfo() {
+    const response = await api.get('/api/info');
+    return response.data;
+  },
+
   // Legacy methods (for backward compatibility)
   async orchestrate(command: OrchestrationCommand) {
     throw new Error('Orchestration endpoint not available in new API. Use CLI instead.');

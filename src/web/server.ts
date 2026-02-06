@@ -5,6 +5,9 @@
 
 import http from 'http';
 import { URL } from 'url';
+import path from 'path';
+import os from 'os';
+import { readFileSync, existsSync } from 'fs';
 import { SessionHistory } from '../utils/sessionHistory.js';
 import { AnalyticsEngine } from '../utils/analytics.js';
 import { compareSessions } from '../utils/sessionCompare.js';
@@ -116,6 +119,10 @@ class APIRouter {
       // Health check
       else if (path === '/api/health' && method === 'GET') {
         sendJSON(res, { status: 'ok', timestamp: new Date().toISOString() });
+      }
+      // Project info
+      else if (path === '/api/info' && method === 'GET') {
+        await this.getProjectInfo(req, res);
       }
       // 404
       else {
@@ -373,6 +380,41 @@ class APIRouter {
     const stats = this.history.getStats();
     sendJSON(res, { stats });
   }
+
+  /**
+   * GET /api/info
+   */
+  private async getProjectInfo(req: http.IncomingMessage, res: http.ServerResponse) {
+    const workingDir = process.cwd();
+    const homeDir = os.homedir();
+
+    // Try to get project name from package.json
+    let projectName = path.basename(workingDir);
+    const packageJsonPath = path.join(workingDir, 'package.json');
+    if (existsSync(packageJsonPath)) {
+      try {
+        const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+        projectName = packageJson.name || projectName;
+      } catch (err) {
+        // Ignore errors reading package.json
+      }
+    }
+
+    // Shorten path if it's in home directory
+    const displayPath = workingDir.startsWith(homeDir)
+      ? '~' + workingDir.slice(homeDir.length)
+      : workingDir;
+
+    sendJSON(res, {
+      projectName,
+      workingDir,
+      displayPath,
+      orchestraDir: path.join(workingDir, '.orchestra'),
+      hostname: os.hostname(),
+      platform: os.platform(),
+      nodeVersion: process.version,
+    });
+  }
 }
 
 /**
@@ -390,6 +432,7 @@ async function startServer() {
     console.log(`🚀 Orchestra Web API Server running on http://localhost:${PORT}`);
     console.log(`📊 API Documentation:`);
     console.log(`   GET  /api/health                - Health check`);
+    console.log(`   GET  /api/info                  - Project information`);
     console.log(`   GET  /api/sessions              - List sessions`);
     console.log(`   GET  /api/sessions/:id          - Get session`);
     console.log(`   DEL  /api/sessions/:id          - Delete session`);
