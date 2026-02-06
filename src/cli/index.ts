@@ -1349,6 +1349,7 @@ program
     }
 
     const processes: any[] = [];
+    let apiServerFailed = false;
 
     // Start API Server
     console.log(chalk.yellow('Starting API server...'));
@@ -1366,13 +1367,42 @@ program
       const output = data.toString().trim();
       if (output && !output.includes('ExperimentalWarning')) {
         console.error(chalk.red('[API ERROR]'), output);
+        if (output.includes('EADDRINUSE') || output.includes('address already in use')) {
+          apiServerFailed = true;
+        }
+      }
+    });
+
+    apiProcess.on('exit', (code) => {
+      if (code !== 0 && code !== null) {
+        apiServerFailed = true;
       }
     });
 
     processes.push(apiProcess);
 
-    // Wait a bit for API server to start
+    // Wait for API server to start
     await new Promise(resolve => setTimeout(resolve, 2000));
+
+    if (apiServerFailed) {
+      console.log();
+      console.error(chalk.red('✗ API server failed to start'));
+      console.error(chalk.yellow(`\nPort ${options.apiPort} may be in use. Try:`));
+      console.error(chalk.gray(`  1. Kill existing processes: lsof -ti:${options.apiPort} | xargs kill -9`));
+      console.error(chalk.gray(`  2. Use a different port: orchestra web --api-port 4001`));
+      console.log();
+
+      // Kill any started processes
+      for (const proc of processes) {
+        try {
+          proc.kill('SIGTERM');
+        } catch (e) {
+          // Ignore
+        }
+      }
+      process.exit(1);
+    }
+
     console.log(chalk.green('✓ API server started'));
     console.log();
 
