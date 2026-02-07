@@ -28,7 +28,7 @@ export const Settings: React.FC<SettingsProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [editingText, setEditingText] = useState(false);
 
-  const models = ["Kimi", "Claude (GLM 4.7)", "Gemini", "Codex", "Claude"];
+  const models = ["Claude (Kimi)", "Claude (GLM)", "Gemini", "Codex", "Claude"];
 
   const settings: readonly SettingItem[] = [
     // --- Architect ---
@@ -140,6 +140,25 @@ export const Settings: React.FC<SettingsProps> = ({
       label: "Auto-revert on Failure",
       type: "boolean",
     },
+    // Observer settings
+    { key: "observerEnabled", label: "Observer Validation", type: "boolean" },
+    {
+      key: "observerMode",
+      label: "Observer Mode",
+      type: "select",
+      options: ["web", "output"],
+    },
+    { key: "observerAppUrl", label: "Observer App URL", type: "string" },
+    { key: "observerDevServerCommand", label: "Dev Server Command", type: "string" },
+    {
+      key: "observerVisionModel",
+      label: "Vision Model",
+      type: "select",
+      options: ["kimi", "glm"],
+    },
+    { key: "observerRoutes", label: "Routes (web mode)", type: "string" },
+    { key: "observerCommands", label: "Commands (output mode)", type: "string" },
+
     { key: "advanced", label: "Advanced Settings...", type: "action" },
   ] as SettingItem[];
 
@@ -148,23 +167,24 @@ export const Settings: React.FC<SettingsProps> = ({
     return path.split(".").reduce((o, i) => o?.[i], obj);
   };
 
-  const setNestedValue = (obj: any, path: string, value: any) => {
+  const setNestedValue = (obj: any, path: string, value: any): any => {
     if (!path.includes(".")) {
       return { ...obj, [path]: value };
     }
-    const keys = path.split(".");
-    const lastKey = keys.pop()!;
-    const deepClone = JSON.parse(JSON.stringify(obj));
-    const target = keys.reduce((o, i) => o[i], deepClone);
-
-    // Handle array update if the target is an array
-    if (Array.isArray(target) && !isNaN(Number(lastKey))) {
-      target[Number(lastKey)] = value;
-    } else {
-      target[lastKey] = value;
+    const [head, ...rest] = path.split(".");
+    const child = obj[head];
+    if (Array.isArray(child)) {
+      const idx = Number(rest[0]);
+      if (rest.length === 1) {
+        const newArr = [...child];
+        newArr[idx] = value;
+        return { ...obj, [head]: newArr };
+      }
+      const newArr = [...child];
+      newArr[idx] = setNestedValue(child[idx], rest.slice(1).join("."), value);
+      return { ...obj, [head]: newArr };
     }
-
-    return deepClone;
+    return { ...obj, [head]: setNestedValue(child ?? {}, rest.join("."), value) };
   };
 
   useInput((input, key) => {
@@ -242,8 +262,8 @@ export const Settings: React.FC<SettingsProps> = ({
 
     if (setting.type === "boolean") {
       return (
-        <Box width={16} backgroundColor="black">
-          <Text color={value ? "green" : "red"} backgroundColor="black">
+        <Box width={16}>
+          <Text color={value ? "green" : "red"}>
             [{value ? "x" : " "}] {value ? "Enabled " : "Disabled"}
           </Text>
         </Box>
@@ -253,8 +273,8 @@ export const Settings: React.FC<SettingsProps> = ({
     if (setting.type === "number") {
       const paddedValue = String(value).padStart(2, " ");
       return (
-        <Box width={10} backgroundColor="black">
-          <Text color="cyan" backgroundColor="black">
+        <Box width={10}>
+          <Text color="cyan">
             {"<"} {paddedValue} {">"}
           </Text>
         </Box>
@@ -263,14 +283,14 @@ export const Settings: React.FC<SettingsProps> = ({
 
     if (setting.type === "select") {
       return (
-        <Box backgroundColor="black" width={30}>
-          <Text color="cyan" backgroundColor="black">
+        <Box width={30}>
+          <Text color="cyan">
             {"< "}
           </Text>
-          <Text color="green" bold backgroundColor="black">
+          <Text color="green" bold>
             {value as string}
           </Text>
-          <Text color="cyan" backgroundColor="black">
+          <Text color="cyan">
             {" >"}
           </Text>
         </Box>
@@ -278,8 +298,8 @@ export const Settings: React.FC<SettingsProps> = ({
     }
 
     return (
-      <Box width={20} backgroundColor="black">
-        <Text color="yellow" backgroundColor="black">
+      <Box width={20}>
+        <Text color="yellow">
           {String(value) || "(not set)"}
         </Text>
       </Box>
@@ -288,9 +308,9 @@ export const Settings: React.FC<SettingsProps> = ({
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan" backgroundColor="black">
-          ⚙️ SETTINGS
+      <Box borderStyle="single" borderColor="cyan" paddingX={2}>
+        <Text bold color="cyan">
+          SETTINGS
         </Text>
       </Box>
 
@@ -298,27 +318,22 @@ export const Settings: React.FC<SettingsProps> = ({
         {settings.map((setting, index) => (
           <Box
             key={setting.key}
-            backgroundColor={selectedIndex === index ? "blue" : "black"}
             paddingX={1}
           >
             <Box
               width={3}
-              backgroundColor={selectedIndex === index ? "blue" : "black"}
             >
               <Text
                 color="white"
-                backgroundColor={selectedIndex === index ? "blue" : "black"}
               >
                 {selectedIndex === index ? "> " : "  "}
               </Text>
             </Box>
             <Box
               width={26}
-              backgroundColor={selectedIndex === index ? "blue" : "black"}
             >
               <Text
                 color="white"
-                backgroundColor={selectedIndex === index ? "blue" : "black"}
               >
                 {setting.label}
               </Text>
@@ -331,7 +346,7 @@ export const Settings: React.FC<SettingsProps> = ({
       {/* Instructions */}
       <Box
         marginTop={2}
-        borderStyle="round"
+        borderStyle="single"
         borderColor="yellow"
         padding={1}
         width={40}
@@ -352,10 +367,9 @@ export const Settings: React.FC<SettingsProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
-          ↑/↓: Navigate │ s: Save │ Esc: Back (without saving)
+        <Text color="white">
+          ↑/↓: Navigate | s: Save | Esc: Back (without saving)
         </Text>
       </Box>
     </Box>

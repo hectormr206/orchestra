@@ -5,7 +5,7 @@
 import { readFile, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import type { ProjectConfig, OrchestratorConfig, ModelType } from "../types.js";
+import type { ProjectConfig, OrchestratorConfig, ModelType, ObserverConfig } from "../types.js";
 
 const CONFIG_FILES = [
   ".orchestrarc.json",
@@ -62,6 +62,23 @@ export function mergeConfig(
     if (projectConfig.execution.timeout !== undefined) {
       merged.timeout = projectConfig.execution.timeout;
     }
+    // Parallel Consultant settings
+    if (projectConfig.execution.parallelConsultant !== undefined) {
+      merged.parallelConsultant = projectConfig.execution.parallelConsultant;
+    }
+    if (projectConfig.execution.consultantMaxConcurrency !== undefined) {
+      merged.consultantMaxConcurrency = projectConfig.execution.consultantMaxConcurrency;
+    }
+    // Early Observer settings
+    if (projectConfig.execution.earlyObserver !== undefined) {
+      merged.earlyObserver = projectConfig.execution.earlyObserver;
+    }
+    if (projectConfig.execution.criticalFilesPatterns !== undefined) {
+      merged.criticalFilesPatterns = projectConfig.execution.criticalFilesPatterns;
+    }
+    if (projectConfig.execution.criticalFilesThreshold !== undefined) {
+      merged.criticalFilesThreshold = projectConfig.execution.criticalFilesThreshold;
+    }
   }
 
   // Merge test config
@@ -98,6 +115,25 @@ export function mergeConfig(
     };
   }
 
+  // Merge observer config
+  if (projectConfig.observer) {
+    merged.observerConfig = {
+      enabled: projectConfig.observer.enabled ?? false,
+      mode: projectConfig.observer.mode ?? "web",
+      appUrl: projectConfig.observer.appUrl || "http://localhost:3000",
+      devServerCommand: projectConfig.observer.devServerCommand,
+      commands: projectConfig.observer.commands,
+      renderWaitMs: projectConfig.observer.renderWaitMs ?? 3000,
+      maxVisualIterations: projectConfig.observer.maxVisualIterations ?? 3,
+      viewport: projectConfig.observer.viewport ?? { width: 1920, height: 1080 },
+      routes: projectConfig.observer.routes ?? [],
+      captureConsoleErrors: projectConfig.observer.captureConsoleErrors ?? true,
+      auth: projectConfig.observer.auth,
+      visionModel: projectConfig.observer.visionModel ?? "kimi",
+      screenshotDir: ".orchestra/screenshots",
+    };
+  }
+
   return merged;
 }
 
@@ -125,6 +161,11 @@ export async function createDefaultConfig(
       maxConcurrency: 3,
       maxIterations: 3,
       timeout: 600000,
+      parallelConsultant: true,
+      consultantMaxConcurrency: 3,
+      earlyObserver: false,
+      criticalFilesPatterns: ["src/App.tsx", "src/main.ts", "src/index.ts", "app.py"],
+      criticalFilesThreshold: 1,
     },
     prompts: {
       // Contexto adicional para el Arquitecto
@@ -229,6 +270,14 @@ export interface TUISettings {
     auditor: ModelType[];
     consultant: ModelType[];
   };
+  // Observer settings
+  observerEnabled: boolean;
+  observerMode: "web" | "output";
+  observerAppUrl: string;
+  observerDevServerCommand: string;
+  observerVisionModel: "kimi" | "glm";
+  observerRoutes: string;
+  observerCommands: string;
 }
 
 export async function saveSettings(
@@ -278,6 +327,20 @@ export async function saveSettings(
       // Agent Models
       agents: settings.agents,
     },
+    // Observer settings
+    observer: {
+      enabled: settings.observerEnabled,
+      mode: settings.observerMode,
+      appUrl: settings.observerAppUrl || undefined,
+      devServerCommand: settings.observerDevServerCommand || undefined,
+      visionModel: settings.observerVisionModel,
+      routes: settings.observerRoutes
+        ? settings.observerRoutes.split(",").map((r) => r.trim()).filter(Boolean)
+        : undefined,
+      commands: settings.observerCommands
+        ? settings.observerCommands.split(",").map((c) => c.trim()).filter(Boolean)
+        : undefined,
+    },
   };
 
   await writeFile(configPath, JSON.stringify(updatedConfig, null, 2), "utf-8");
@@ -297,25 +360,25 @@ export async function loadSettings(
 
   // Optimized CLI Hierarchy (Cost-Aware)
   const defaultAgents = {
-    // Architect: Kimi CLI (k2.5 with Agent Swarm) → Gemini CLI (auto-select)
+    // Architect: Claude (Kimi) → Gemini CLI (auto-select)
     architect: [
-      "Kimi",             // Primary: Kimi CLI (k2.5, 200K context, $0.30/M)
+      "Claude (Kimi)",    // Primary: Claude CLI + Kimi (k2.5, 200K context, $0.30/M)
       "Gemini",           // Fallback: Gemini CLI (auto-select, $0.15/M)
     ] as ModelType[],
-    // Executor: Claude+z.ai (GLM 4.7) → Kimi CLI
+    // Executor: Claude (GLM) → Claude (Kimi)
     executor: [
-      "Claude (GLM 4.7)", // Primary: Claude CLI + z.ai (GLM 4.7, $0.05/M, most economical)
-      "Kimi",             // Fallback: Kimi CLI ($0.30/M)
+      "Claude (GLM)",     // Primary: Claude CLI + z.ai (GLM, $0.05/M, most economical)
+      "Claude (Kimi)",    // Fallback: Claude CLI + Kimi ($0.30/M)
     ] as ModelType[],
     // Auditor: Gemini CLI → Codex CLI
     auditor: [
       "Gemini",           // Primary: Gemini CLI (auto-select, $0.15/M)
       "Codex",            // Fallback: Codex CLI (GPT-5.2-Codex, $0.50/M)
     ] as ModelType[],
-    // Consultant: Codex CLI (GPT-5.2-Codex) → Kimi CLI
+    // Consultant: Codex CLI (GPT-5.2-Codex) → Claude (Kimi)
     consultant: [
       "Codex",            // Primary: Codex CLI (GPT-5.2-Codex, $0.50/M, best for algorithms)
-      "Kimi",             // Fallback: Kimi CLI ($0.30/M)
+      "Claude (Kimi)",    // Fallback: Claude CLI + Kimi ($0.30/M)
     ] as ModelType[],
   };
 
@@ -354,5 +417,13 @@ export async function loadSettings(
       }
       return mergedAgents;
     })(),
+    // Observer settings
+    observerEnabled: config.observer?.enabled ?? false,
+    observerMode: (config.observer?.mode ?? "web") as "web" | "output",
+    observerAppUrl: config.observer?.appUrl ?? "http://localhost:3000",
+    observerDevServerCommand: config.observer?.devServerCommand ?? "",
+    observerVisionModel: (config.observer?.visionModel ?? "kimi") as "kimi" | "glm",
+    observerRoutes: (config.observer?.routes ?? []).join(", "),
+    observerCommands: (config.observer?.commands ?? []).join(", "),
   };
 }

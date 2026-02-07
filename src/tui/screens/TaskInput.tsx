@@ -73,39 +73,35 @@ export const TaskInput: React.FC<TaskInputProps> = ({
     checked: boolean;
     focused: boolean;
   }> = ({ label, checked, focused }) => (
-    <Box backgroundColor="black">
-      <Text color={focused ? "cyan" : "white"} backgroundColor="black">
-        {focused ? "▶ " : "  "}[{checked ? "✓" : " "}] {label}
+    <Box>
+      <Text color={focused ? "cyan" : "white"}>
+        {focused ? "> " : "  "}[{checked ? "x" : " "}] {label}
       </Text>
     </Box>
   );
 
   return (
-    <Box flexDirection="column" padding={1} backgroundColor="black">
-      <Text bold color="cyan" backgroundColor="black">
-        📝 Enter Your Task
+    <Box flexDirection="column" padding={1}>
+      <Text bold color="cyan">
+        * Enter Your Task
       </Text>
-      <Text color="white" backgroundColor="black">
+      <Text color="white">
         Describe what you want to build or accomplish
       </Text>
-      <Text color="white" backgroundColor="black">
-        ─────────────────────────────────────────────────
-      </Text>
 
-      <Box marginTop={1} marginBottom={1} backgroundColor="black">
-        <Text color="yellow" backgroundColor="black">
+      <Box marginTop={1} marginBottom={1}>
+        <Text color="yellow">
           Task:{" "}
         </Text>
         <Box
           borderStyle="single"
           borderColor={focusedOption === -1 ? "cyan" : "white"}
           paddingX={1}
-          backgroundColor="black"
         >
-          <Box backgroundColor="black">
+          <Box>
             {task === "" && (
-              <Box position="absolute" backgroundColor="black">
-                <Text color="blue" backgroundColor="black">
+              <Box position="absolute">
+                <Text color="blue">
                   e.g., Create a REST API with Flask and SQLAlchemy
                 </Text>
               </Box>
@@ -120,8 +116,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({
         </Box>
       </Box>
 
-      <Box marginTop={1} flexDirection="column" backgroundColor="black">
-        <Text bold color="white" backgroundColor="black">
+      <Box marginTop={1} flexDirection="column">
+        <Text bold color="white">
           Options (Tab to navigate, Space to toggle):
         </Text>
         <Box marginTop={1} flexDirection="column">
@@ -153,12 +149,11 @@ export const TaskInput: React.FC<TaskInputProps> = ({
         </Box>
       </Box>
 
-      <Box marginTop={2} backgroundColor="black">
+      <Box marginTop={2}>
         <Text
           color={focusedOption === 5 ? "green" : "white"}
-          backgroundColor="black"
         >
-          {focusedOption === 5 ? "▶ " : "  "}
+          {focusedOption === 5 ? "> " : "  "}
           [Enter] Start Orchestration
         </Text>
       </Box>
@@ -168,10 +163,9 @@ export const TaskInput: React.FC<TaskInputProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
-          Tab: Navigate options │ Space: Toggle │ Enter: Submit │ Esc: Cancel
+        <Text color="white">
+          Tab: Navigate options | Space: Toggle | Enter: Submit | Esc: Cancel
         </Text>
       </Box>
     </Box>

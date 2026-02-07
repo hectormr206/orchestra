@@ -196,7 +196,7 @@ export class GLMAdapter {
   getInfo(): { name: string; model: string; provider: string } {
     return {
       name: "GLMAdapter",
-      model: "Claude (GLM 4.7)",
+      model: "Claude (GLM)",
       provider: "z.ai",
     };
   }

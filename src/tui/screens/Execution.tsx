@@ -1,6 +1,5 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Box, Text, useInput } from "ink";
-import { Header } from "../components/Header.js";
 import { StatusBar } from "../components/StatusBar.js";
 import { ProgressBar } from "../components/ProgressBar.js";
 import { FileList, FileStatus } from "../components/FileList.js";
@@ -16,19 +15,20 @@ interface ExecutionProps {
     | "executing"
     | "auditing"
     | "recovery"
+    | "observing"
     | "complete"
     | "error";
   agents: AgentInfo[];
   files: FileStatus[];
   logs: LogEntry[];
   progress: { current: number; total: number };
-  startTime: number; // Changed from duration - DurationDisplay calculates locally
+  startTime: number;
   isRunning: boolean;
   onCancel?: () => void;
   onComplete?: () => void;
 }
 
-export const Execution: React.FC<ExecutionProps> = ({
+export const Execution: React.FC<ExecutionProps> = React.memo(({
   task,
   sessionId,
   phase,
@@ -43,11 +43,9 @@ export const Execution: React.FC<ExecutionProps> = ({
 }) => {
   useInput((input, key) => {
     if (key.escape) {
-      // On error or complete, Esc should navigate back to dashboard
       if ((phase === "error" || phase === "complete") && onComplete) {
         onComplete();
       } else if (onCancel) {
-        // During active phases, Esc cancels the task
         onCancel();
       }
     }
@@ -56,52 +54,33 @@ export const Execution: React.FC<ExecutionProps> = ({
     }
   });
 
-  const getPhaseStatus = ():
-    | "idle"
-    | "planning"
-    | "executing"
-    | "auditing"
-    | "recovery"
-    | "complete"
-    | "error" => {
-    switch (phase) {
-      case "planning":
-        return "planning";
-      case "executing":
-        return "executing";
-      case "auditing":
-        return "auditing";
-      case "recovery":
-        return "recovery";
-      case "complete":
-        return "complete";
-      case "error":
-        return "error";
-      default:
-        return "idle";
-    }
-  };
+  const currentFile = useMemo(
+    () => files.find((f) => f.status === "processing")?.path,
+    [files],
+  );
 
-  const progressPercent =
-    progress.total > 0 ? (progress.current / progress.total) * 100 : 0;
+  const progressPercent = useMemo(
+    () => (progress.total > 0 ? (progress.current / progress.total) * 100 : 0),
+    [progress.current, progress.total],
+  );
+
+  const phaseStatus = phase === "planning" || phase === "executing" || phase === "auditing" ||
+    phase === "recovery" || phase === "observing" || phase === "complete" || phase === "error"
+    ? phase : "idle" as const;
 
   return (
-    <Box flexDirection="column" height="100%" backgroundColor="black">
-      <Header compact />
-
+    <Box flexDirection="column" height="100%">
       <StatusBar
-        status={getPhaseStatus()}
+        status={phaseStatus}
         sessionId={sessionId}
-        currentFile={files.find((f) => f.status === "processing")?.path}
+        currentFile={currentFile}
         progress={progress}
       />
 
       {/* Task Display */}
-      <Box marginY={1} paddingX={1} backgroundColor="black">
-        <Text color="white" backgroundColor="black">
-          Task:{" "}
-        </Text>
-        <Text color="white" backgroundColor="black">
+      <Box marginY={1} paddingX={1}>
+        <Text color="white">Task: </Text>
+        <Text color="white">
           {task.substring(0, 70)}
           {task.length > 70 ? "..." : ""}
         </Text>
@@ -116,18 +95,14 @@ export const Execution: React.FC<ExecutionProps> = ({
           <Box
             marginTop={1}
             flexDirection="column"
-            borderStyle="round"
-            borderColor="green"
+            borderStyle="single"
+            borderColor="gray"
             padding={1}
-            backgroundColor="black"
           >
-            <Text bold color="green" backgroundColor="black">
+            <Text bold color="green">
               Progress
             </Text>
-            <Text color="cyan" backgroundColor="black">
-              ─────────────────────────────
-            </Text>
-            <Box marginTop={1} backgroundColor="black">
+            <Box marginTop={1}>
               <ProgressBar
                 percent={progressPercent}
                 width={30}
@@ -135,21 +110,16 @@ export const Execution: React.FC<ExecutionProps> = ({
                 color={phase === "error" ? "red" : "green"}
               />
             </Box>
-            <Box marginTop={1} backgroundColor="black">
-              <Text color="white" backgroundColor="black">
-                Duration:{" "}
-              </Text>
+            <Box marginTop={1}>
+              <Text color="white">Duration: </Text>
               <DurationDisplay startTime={startTime} isRunning={isRunning} />
             </Box>
-            <Box backgroundColor="black">
-              <Text color="white" backgroundColor="black">
-                Phase:{" "}
-              </Text>
+            <Box>
+              <Text color="white">Phase: </Text>
               <Text
-                color={phase === "recovery" ? "yellow" : "cyan"}
-                backgroundColor="black"
+                color={phase === "recovery" ? "yellow" : phase === "observing" ? "#9B59B6" : "cyan"}
               >
-                {phase === "recovery" ? "🔄 Recovery" : phase}
+                {phase}
               </Text>
             </Box>
           </Box>
@@ -158,25 +128,21 @@ export const Execution: React.FC<ExecutionProps> = ({
         {/* Right Panel - Files and Logs */}
         <Box flexDirection="column" width="60%" marginLeft={1}>
           <Box
-            borderStyle="round"
-            borderColor="yellow"
+            borderStyle="single"
+            borderColor="gray"
             padding={1}
             height={12}
-            backgroundColor="black"
           >
-            <Box flexDirection="column" backgroundColor="black">
-              <Text bold color="yellow" backgroundColor="black">
+            <Box flexDirection="column">
+              <Text bold color="yellow">
                 {`Files (${progress.current}/${progress.total})`}
-              </Text>
-              <Text color="cyan" backgroundColor="black">
-                ─────────────────────────────────
               </Text>
               <FileList files={files} maxVisible={8} />
             </Box>
           </Box>
 
           <Box marginTop={1}>
-            <LogView logs={logs} maxLines={10} enableScroll={true} />
+            <LogView logs={logs} maxLines={10} enableScroll={true} isActive={true} />
           </Box>
         </Box>
       </Box>
@@ -187,22 +153,21 @@ export const Execution: React.FC<ExecutionProps> = ({
         borderColor="gray"
         paddingX={1}
         marginTop={1}
-        backgroundColor="black"
       >
         {phase === "complete" ? (
-          <Text color="green" backgroundColor="black">
-            ✅ Complete! Press Enter to continue, Esc to exit
+          <Text color="green">
+            Complete! Press Enter to continue, Esc to exit
           </Text>
         ) : phase === "error" ? (
-          <Text color="red" backgroundColor="black">
-            ❌ Error occurred. Press Esc to return
+          <Text color="red">
+            Error occurred. Press Esc to return
           </Text>
         ) : (
-          <Text color="white" backgroundColor="black">
+          <Text color="white">
             Press Esc to cancel
           </Text>
         )}
       </Box>
     </Box>
   );
-};
+});

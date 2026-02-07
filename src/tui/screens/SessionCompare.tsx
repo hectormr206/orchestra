@@ -105,53 +105,53 @@ export const SessionCompare: React.FC<SessionCompareProps> = ({
 
   if (loading) {
     return (
-      <Box flexDirection="column" padding={1} backgroundColor="black">
-        <Text color="cyan" backgroundColor="black">Comparing sessions...</Text>
+      <Box flexDirection="column" padding={1}>
+        <Text color="cyan">Comparing sessions...</Text>
       </Box>
     );
   }
 
   if (error || !result) {
     return (
-      <Box flexDirection="column" padding={1} backgroundColor="black">
-        <Text color="red" backgroundColor="black">Error: {error || 'Failed to load comparison'}</Text>
+      <Box flexDirection="column" padding={1}>
+        <Text color="red">Error: {error || 'Failed to load comparison'}</Text>
         <Box marginTop={1}>
-          <Text color="gray" backgroundColor="black">Press q to go back</Text>
+          <Text color="gray">Press q to go back</Text>
         </Box>
       </Box>
     );
   }
 
   return (
-    <Box flexDirection="column" padding={1} backgroundColor="black">
+    <Box flexDirection="column" padding={1}>
       {/* Header */}
-      <Box borderStyle="double" borderColor="cyan" paddingX={2} backgroundColor="black">
-        <Text bold color="cyan" backgroundColor="black">🆚 SESSION COMPARISON</Text>
+      <Box borderStyle="single" borderColor="cyan" paddingX={2}>
+        <Text bold color="cyan">~ SESSION COMPARISON</Text>
       </Box>
 
       {/* Session IDs */}
-      <Box marginTop={1} backgroundColor="black">
-        <Text color="white" backgroundColor="black">A: </Text>
-        <Text color="cyan" backgroundColor="black">{result.sessionA.id.substring(0, 12)}</Text>
-        <Text color="white" backgroundColor="black"> │ B: </Text>
-        <Text color="magenta" backgroundColor="black">{result.sessionB.id.substring(0, 12)}</Text>
+      <Box marginTop={1}>
+        <Text color="white">A: </Text>
+        <Text color="cyan">{result.sessionA.id.substring(0, 12)}</Text>
+        <Text color="white"> | B: </Text>
+        <Text color="magenta">{result.sessionB.id.substring(0, 12)}</Text>
       </Box>
 
       {/* Tab Selector */}
-      <Box marginTop={1} backgroundColor="black">
-        <Text color={tab === 'metrics' ? 'cyan' : 'gray'} bold={tab === 'metrics'} backgroundColor="black">
+      <Box marginTop={1}>
+        <Text color={tab === 'metrics' ? 'cyan' : 'gray'} bold={tab === 'metrics'}>
           1: Metrics
         </Text>
-        <Text color="white" backgroundColor="black"> │ </Text>
-        <Text color={tab === 'plan' ? 'cyan' : 'gray'} bold={tab === 'plan'} backgroundColor="black">
+        <Text color="white"> | </Text>
+        <Text color={tab === 'plan' ? 'cyan' : 'gray'} bold={tab === 'plan'}>
           2: Plan
         </Text>
-        <Text color="white" backgroundColor="black"> │ </Text>
-        <Text color={tab === 'files' ? 'cyan' : 'gray'} bold={tab === 'files'} backgroundColor="black">
+        <Text color="white"> | </Text>
+        <Text color={tab === 'files' ? 'cyan' : 'gray'} bold={tab === 'files'}>
           3: Files
         </Text>
-        <Text color="white" backgroundColor="black"> │ </Text>
-        <Text color="gray" backgroundColor="black">↑/↓: Scroll │ q: Back</Text>
+        <Text color="white"> | </Text>
+        <Text color="gray">↑/↓: Scroll | q: Back</Text>
       </Box>
 
       {/* Tab Content */}
@@ -159,52 +159,51 @@ export const SessionCompare: React.FC<SessionCompareProps> = ({
         <Box
           marginTop={1}
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor="cyan"
           padding={1}
-          backgroundColor="black"
         >
-          <Text bold color="cyan" backgroundColor="black">📊 Metrics Delta</Text>
+          <Text bold color="cyan"># Metrics Delta</Text>
 
-          <Box marginTop={1} backgroundColor="black">
-            <Box width={20} backgroundColor="black">
-              <Text color="white" backgroundColor="black">Duration:</Text>
+          <Box marginTop={1}>
+            <Box width={20}>
+              <Text color="white">Duration:</Text>
             </Box>
-            <Text color={result.metricsDelta.durationDelta > 0 ? 'red' : 'green'} backgroundColor="black">
+            <Text color={result.metricsDelta.durationDelta > 0 ? 'red' : 'green'}>
               {result.metricsDelta.durationDelta > 0 ? '+' : ''}
               {formatDuration(Math.abs(result.metricsDelta.durationDelta))}
             </Text>
-            <Text color="gray" backgroundColor="black">
+            <Text color="gray">
               {' '}({result.metricsDelta.durationPercent > 0 ? '+' : ''}
               {result.metricsDelta.durationPercent.toFixed(1)}%)
             </Text>
           </Box>
 
-          <Box marginTop={1} backgroundColor="black">
-            <Box width={20} backgroundColor="black">
-              <Text color="white" backgroundColor="black">Iterations:</Text>
+          <Box marginTop={1}>
+            <Box width={20}>
+              <Text color="white">Iterations:</Text>
             </Box>
-            <Text color={result.metricsDelta.iterationsDelta > 0 ? 'red' : result.metricsDelta.iterationsDelta < 0 ? 'green' : 'white'} backgroundColor="black">
+            <Text color={result.metricsDelta.iterationsDelta > 0 ? 'red' : result.metricsDelta.iterationsDelta < 0 ? 'green' : 'white'}>
               {result.metricsDelta.iterationsDelta > 0 ? '+' : ''}
               {result.metricsDelta.iterationsDelta}
             </Text>
           </Box>
 
-          <Box marginTop={1} backgroundColor="black">
-            <Box width={20} backgroundColor="black">
-              <Text color="white" backgroundColor="black">Files Created:</Text>
+          <Box marginTop={1}>
+            <Box width={20}>
+              <Text color="white">Files Created:</Text>
             </Box>
-            <Text color={result.metricsDelta.filesCreatedDelta > 0 ? 'green' : result.metricsDelta.filesCreatedDelta < 0 ? 'red' : 'white'} backgroundColor="black">
+            <Text color={result.metricsDelta.filesCreatedDelta > 0 ? 'green' : result.metricsDelta.filesCreatedDelta < 0 ? 'red' : 'white'}>
               {result.metricsDelta.filesCreatedDelta > 0 ? '+' : ''}
               {result.metricsDelta.filesCreatedDelta}
             </Text>
           </Box>
 
-          <Box marginTop={2} flexDirection="column" backgroundColor="black">
-            <Text bold color="white" backgroundColor="black">Task Comparison:</Text>
-            <Box marginTop={1} flexDirection="column" backgroundColor="black">
-              <Text color="cyan" backgroundColor="black">A: {result.sessionA.task.substring(0, 60)}...</Text>
-              <Text color="magenta" backgroundColor="black">B: {result.sessionB.task.substring(0, 60)}...</Text>
+          <Box marginTop={2} flexDirection="column">
+            <Text bold color="white">Task Comparison:</Text>
+            <Box marginTop={1} flexDirection="column">
+              <Text color="cyan">A: {result.sessionA.task.substring(0, 60)}...</Text>
+              <Text color="magenta">B: {result.sessionB.task.substring(0, 60)}...</Text>
             </Box>
           </Box>
         </Box>
@@ -214,23 +213,22 @@ export const SessionCompare: React.FC<SessionCompareProps> = ({
         <Box
           marginTop={1}
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor="magenta"
           padding={1}
           height={visibleLines + 3}
-          backgroundColor="black"
         >
-          <Text bold color="magenta" backgroundColor="black">📝 Plan Diff</Text>
+          <Text bold color="magenta">= Plan Diff</Text>
 
           {result.planDiff.length === 0 ? (
-            <Text color="gray" backgroundColor="black">Plans are identical</Text>
+            <Text color="gray">Plans are identical</Text>
           ) : (
-            <Box flexDirection="column" marginTop={1} backgroundColor="black">
+            <Box flexDirection="column" marginTop={1}>
               {result.planDiff
                 .slice(scrollOffset, scrollOffset + visibleLines)
                 .map((line, idx) => (
-                  <Box key={idx} backgroundColor="black">
-                    <Text color={getDiffColor(line.type)} backgroundColor="black">
+                  <Box key={idx}>
+                    <Text color={getDiffColor(line.type)}>
                       {getDiffPrefix(line.type)}{line.content.substring(0, 80)}
                     </Text>
                   </Box>
@@ -244,35 +242,34 @@ export const SessionCompare: React.FC<SessionCompareProps> = ({
         <Box
           marginTop={1}
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor="yellow"
           padding={1}
           height={visibleLines + 3}
-          backgroundColor="black"
         >
-          <Text bold color="yellow" backgroundColor="black">📁 File Differences</Text>
+          <Text bold color="yellow">{">"} File Differences</Text>
 
           {result.fileDifferences.length === 0 ? (
-            <Text color="gray" backgroundColor="black">No file differences</Text>
+            <Text color="gray">No file differences</Text>
           ) : (
-            <Box flexDirection="column" marginTop={1} backgroundColor="black">
+            <Box flexDirection="column" marginTop={1}>
               {result.fileDifferences
                 .slice(scrollOffset, scrollOffset + visibleLines)
                 .map((diff, idx) => (
-                  <Box key={idx} backgroundColor="black">
+                  <Box key={idx}>
                     {!diff.inA && diff.inB && (
-                      <Text color="green" backgroundColor="black">+ {diff.path}</Text>
+                      <Text color="green">+ {diff.path}</Text>
                     )}
                     {diff.inA && !diff.inB && (
-                      <Text color="red" backgroundColor="black">- {diff.path}</Text>
+                      <Text color="red">- {diff.path}</Text>
                     )}
                     {diff.inA && diff.inB && diff.statusChanged && (
-                      <Text color="yellow" backgroundColor="black">
+                      <Text color="yellow">
                         ~ {diff.path} ({diff.oldStatus} → {diff.newStatus})
                       </Text>
                     )}
                     {diff.inA && diff.inB && !diff.statusChanged && (
-                      <Text color="white" backgroundColor="black">  {diff.path}</Text>
+                      <Text color="white">  {diff.path}</Text>
                     )}
                   </Box>
                 ))}
@@ -283,8 +280,8 @@ export const SessionCompare: React.FC<SessionCompareProps> = ({
 
       {/* Scroll Indicator */}
       {tab !== 'metrics' && getMaxScroll() > 0 && (
-        <Box justifyContent="flex-end" backgroundColor="black">
-          <Text color="gray" backgroundColor="black">
+        <Box justifyContent="flex-end">
+          <Text color="gray">
             Scroll: {Math.round((scrollOffset / Math.max(1, getMaxScroll())) * 100)}%
           </Text>
         </Box>
@@ -296,10 +293,9 @@ export const SessionCompare: React.FC<SessionCompareProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
-          1-3: Switch tabs │ ↑/↓: Scroll │ q/Esc: Back
+        <Text color="white">
+          1-3: Switch tabs | ↑/↓: Scroll | q/Esc: Back
         </Text>
       </Box>
     </Box>

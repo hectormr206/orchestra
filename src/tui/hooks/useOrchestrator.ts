@@ -19,6 +19,7 @@ export interface OrchestratorState {
     | "executing"
     | "auditing"
     | "recovery"
+    | "observing"
     | "complete"
     | "error";
   plan: string | null;
@@ -61,6 +62,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
       { name: "Executor", adapter: "GLM 4.7", status: "idle" },
       { name: "Auditor", adapter: "Gemini", status: "idle" },
       { name: "Consultant", adapter: "Codex", status: "idle" },
+      { name: "Observer", adapter: "Kimi Vision", status: "idle" },
     ],
     logs: [],
     progress: { current: 0, total: 0 },
@@ -73,6 +75,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
     null,
   );
   const editedPlanRef = useRef<string | null>(null);
+  const cancelledRef = useRef<boolean>(false);
 
   // LOG BATCHING TO PREVENT FLICKERING -------------------------------------
   const logBufferRef = useRef<LogEntry[]>([]);
@@ -140,12 +143,17 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
         agents?: AgentConfig;
       },
     ) => {
+      cancelledRef.current = false;
       const currentStartTime = Date.now();
+
+      const sessionId =
+        Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 
       setState((prev) => ({
         ...prev,
         isRunning: true,
         task,
+        sessionId,
         phase: "planning",
         plan: null,
         files: [],
@@ -156,12 +164,6 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
         agents: prev.agents.map((a) => ({ ...a, status: "idle" as const })),
       }));
 
-      // Duration is now calculated locally in DurationDisplay component
-      // No more interval timer causing parent re-renders
-
-      const sessionId =
-        Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
-      setState((prev) => ({ ...prev, sessionId }));
       addLog("info", "Starting new session: " + sessionId);
 
       const orchestrator = new Orchestrator(
@@ -174,20 +176,26 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
         },
         {
           onPhaseStart: (phase, agent) => {
-            // ... (keep existing callbacks)
             addLog("info", "Phase started: " + phase, agent);
 
-            if (phase === "planning") {
-              setState((prev) => ({ ...prev, phase: "planning" }));
-              updateAgent("Architect", { status: "working" });
-            } else if (phase === "executing") {
-              setState((prev) => ({ ...prev, phase: "executing" }));
-              updateAgent("Executor", { status: "working" });
-            } else if (phase === "auditing") {
-              setState((prev) => ({ ...prev, phase: "auditing" }));
-              updateAgent("Auditor", { status: "working" });
+            const agentMap: Record<string, string> = {
+              planning: "Architect",
+              executing: "Executor",
+              auditing: "Auditor",
+              observing: "Observer",
+            };
+            const agentName = agentMap[phase];
+            if (agentName) {
+              setState((prev) => ({
+                ...prev,
+                phase: phase as any,
+                agents: prev.agents.map((a) =>
+                  a.name === agentName
+                    ? { ...a, status: "working" as const }
+                    : a,
+                ),
+              }));
             } else if (phase === "testing") {
-              // Testing phase - don't change TUI phase, it's a quick step
               addLog("info", "Running tests...");
             }
           },
@@ -203,21 +211,29 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
               agent,
             );
 
-            if (phase === "planning") {
-              updateAgent("Architect", {
-                status: "complete",
-                duration: result.duration,
-              });
-            } else if (phase === "executing") {
-              updateAgent("Executor", {
-                status: "complete",
-                duration: result.duration,
-              });
-            } else if (phase === "auditing") {
-              updateAgent("Auditor", {
-                status: "complete",
-                duration: result.duration,
-              });
+            const agentMap: Record<string, string> = {
+              planning: "Architect",
+              executing: "Executor",
+              auditing: "Auditor",
+              observing: "Observer",
+            };
+            const agentName = agentMap[phase];
+            if (agentName) {
+              setState((prev) => ({
+                ...prev,
+                agents: prev.agents.map((a) =>
+                  a.name === agentName
+                    ? {
+                        ...a,
+                        status:
+                          phase === "observing" && !result.success
+                            ? ("error" as const)
+                            : ("complete" as const),
+                        duration: result.duration,
+                      }
+                    : a,
+                ),
+              }));
             }
           },
           onError: (phase, error) => {
@@ -294,35 +310,25 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
           onAdapterFallback: (from, to, reason, agentName) => {
             addLog(
               "warning",
-              "Fallback: " + from + " → " + to + " (" + reason + ")",
+              "Fallback: " + from + " -> " + to + " (" + reason + ")",
               agentName,
             );
 
-            // Update the UI to show the new active model
-            setState((prev) => ({
-              ...prev,
-              agents: prev.agents.map((agent) => {
-                // If agentName is provided, update only that agent
-                if (agentName && agent.name === agentName) {
-                  return {
-                    ...agent,
-                    adapter: to,
-                    status: "fallback",
-                    fallbackFrom: from,
-                  };
-                }
-                // Fallback for older behavior (shouldn't happen with new orchestrator)
-                if (!agentName && agent.adapter === from) {
-                  return {
-                    ...agent,
-                    adapter: to,
-                    status: "fallback",
-                    fallbackFrom: from,
-                  };
-                }
-                return agent;
-              }),
-            }));
+            if (agentName) {
+              setState((prev) => ({
+                ...prev,
+                agents: prev.agents.map((agent) =>
+                  agent.name === agentName
+                    ? {
+                        ...agent,
+                        adapter: to,
+                        status: "fallback" as const,
+                        fallbackFrom: from,
+                      }
+                    : agent,
+                ),
+              }));
+            }
           },
           onRecoveryStart: (failedFiles) => {
             addLog(
@@ -377,6 +383,30 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
               status: success ? "complete" : "error",
             });
           },
+          onObserverStart: () => {
+            addLog("info", "Observer: Starting visual validation...", "Observer");
+            updateAgent("Observer", { status: "working" });
+          },
+          onRouteCapture: (route, index, total) => {
+            addLog("info", `Observer: Capturing ${route} (${index + 1}/${total})`, "Observer");
+          },
+          onRouteValidation: (route, result) => {
+            addLog(
+              result.status === "APPROVED" ? "success" : "warning",
+              `Observer: ${route} - ${result.status} (${result.issues.length} issues)`,
+              "Observer",
+            );
+          },
+          onObserverComplete: (result) => {
+            addLog(
+              result.success ? "success" : "warning",
+              `Observer: Validation complete - ${result.totalIssues} total issues`,
+              "Observer",
+            );
+          },
+          onObserverError: (error) => {
+            addLog("error", "Observer error: " + error, "Observer");
+          },
         },
       );
 
@@ -406,6 +436,11 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
             adapter: orchestrator.consultantAdapter.getInfo().model,
             status: "idle",
           },
+          {
+            name: "Observer",
+            adapter: "Kimi Vision",
+            status: "idle",
+          },
         ],
       }));
 
@@ -415,25 +450,31 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
 
         const success = await orchestrator.run(task);
 
-        setState((prev) => ({
-          ...prev,
-          isRunning: false,
-          phase: success ? "complete" : "error",
-        }));
+        // Don't overwrite state if user cancelled during execution
+        if (!cancelledRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isRunning: false,
+            phase: success ? "complete" : "error",
+          }));
 
-        addLog(
-          success ? "success" : "error",
-          success ? "Task completed successfully" : "Task failed",
-        );
+          addLog(
+            success ? "success" : "error",
+            success ? "Task completed successfully" : "Task failed",
+          );
+        }
       } catch (error) {
-        setState((prev) => ({
-          ...prev,
-          isRunning: false,
-          phase: "error",
-          error: String(error),
-        }));
+        // Don't overwrite state if user cancelled during execution
+        if (!cancelledRef.current) {
+          setState((prev) => ({
+            ...prev,
+            isRunning: false,
+            phase: "error",
+            error: String(error),
+          }));
 
-        addLog("error", "Task failed: " + String(error));
+          addLog("error", "Task failed: " + String(error));
+        }
       }
     },
     [addLog, updateAgent],
@@ -472,30 +513,21 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
   }, [addLog]);
 
   const cancel = useCallback(() => {
-    // Don't cancel if task already completed or errored
-    setState((prev) => {
-      if (
-        prev.phase === "complete" ||
-        prev.phase === "error" ||
-        prev.phase === "idle"
-      ) {
-        // Already done, just return to dashboard instead of showing cancelled
-        return prev;
-      }
+    cancelledRef.current = true;
 
-      // Actually cancel an in-progress task
-      if (planResolveRef.current) {
-        planResolveRef.current({ approved: false, reason: "rejected" });
-        planResolveRef.current = null;
-      }
+    // Resolve pending plan approval if waiting
+    if (planResolveRef.current) {
+      planResolveRef.current({ approved: false, reason: "rejected" });
+      planResolveRef.current = null;
+    }
 
-      addLog("warning", "Task cancelled by user");
-      return {
-        ...prev,
-        isRunning: false,
-        phase: "idle",
-      };
-    });
+    addLog("warning", "Task cancelled by user");
+    setState((prev) => ({
+      ...prev,
+      isRunning: false,
+      phase: "idle",
+      error: null,
+    }));
   }, [addLog]);
 
   const reset = useCallback(() => {
@@ -511,6 +543,7 @@ export function useOrchestrator(): [OrchestratorState, OrchestratorActions] {
         { name: "Executor", adapter: "GLM 4.7", status: "idle" },
         { name: "Auditor", adapter: "Gemini", status: "idle" },
         { name: "Consultant", adapter: "Codex", status: "idle" },
+        { name: "Observer", adapter: "Kimi Vision", status: "idle" },
       ],
       logs: [],
       progress: { current: 0, total: 0 },

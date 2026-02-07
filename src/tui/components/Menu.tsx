@@ -14,7 +14,7 @@ interface MenuProps {
   title?: string;
 }
 
-export const Menu: React.FC<MenuProps> = ({ items, onSelect, title }) => {
+export const Menu: React.FC<MenuProps> = React.memo(({ items, onSelect, title }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   useInput((input, key) => {
@@ -30,10 +30,10 @@ export const Menu: React.FC<MenuProps> = ({ items, onSelect, title }) => {
   });
 
   return (
-    <Box flexDirection="column" backgroundColor="black">
+    <Box flexDirection="column">
       {title && (
-        <Box marginBottom={1} backgroundColor="black">
-          <Text bold color="cyan" backgroundColor="black">
+        <Box marginBottom={1}>
+          <Text bold color="cyan">
             {title}
           </Text>
         </Box>
@@ -41,16 +41,15 @@ export const Menu: React.FC<MenuProps> = ({ items, onSelect, title }) => {
       {items.map((item, index) => {
         const isSelected = index === selectedIndex;
         return (
-          <Box key={item.value} backgroundColor="black">
-            <Text color={isSelected ? "green" : "cyan"} backgroundColor="black">
-              {isSelected ? "▶ " : "  "}
+          <Box key={item.value}>
+            <Text color={isSelected ? "green" : "cyan"}>
+              {isSelected ? "> " : "  "}
             </Text>
-            <Box width={4} backgroundColor="black">
-              <Text backgroundColor="black">{item.icon || "→"}</Text>
+            <Box width={4}>
+              <Text>{item.icon || "-"}</Text>
             </Box>
             <Text
               color={isSelected ? "green" : "cyan"}
-              backgroundColor="black"
               bold={isSelected}
             >
               {item.label}
@@ -60,4 +59,4 @@ export const Menu: React.FC<MenuProps> = ({ items, onSelect, title }) => {
       })}
     </Box>
   );
-};
+});

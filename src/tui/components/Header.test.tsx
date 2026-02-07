@@ -8,81 +8,34 @@ import React from 'react';
 import { Header } from './Header.js';
 
 describe('Header Component', () => {
-  describe('full header mode', () => {
+  describe('compact header (always)', () => {
     it('should render with default props', () => {
       const { lastFrame } = render(<Header />);
 
       expect(lastFrame()).toBeDefined();
-      expect(lastFrame()).toContain('Meta-Orchestrator');
+      expect(lastFrame()).toContain('orchestra');
     });
 
-    it('should display ASCII art logo', () => {
-      const { lastFrame } = render(<Header compact={false} />);
-
-      const frame = lastFrame();
-      expect(frame).toBeDefined();
-      if (frame) {
-        expect(frame).toContain('___');
-        expect(frame).toContain('____');
-        expect(frame).toContain('_____');
-      }
-    });
-
-    it('should display tagline', () => {
-      const { lastFrame } = render(<Header compact={false} />);
-
-      expect(lastFrame()).toContain('Meta-Orchestrator for AI Development Tools');
-    });
-
-    it('should contain colored elements', () => {
+    it('should display current working directory', () => {
       const { lastFrame } = render(<Header />);
 
       const frame = lastFrame();
       expect(frame).toBeDefined();
       if (frame) {
-        // The frame should contain multiple lines with ASCII art
-        expect(frame.split('\n').length).toBeGreaterThan(5);
-      }
-    });
-  });
-
-  describe('compact header mode', () => {
-    it('should render compact version', () => {
-      const { lastFrame } = render(<Header compact={true} />);
-
-      expect(lastFrame()).toBeDefined();
-      expect(lastFrame()).toContain('ORCHESTRA');
-      expect(lastFrame()).toContain('v0.1.0');
-    });
-
-    it('should be shorter than full header', () => {
-      const fullHeader = render(<Header compact={false} />);
-      const compactHeader = render(<Header compact={true} />);
-
-      const fullFrame = fullHeader.lastFrame();
-      const compactFrame = compactHeader.lastFrame();
-
-      expect(fullFrame).toBeDefined();
-      expect(compactFrame).toBeDefined();
-
-      if (fullFrame && compactFrame) {
-        const fullLines = fullFrame.split('\n').length;
-        const compactLines = compactFrame.split('\n').length;
-
-        expect(compactLines).toBeLessThan(fullLines);
+        // Should contain a path-like string (cwd)
+        expect(frame).toContain(process.cwd());
       }
     });
 
-    it('should contain version number', () => {
-      const { lastFrame } = render(<Header compact={true} />);
+    it('should be a single line (compact)', () => {
+      const { lastFrame } = render(<Header />);
 
-      expect(lastFrame()).toContain('v0.1.0');
-    });
-
-    it('should contain Meta-Orchestrator text', () => {
-      const { lastFrame } = render(<Header compact={true} />);
-
-      expect(lastFrame()).toContain('Meta-Orchestrator');
+      const frame = lastFrame();
+      expect(frame).toBeDefined();
+      if (frame) {
+        const lines = frame.split('\n').filter(l => l.trim().length > 0);
+        expect(lines.length).toBe(1);
+      }
     });
   });
 
@@ -91,35 +44,18 @@ describe('Header Component', () => {
       expect(() => render(<Header />)).not.toThrow();
     });
 
-    it('should render in compact mode without crashing', () => {
-      expect(() => render(<Header compact={true} />)).not.toThrow();
-    });
-
     it('should handle re-renders', () => {
-      const { rerender } = render(<Header compact={false} />);
+      const { rerender } = render(<Header />);
 
-      expect(() => rerender(<Header compact={true} />)).not.toThrow();
-      expect(() => rerender(<Header compact={false} />)).not.toThrow();
+      expect(() => rerender(<Header />)).not.toThrow();
     });
   });
 
   describe('content verification', () => {
-    it('should display correct version', () => {
-      const { lastFrame } = render(<Header compact={true} />);
+    it('should display orchestra in lowercase', () => {
+      const { lastFrame } = render(<Header />);
 
-      expect(lastFrame()).toContain('v0.1.0');
-    });
-
-    it('should display ORCHESTRA in uppercase in compact mode', () => {
-      const { lastFrame } = render(<Header compact={true} />);
-
-      expect(lastFrame()).toContain('ORCHESTRA');
-    });
-
-    it('should have separator line in full mode', () => {
-      const { lastFrame } = render(<Header compact={false} />);
-
-      expect(lastFrame()).toContain('-');
+      expect(lastFrame()).toContain('orchestra');
     });
   });
 });

@@ -244,19 +244,18 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
 
   if (loading) {
     return (
-      <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Box flexDirection="column" padding={1}>
         <Box
-          borderStyle="double"
+          borderStyle="single"
           borderColor="cyan"
           paddingX={2}
-          backgroundColor="black"
         >
-          <Text bold color="cyan" backgroundColor="black">
-            📄 SESSION DETAILS
+          <Text bold color="cyan">
+            = SESSION DETAILS
           </Text>
         </Box>
-        <Box marginTop={2} backgroundColor="black">
-          <Text color="yellow" backgroundColor="black">
+        <Box marginTop={2}>
+          <Text color="yellow">
             Loading session data...
           </Text>
         </Box>
@@ -267,9 +266,9 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
   if (error || !session) {
     return (
       <Box flexDirection="column" padding={1}>
-        <Box borderStyle="double" borderColor="cyan" paddingX={2}>
+        <Box borderStyle="single" borderColor="cyan" paddingX={2}>
           <Text bold color="cyan">
-            📄 SESSION DETAILS
+            = SESSION DETAILS
           </Text>
         </Box>
         <Box marginTop={2}>
@@ -283,37 +282,35 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
   }
 
   return (
-    <Box flexDirection="column" padding={1} backgroundColor="black">
+    <Box flexDirection="column" padding={1}>
       <Box
-        borderStyle="double"
+        borderStyle="single"
         borderColor="cyan"
         paddingX={2}
-        backgroundColor="black"
       >
-        <Text bold color="cyan" backgroundColor="black">
-          📄 SESSION DETAILS
+        <Text bold color="cyan">
+          = SESSION DETAILS
         </Text>
       </Box>
 
       {/* Session ID */}
-      <Box marginTop={1} backgroundColor="black">
-        <Text color="white" backgroundColor="black">
+      <Box marginTop={1}>
+        <Text color="white">
           ID:{" "}
         </Text>
-        <Text color="cyan" backgroundColor="black">
+        <Text color="cyan">
           {session.id}
         </Text>
       </Box>
 
       {/* Tabs */}
-      <Box marginTop={1} backgroundColor="black">
+      <Box marginTop={1}>
         {tabs.map((tab, index) => (
-          <Box key={tab} marginX={1} backgroundColor="black">
+          <Box key={tab} marginX={1}>
             <Text
               color={currentTab === index ? "cyan" : "white"}
               bold={currentTab === index}
               underline={currentTab === index}
-              backgroundColor="black"
             >
               {index + 1}. {tab}
             </Text>
@@ -329,7 +326,6 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
         padding={1}
         height={visibleLines + 2}
         flexDirection="column"
-        backgroundColor="black"
       >
         {tabs[currentTab] === "Overview" && (
           <Box flexDirection="column">
@@ -488,10 +484,9 @@ export const SessionDetails: React.FC<SessionDetailsProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
-          1-4: Switch tabs │ ←/→: Navigate tabs │ ↑/↓: Scroll │ Esc/q: Back
+        <Text color="white">
+          1-4: Switch tabs | ←/→: Navigate tabs | ↑/↓: Scroll | Esc/q: Back
         </Text>
       </Box>
     </Box>

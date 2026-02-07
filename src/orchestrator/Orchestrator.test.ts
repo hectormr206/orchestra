@@ -123,6 +123,7 @@ vi.mock('../prompts/auditor.js', () => ({
   })),
   buildFixPrompt: vi.fn(() => 'Mock fix prompt'),
   isValidPythonCode: vi.fn(() => true),
+  isValidCode: vi.fn(() => true),
 }));
 
 vi.mock('../prompts/consultant.js', () => ({

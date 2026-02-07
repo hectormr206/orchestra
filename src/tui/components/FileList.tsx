@@ -13,36 +13,53 @@ interface FileListProps {
   maxVisible?: number;
 }
 
-export const FileList: React.FC<FileListProps> = ({
+const getStatusIcon = (status: FileStatus["status"]) => {
+  switch (status) {
+    case "pending":
+      return "-";
+    case "processing":
+      return ">";
+    case "complete":
+      return "+";
+    case "error":
+      return "x";
+  }
+};
+
+const getStatusColor = (status: FileStatus["status"]) => {
+  switch (status) {
+    case "pending":
+      return "gray";
+    case "processing":
+      return "yellow";
+    case "complete":
+      return "green";
+    case "error":
+      return "red";
+  }
+};
+
+const filesAreEqual = (prev: FileListProps, next: FileListProps) => {
+  if (prev.files.length !== next.files.length) return false;
+  if (prev.maxVisible !== next.maxVisible) return false;
+  for (let i = 0; i < prev.files.length; i++) {
+    const a = prev.files[i];
+    const b = next.files[i];
+    if (
+      a.path !== b.path ||
+      a.status !== b.status ||
+      a.duration !== b.duration ||
+      a.error !== b.error
+    )
+      return false;
+  }
+  return true;
+};
+
+export const FileList: React.FC<FileListProps> = React.memo(({
   files,
   maxVisible = 10,
 }) => {
-  const getStatusIcon = (status: FileStatus["status"]) => {
-    switch (status) {
-      case "pending":
-        return "◯";
-      case "processing":
-        return "◈";
-      case "complete":
-        return "✓";
-      case "error":
-        return "✗";
-    }
-  };
-
-  const getStatusColor = (status: FileStatus["status"]) => {
-    switch (status) {
-      case "pending":
-        return "gray";
-      case "processing":
-        return "yellow";
-      case "complete":
-        return "green";
-      case "error":
-        return "red";
-    }
-  };
-
   const visibleFiles = files.slice(-maxVisible);
   const hiddenCount = files.length - maxVisible;
 
@@ -71,4 +88,4 @@ export const FileList: React.FC<FileListProps> = ({
       ))}
     </Box>
   );
-};
+}, filesAreEqual);

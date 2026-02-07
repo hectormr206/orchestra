@@ -193,7 +193,7 @@ export class CodexAdapter {
   getInfo(): { name: string; model: string; provider: string } {
     return {
       name: 'CodexAdapter',
-      model: 'Codex CLI',
+      model: 'Codex',
       provider: 'OpenAI',
     };
   }

@@ -17,34 +17,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats }) => {
     {
       label: "New Task",
       value: "new-task",
-      icon: "🚀",
+      icon: ">",
       description: "Start a new orchestration task",
     },
     {
       label: "Resume Session",
       value: "resume",
-      icon: "↻",
+      icon: "<",
       description: "Continue an interrupted session",
     },
     {
       label: "History",
       value: "history",
-      icon: "📜",
+      icon: "=",
       description: "View past sessions",
     },
     {
       label: "Settings",
       value: "settings",
-      icon: "⚙️",
+      icon: "*",
       description: "Configure Orchestra",
     },
     {
       label: "Doctor",
       value: "doctor",
-      icon: "🩺",
+      icon: "+",
       description: "Check system status",
     },
-    { label: "Exit", value: "exit", icon: "👋", description: "Exit Orchestra" },
+    { label: "Exit", value: "exit", icon: "q", description: "Exit Orchestra" },
   ];
 
   const handleSelect = (item: MenuItem) => {
@@ -57,31 +57,31 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats }) => {
       {stats && (
         <Box
           marginBottom={2}
-          borderStyle="round"
-          borderColor="cyan"
+          borderStyle="single"
+          borderColor="gray"
           padding={1}
         >
           <Box flexDirection="row" justifyContent="space-around" width="100%">
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="cyan" backgroundColor="black">
+              <Text bold color="cyan">
                 {String(stats.totalSessions)}
               </Text>
               <Text color="cyan">Total</Text>
             </Box>
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="green" backgroundColor="black">
+              <Text bold color="green">
                 {String(stats.completedToday)}
               </Text>
               <Text color="green">Completed</Text>
             </Box>
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="red" backgroundColor="black">
+              <Text bold color="red">
                 {String(stats.failedToday)}
               </Text>
               <Text color="red">Failed</Text>
             </Box>
             <Box flexDirection="column" alignItems="center">
-              <Text bold color="blue" backgroundColor="black">
+              <Text bold color="blue">
                 {String(stats.cacheEntries)}
               </Text>
               <Text color="blue">Cached</Text>
@@ -98,28 +98,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats }) => {
 
         {/* Shortcuts */}
         <Box flexDirection="column" marginLeft={4}>
-          <Text bold color="cyan" backgroundColor="black">
+          <Text bold color="cyan">
             Keyboard Shortcuts
           </Text>
-          <Text color="cyan">─────────────────────</Text>
           <Box marginTop={1}>
-            <Text color="yellow" backgroundColor="black">n</Text>
+            <Text color="yellow">n</Text>
             <Text color="cyan"> - New task</Text>
           </Box>
           <Box>
-            <Text color="yellow" backgroundColor="black">r</Text>
+            <Text color="yellow">r</Text>
             <Text color="cyan"> - Resume session</Text>
           </Box>
           <Box>
-            <Text color="yellow" backgroundColor="black">h</Text>
+            <Text color="yellow">h</Text>
             <Text color="cyan"> - History</Text>
           </Box>
           <Box>
-            <Text color="yellow" backgroundColor="black">s</Text>
+            <Text color="yellow">s</Text>
             <Text color="cyan"> - Settings</Text>
           </Box>
           <Box>
-            <Text color="yellow" backgroundColor="black">q</Text>
+            <Text color="yellow">q</Text>
             <Text color="cyan"> - Quit</Text>
           </Box>
         </Box>
@@ -127,7 +126,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onNavigate, stats }) => {
 
       {/* Footer hint */}
       <Box marginTop={2}>
-        <Text color="yellow" backgroundColor="black">Use ↑/↓ to navigate, Enter to select</Text>
+        <Text color="yellow">Use Up/Down to navigate, Enter to select</Text>
       </Box>
     </Box>
   );

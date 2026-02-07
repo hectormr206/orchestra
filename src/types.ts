@@ -40,6 +40,18 @@ export interface OrchestratorConfig {
   autoRevertOnFailure: boolean;
   /** Configuration for specific agents */
   agents: AgentConfig;
+  /** Observer configuration (visual validation) */
+  observerConfig?: ObserverConfig;
+  /** Enable parallel consultant: process multiple files with errors simultaneously */
+  parallelConsultant: boolean;
+  /** Maximum concurrent consultant operations (default: 3) */
+  consultantMaxConcurrency: number;
+  /** Enable early observer: start visual validation as soon as critical files are ready */
+  earlyObserver: boolean;
+  /** File patterns considered critical for early observer (e.g., ["src/App.tsx", "src/main.ts"]) */
+  criticalFilesPatterns: string[];
+  /** Minimum number of critical files needed before starting early observer (default: 1) */
+  criticalFilesThreshold: number;
 }
 
 export interface AgentConfig {
@@ -51,10 +63,10 @@ export interface AgentConfig {
 
 export type ModelType =
   | "Claude"
-  | "Claude (GLM 4.7)"
+  | "Claude (GLM)"
   | "Gemini"
   | "Codex"
-  | "Kimi";
+  | "Claude (Kimi)";
 
 /** Custom prompt templates */
 export interface CustomPrompts {
@@ -127,6 +139,13 @@ export interface ProjectConfig {
     maxConcurrency?: number;
     maxIterations?: number;
     timeout?: number;
+    /** Enable parallel consultant for fixing multiple files simultaneously */
+    parallelConsultant?: boolean;
+    consultantMaxConcurrency?: number;
+    /** Enable early observer for visual validation of critical files */
+    earlyObserver?: boolean;
+    criticalFilesPatterns?: string[];
+    criticalFilesThreshold?: number;
   };
   /** Custom prompts */
   prompts?: {
@@ -145,6 +164,21 @@ export interface ProjectConfig {
     autoRevertOnFailure?: boolean;
     // Agent Models
     agents?: AgentConfig;
+  };
+  /** Observer configuration (visual and output validation) */
+  observer?: {
+    enabled?: boolean;
+    mode?: "web" | "output";
+    appUrl?: string;
+    devServerCommand?: string;
+    commands?: string[];
+    renderWaitMs?: number;
+    maxVisualIterations?: number;
+    viewport?: { width: number; height: number };
+    routes?: string[];
+    captureConsoleErrors?: boolean;
+    auth?: ObserverConfig["auth"];
+    visionModel?: "kimi" | "glm";
   };
 }
 
@@ -195,6 +229,7 @@ export type Phase =
   | "auditing"
   | "recovery"
   | "testing"
+  | "observing"
   | "committing"
   | "completed"
   | "failed"
@@ -299,4 +334,71 @@ export interface EnhancedSessionState extends SessionState {
   globalMetrics: GlobalMetrics;
   /** Learning mode active */
   learningMode?: 'disabled' | 'shadow' | 'ab_test' | 'production';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Observer Types - Visual Validation Module
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface ObserverConfig {
+  enabled: boolean;
+  mode: "web" | "output";
+  appUrl: string;
+  devServerCommand?: string;
+  /** Commands to run for output mode validation (CLI, API, database) */
+  commands?: string[];
+  renderWaitMs: number;
+  maxVisualIterations: number;
+  viewport: { width: number; height: number };
+  routes: string[];
+  captureConsoleErrors: boolean;
+  auth?: {
+    loginUrl: string;
+    usernameSelector: string;
+    passwordSelector: string;
+    submitSelector: string;
+    username: string;
+    password: string;
+  };
+  visionModel: "kimi" | "glm";
+  screenshotDir: string;
+}
+
+export interface VisualValidationResult {
+  status: "APPROVED" | "NEEDS_WORK";
+  route: string;
+  screenshotPath: string;
+  issues: VisualIssue[];
+  consoleErrors: string[];
+  summary: string;
+}
+
+export interface VisualIssue {
+  severity: "critical" | "major" | "minor";
+  category: "layout" | "styling" | "content" | "accessibility" | "console_error" | "rendering" | "output_error" | "runtime_error";
+  description: string;
+  suggestion: string;
+  region?: string;
+}
+
+export interface ObserverResult {
+  success: boolean;
+  validations: VisualValidationResult[];
+  totalIssues: number;
+  duration: number;
+  screenshotDir: string;
+}
+
+export interface VisionExecuteOptions {
+  prompt: string;
+  images: Array<{ data: string; mimeType: "image/png" | "image/jpeg" }>;
+  maxTokens?: number;
+}
+
+export interface VisionResult {
+  success: boolean;
+  response: string;
+  duration: number;
+  tokensUsed?: number;
+  error?: string;
 }

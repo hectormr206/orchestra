@@ -58,11 +58,19 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
     autoRevertOnFailure: true,
     // Agent CLIs (Optimized Hierarchy)
     agents: {
-      architect: ["Kimi", "Gemini"],
-      executor: ["Claude (GLM 4.7)", "Kimi"],
+      architect: ["Claude (Kimi)", "Gemini"],
+      executor: ["Claude (GLM)", "Claude (Kimi)"],
       auditor: ["Gemini", "Codex"],
-      consultant: ["Codex", "Kimi"],
+      consultant: ["Codex", "Claude (Kimi)"],
     },
+    // Observer settings
+    observerEnabled: false,
+    observerMode: "web",
+    observerAppUrl: "http://localhost:3000",
+    observerDevServerCommand: "",
+    observerVisionModel: "kimi",
+    observerRoutes: "",
+    observerCommands: "",
   });
   const [stats, setStats] = useState({
     totalSessions: 0,
@@ -148,16 +156,18 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
     if (orchestratorState.phase === "awaiting-approval") {
       setScreen("plan-review");
     } else if (
-      orchestratorState.phase === "executing" ||
-      orchestratorState.phase === "auditing" ||
-      orchestratorState.phase === "recovery"
+      orchestratorState.phase === "idle" && screen === "execution"
+    ) {
+      // User cancelled - return to dashboard
+      setScreen("dashboard");
+    } else if (
+      screen !== "execution" && (
+        orchestratorState.phase === "executing" ||
+        orchestratorState.phase === "auditing" ||
+        orchestratorState.phase === "recovery"
+      )
     ) {
       setScreen("execution");
-    } else if (
-      orchestratorState.phase === "complete" ||
-      orchestratorState.phase === "error"
-    ) {
-      // Stay on execution screen to show results
     }
   }, [orchestratorState.phase]);
 
@@ -386,9 +396,8 @@ export const App: React.FC<AppProps> = ({ initialTask, autoStart }) => {
   };
 
   return (
-    <Box flexDirection="column" height="100%" backgroundColor="black">
-      {screen === "dashboard" && <Header />}
-      {screen !== "dashboard" && screen !== "execution" && <Header compact />}
+    <Box flexDirection="column" height="100%">
+      <Header />
       {renderScreen()}
     </Box>
   );

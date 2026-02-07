@@ -72,9 +72,9 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
   const [scrollOffset, setScrollOffset] = useState(0);
 
   const actions = [
-    { label: "Approve", color: "green", icon: "✓", action: onApprove },
-    { label: "Reject", color: "red", icon: "✗", action: onReject },
-    { label: "Edit", color: "blue", icon: "✎", action: onEdit },
+    { label: "Approve", color: "green", icon: "+", action: onApprove },
+    { label: "Reject", color: "red", icon: "x", action: onReject },
+    { label: "Edit", color: "blue", icon: "*", action: onEdit },
   ];
 
   // Clean the plan content before displaying
@@ -115,15 +115,14 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
       : 0;
 
   return (
-    <Box flexDirection="column" padding={1} backgroundColor="black">
+    <Box flexDirection="column" padding={1}>
       <Box
-        borderStyle="double"
+        borderStyle="single"
         borderColor="cyan"
         paddingX={2}
-        backgroundColor="black"
       >
-        <Text bold color="cyan" backgroundColor="black">
-          📋 PLAN REVIEW
+        <Text bold color="cyan">
+          = PLAN REVIEW
         </Text>
       </Box>
 
@@ -135,7 +134,6 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
         padding={1}
         marginTop={1}
         height={visibleLines + 2}
-        backgroundColor="black"
       >
         {visiblePlan.map((line, index) => {
           // Simple Markdown Parsing for Visual Structure
@@ -148,9 +146,8 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
                 key={index}
                 marginTop={1}
                 marginBottom={1}
-                backgroundColor="black"
               >
-                <Text color="cyan" bold underline backgroundColor="black">
+                <Text color="cyan" bold underline>
                   {trimmed.replace(/^#\s/, "").toUpperCase()}
                 </Text>
               </Box>
@@ -186,7 +183,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
             return (
               <Text key={index} color="white">
                 {"    "}
-                <Text color="green">●</Text> {trimmed.substring(2)}
+                <Text color="green">-</Text> {trimmed.substring(2)}
               </Text>
             );
           }
@@ -205,7 +202,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
           // Code block markers or content (simple heuristic)
           if (trimmed.startsWith("```")) {
             return (
-              <Text key={index} color="white" backgroundColor="black">
+              <Text key={index} color="white">
                 {" "}
                 {line}
               </Text>
@@ -214,7 +211,7 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
 
           // Default Text
           return (
-            <Text key={index} color="white" backgroundColor="black">
+            <Text key={index} color="white">
               {line || " "}
             </Text>
           );
@@ -222,9 +219,9 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
       </Box>
 
       {/* Scroll indicator */}
-      <Box justifyContent="flex-end" backgroundColor="black">
-        <Text color="white" backgroundColor="black">
-          {`Scroll: ${scrollPercent}% │ Lines: ${scrollOffset + 1}-${Math.min(scrollOffset + visibleLines, planLines.length)}/${planLines.length}`}
+      <Box justifyContent="flex-end">
+        <Text color="white">
+          {`Scroll: ${scrollPercent}% | Lines: ${scrollOffset + 1}-${Math.min(scrollOffset + visibleLines, planLines.length)}/${planLines.length}`}
         </Text>
       </Box>
 
@@ -235,9 +232,8 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
             <Text
               color={selectedAction === index ? action.color : "white"}
               bold={selectedAction === index}
-              backgroundColor="black"
             >
-              {selectedAction === index ? "▶ " : "  "}[{action.icon}]{" "}
+              {selectedAction === index ? "> " : "  "}[{action.icon}]{" "}
               {action.label}
             </Text>
           </Box>
@@ -250,10 +246,9 @@ export const PlanReview: React.FC<PlanReviewProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
-          ←/→: Select action │ ↑/↓: Scroll │ Enter: Confirm │ a/r/e: Quick
+        <Text color="white">
+          ←/→: Select action | ↑/↓: Scroll | Enter: Confirm | a/r/e: Quick
           select
         </Text>
       </Box>

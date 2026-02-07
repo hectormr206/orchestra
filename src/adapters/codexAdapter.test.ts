@@ -37,7 +37,7 @@ describe('CodexAdapter', () => {
       const info = adapter.getInfo();
 
       expect(info.name).toBe('CodexAdapter');
-      expect(info.model).toBe('Codex CLI');
+      expect(info.model).toBe('Codex');
       expect(info.provider).toBe('OpenAI');
     });
   });

@@ -13,53 +13,58 @@ interface AgentStatusProps {
   agents: AgentInfo[];
 }
 
-export const AgentStatus: React.FC<AgentStatusProps> = ({ agents }) => {
-  const getStatusDisplay = (agent: AgentInfo) => {
-    switch (agent.status) {
-      case "idle":
-        return <Text color="gray">◯ Idle</Text>;
-      case "working":
-        return <Text color="yellow">◈ Working...</Text>;
-      case "complete":
-        return (
-          <Text color="green">
-            ✓ Done{" "}
-            {agent.duration ? `(${(agent.duration / 1000).toFixed(1)}s)` : ""}
-          </Text>
-        );
-      case "error":
-        return <Text color="red">✗ Error</Text>;
-      case "fallback":
-        return (
-          <Text color="magenta">↻ Fallback from {agent.fallbackFrom}</Text>
-        );
-    }
-  };
+const getStatusDisplay = (agent: AgentInfo) => {
+  switch (agent.status) {
+    case "idle":
+      return <Text color="gray">- Idle</Text>;
+    case "working":
+      return <Text color="yellow">{">"} Working...</Text>;
+    case "complete":
+      return (
+        <Text color="green">
+          + Done{" "}
+          {agent.duration ? `(${(agent.duration / 1000).toFixed(1)}s)` : ""}
+        </Text>
+      );
+    case "error":
+      return <Text color="red">x Error</Text>;
+    case "fallback":
+      return (
+        <Text color="magenta">~ Fallback from {agent.fallbackFrom}</Text>
+      );
+  }
+};
 
-  const getAgentIcon = (name: string) => {
-    if (name.toLowerCase().includes("architect")) return "📐";
-    if (name.toLowerCase().includes("executor")) return "⚡";
-    if (name.toLowerCase().includes("auditor")) return "🔍";
-    if (name.toLowerCase().includes("consultant")) return "💡";
-    return "🤖";
-  };
+const agentsAreEqual = (prev: AgentStatusProps, next: AgentStatusProps) => {
+  if (prev.agents.length !== next.agents.length) return false;
+  for (let i = 0; i < prev.agents.length; i++) {
+    const a = prev.agents[i];
+    const b = next.agents[i];
+    if (
+      a.name !== b.name ||
+      a.adapter !== b.adapter ||
+      a.status !== b.status ||
+      a.duration !== b.duration ||
+      a.fallbackFrom !== b.fallbackFrom
+    )
+      return false;
+  }
+  return true;
+};
 
+export const AgentStatus: React.FC<AgentStatusProps> = React.memo(({ agents }) => {
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
-      borderColor="blue"
+      borderStyle="single"
+      borderColor="gray"
       padding={1}
     >
       <Text bold color="blue">
         Agents
       </Text>
-      <Text color="cyan">─────────────────────────────</Text>
       {agents.map((agent) => (
         <Box key={agent.name} marginTop={1}>
-          <Box width={4}>
-            <Text>{getAgentIcon(agent.name)}</Text>
-          </Box>
           <Box width={16}>
             <Text>{agent.name}</Text>
           </Box>
@@ -71,4 +76,4 @@ export const AgentStatus: React.FC<AgentStatusProps> = ({ agents }) => {
       ))}
     </Box>
   );
-};
+}, agentsAreEqual);

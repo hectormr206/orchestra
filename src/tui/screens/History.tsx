@@ -176,15 +176,15 @@ export const History: React.FC<HistoryProps> = ({
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
-        return "✅";
+        return "+";
       case "failed":
-        return "❌";
+        return "x";
       case "running":
-        return "🔄";
+        return ">";
       case "cancelled":
-        return "⚠️";
+        return "!";
       default:
-        return "❓";
+        return "?";
     }
   };
 
@@ -223,9 +223,9 @@ export const History: React.FC<HistoryProps> = ({
 
   return (
     <Box flexDirection="column" padding={1}>
-      <Box borderStyle="double" borderColor="cyan" paddingX={2}>
-        <Text bold color="cyan" backgroundColor="black">
-          📜 SESSION HISTORY
+      <Box borderStyle="single" borderColor="cyan" paddingX={2}>
+        <Text bold color="cyan">
+          = SESSION HISTORY
         </Text>
       </Box>
 
@@ -235,9 +235,8 @@ export const History: React.FC<HistoryProps> = ({
           borderStyle="single"
           borderColor="gray"
           padding={1}
-          backgroundColor="black"
         >
-          <Text color="white" backgroundColor="black">
+          <Text color="white">
             No sessions found. Start a new task to create one!
           </Text>
         </Box>
@@ -245,33 +244,33 @@ export const History: React.FC<HistoryProps> = ({
         <Box flexDirection="column" marginTop={1}>
           {/* Header */}
           <Box borderStyle="single" borderColor="gray">
-            <Box width={10} backgroundColor="black">
-              <Text bold color="white" backgroundColor="black">
+            <Box width={10}>
+              <Text bold color="white">
                 ID
               </Text>
             </Box>
-            <Box width={8} backgroundColor="black">
-              <Text bold color="white" backgroundColor="black">
+            <Box width={8}>
+              <Text bold color="white">
                 Status
               </Text>
             </Box>
-            <Box width={18} backgroundColor="black">
-              <Text bold color="white" backgroundColor="black">
+            <Box width={18}>
+              <Text bold color="white">
                 Date
               </Text>
             </Box>
-            <Box width={10} backgroundColor="black">
-              <Text bold color="white" backgroundColor="black">
+            <Box width={10}>
+              <Text bold color="white">
                 Duration
               </Text>
             </Box>
-            <Box width={6} backgroundColor="black">
-              <Text bold color="white" backgroundColor="black">
+            <Box width={6}>
+              <Text bold color="white">
                 Files
               </Text>
             </Box>
-            <Box flexGrow={1} backgroundColor="black">
-              <Text bold color="white" backgroundColor="black">
+            <Box flexGrow={1}>
+              <Text bold color="white">
                 Task
               </Text>
             </Box>
@@ -292,7 +291,7 @@ export const History: React.FC<HistoryProps> = ({
                     color="cyan"
                     backgroundColor={selectedIndex === index ? "blue" : "black"}
                   >
-                    {selectedSessions.has(session.id) ? "[✓]" : "[ ]"}
+                    {selectedSessions.has(session.id) ? "[x]" : "[ ]"}
                   </Text>
                 </Box>
               )}
@@ -371,24 +370,22 @@ export const History: React.FC<HistoryProps> = ({
       {confirmDelete && (
         <Box
           marginTop={2}
-          borderStyle="double"
+          borderStyle="single"
           borderColor="red"
           padding={1}
           flexDirection="column"
-          backgroundColor="black"
         >
-          <Text color="red" backgroundColor="black">
-            ⚠️ Delete session {confirmDelete.substring(0, 8)}?
+          <Text color="red">
+            ! Delete session {confirmDelete.substring(0, 8)}?
           </Text>
           {deleteStatus ? (
             <Text
               color={deleteStatus === "Deleted!" ? "green" : "red"}
-              backgroundColor="black"
             >
               {deleteStatus}
             </Text>
           ) : (
-            <Text color="gray" backgroundColor="black">
+            <Text color="gray">
               Press y to confirm, n to cancel
             </Text>
           )}
@@ -399,24 +396,22 @@ export const History: React.FC<HistoryProps> = ({
       {showBulkDeleteConfirm && (
         <Box
           marginTop={2}
-          borderStyle="double"
+          borderStyle="single"
           borderColor="red"
           padding={1}
           flexDirection="column"
-          backgroundColor="black"
         >
-          <Text color="red" backgroundColor="black">
-            ⚠️ Delete {selectedSessions.size} selected sessions?
+          <Text color="red">
+            ! Delete {selectedSessions.size} selected sessions?
           </Text>
           {bulkDeleteStatus ? (
             <Text
               color={bulkDeleteStatus.includes("Deleted") ? "green" : "red"}
-              backgroundColor="black"
             >
               {bulkDeleteStatus}
             </Text>
           ) : (
-            <Text color="gray" backgroundColor="black">
+            <Text color="gray">
               Press y to confirm, n/Esc to cancel
             </Text>
           )}
@@ -430,10 +425,9 @@ export const History: React.FC<HistoryProps> = ({
           borderStyle="single"
           borderColor="cyan"
           padding={1}
-          backgroundColor="black"
         >
-          <Text color="cyan" backgroundColor="black">
-            🔘 Selection Mode: {selectedSessions.size} selected │ Space: Toggle │ d: Delete │ s: Exit
+          <Text color="cyan">
+            * Selection Mode: {selectedSessions.size} selected | Space: Toggle | d: Delete | s: Exit
           </Text>
         </Box>
       )}
@@ -444,12 +438,11 @@ export const History: React.FC<HistoryProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
+        <Text color="white">
           {selectionMode
-            ? "Space: Toggle │ d: Bulk delete │ s: Exit selection │ Esc: Back"
-            : "↑/↓: Navigate │ Enter/v: View │ d: Delete │ s: Selection mode │ Esc: Back"}
+            ? "Space: Toggle | d: Bulk delete | s: Exit selection | Esc: Back"
+            : "↑/↓: Navigate | Enter/v: View | d: Delete | s: Selection mode | Esc: Back"}
         </Text>
       </Box>
     </Box>

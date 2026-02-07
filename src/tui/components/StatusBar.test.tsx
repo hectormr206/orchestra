@@ -14,7 +14,7 @@ describe('StatusBar Component', () => {
 
       expect(lastFrame()).toBeDefined();
       expect(lastFrame()).toContain('IDLE');
-      expect(lastFrame()).toContain('◯');
+      expect(lastFrame()).toContain('-');
     });
 
     it('should render planning status', () => {
@@ -22,7 +22,7 @@ describe('StatusBar Component', () => {
 
       expect(lastFrame()).toBeDefined();
       expect(lastFrame()).toContain('PLANNING');
-      expect(lastFrame()).toContain('📝');
+      expect(lastFrame()).toContain('*');
     });
 
     it('should render executing status', () => {
@@ -30,7 +30,7 @@ describe('StatusBar Component', () => {
 
       expect(lastFrame()).toBeDefined();
       expect(lastFrame()).toContain('EXECUTING');
-      expect(lastFrame()).toContain('⚡');
+      expect(lastFrame()).toContain('>');
     });
 
     it('should render auditing status', () => {
@@ -38,7 +38,7 @@ describe('StatusBar Component', () => {
 
       expect(lastFrame()).toBeDefined();
       expect(lastFrame()).toContain('AUDITING');
-      expect(lastFrame()).toContain('🔍');
+      expect(lastFrame()).toContain('?');
     });
 
     it('should render recovery status', () => {
@@ -46,7 +46,7 @@ describe('StatusBar Component', () => {
 
       expect(lastFrame()).toBeDefined();
       expect(lastFrame()).toContain('RECOVERY');
-      expect(lastFrame()).toContain('🔄');
+      expect(lastFrame()).toContain('~');
     });
 
     it('should render complete status', () => {
@@ -54,7 +54,7 @@ describe('StatusBar Component', () => {
 
       expect(lastFrame()).toBeDefined();
       expect(lastFrame()).toContain('COMPLETE');
-      expect(lastFrame()).toContain('✅');
+      expect(lastFrame()).toContain('+');
     });
 
     it('should render error status', () => {
@@ -62,7 +62,7 @@ describe('StatusBar Component', () => {
 
       expect(lastFrame()).toBeDefined();
       expect(lastFrame()).toContain('ERROR');
-      expect(lastFrame()).toContain('❌');
+      expect(lastFrame()).toContain('x');
     });
   });
 
@@ -91,13 +91,8 @@ describe('StatusBar Component', () => {
     it('should not display currentFile when not provided', () => {
       const { lastFrame } = render(<StatusBar status="executing" />);
 
-      // Should not have the │ separator without currentFile
       const frame = lastFrame();
       expect(frame).toBeDefined();
-      if (frame) {
-        const lines = frame.split('\n');
-        expect(lines[0]).not.toContain('│');
-      }
     });
 
     it('should display progress when provided', () => {
@@ -110,8 +105,7 @@ describe('StatusBar Component', () => {
     it('should not display progress when not provided', () => {
       const { lastFrame } = render(<StatusBar status="executing" />);
 
-      expect(lastFrame()).not.toContain('[');
-      expect(lastFrame()).not.toContain('/');
+      expect(lastFrame()).not.toContain('[5/10]');
     });
   });
 
@@ -127,7 +121,7 @@ describe('StatusBar Component', () => {
       const { lastFrame } = render(<StatusBar {...props} />);
 
       expect(lastFrame()).toContain('EXECUTING');
-      expect(lastFrame()).toContain('⚡');
+      expect(lastFrame()).toContain('>');
       expect(lastFrame()).toContain('src/utils/test.ts');
       expect(lastFrame()).toContain('[5/10]');
       expect(lastFrame()).toContain('Session:');

@@ -12,22 +12,22 @@ describe('ProgressBar Component', () => {
     it('should render progress bar at 0%', () => {
       const { lastFrame } = render(<ProgressBar percent={0} width={10} />);
 
-      expect(lastFrame()).toContain('░░░░░░░░░░');
+      expect(lastFrame()).toContain('----------');
       expect(lastFrame()).toContain('0%');
     });
 
     it('should render progress bar at 50%', () => {
       const { lastFrame } = render(<ProgressBar percent={50} width={10} />);
 
-      expect(lastFrame()).toContain('█████');
-      expect(lastFrame()).toContain('░░░░░');
+      expect(lastFrame()).toContain('=====');
+      expect(lastFrame()).toContain('-----');
       expect(lastFrame()).toContain('50%');
     });
 
     it('should render progress bar at 100%', () => {
       const { lastFrame } = render(<ProgressBar percent={100} width={10} />);
 
-      expect(lastFrame()).toContain('██████████');
+      expect(lastFrame()).toContain('==========');
       expect(lastFrame()).toContain('100%');
     });
 
@@ -37,7 +37,7 @@ describe('ProgressBar Component', () => {
       const frame = lastFrame();
       expect(frame).toBeDefined();
       if (frame) {
-        const filledCount = (frame.match(/█/g) || []).length;
+        const filledCount = (frame.match(/=/g) || []).length;
         expect(filledCount).toBe(20); // 50% of 40
       }
     });
@@ -62,7 +62,7 @@ describe('ProgressBar Component', () => {
       const frame = lastFrame();
       expect(frame).toBeDefined();
       if (frame) {
-        expect(frame.startsWith('█') || frame.startsWith('░')).toBe(true);
+        expect(frame.startsWith('=') || frame.startsWith('-')).toBe(true);
       }
     });
   });
@@ -87,14 +87,14 @@ describe('ProgressBar Component', () => {
     it('should clamp values above 100 to 100', () => {
       const { lastFrame } = render(<ProgressBar percent={150} width={10} />);
 
-      expect(lastFrame()).toContain('██████████');
+      expect(lastFrame()).toContain('==========');
       expect(lastFrame()).toContain('100%');
     });
 
     it('should clamp values below 0 to 0', () => {
       const { lastFrame } = render(<ProgressBar percent={-10} width={10} />);
 
-      expect(lastFrame()).toContain('░░░░░░░░░░');
+      expect(lastFrame()).toContain('----------');
       expect(lastFrame()).toContain('0%');
     });
   });
@@ -121,7 +121,7 @@ describe('ProgressBar Component', () => {
     it('should handle width of 1', () => {
       const { lastFrame } = render(<ProgressBar percent={100} width={1} />);
 
-      expect(lastFrame()).toContain('█');
+      expect(lastFrame()).toContain('=');
     });
 
     it('should handle very small percentages', () => {

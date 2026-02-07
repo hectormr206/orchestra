@@ -38,6 +38,7 @@ export async function startTUI(options: TUIOptions = {}): Promise<void> {
 
   const { waitUntilExit } = render(
     <App initialTask={options.task} autoStart={options.autoStart} />,
+    { patchConsole: false },
   );
 
   await waitUntilExit();

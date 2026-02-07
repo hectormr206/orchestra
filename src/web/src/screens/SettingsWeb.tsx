@@ -28,10 +28,10 @@ interface TUISettings {
 
 const defaultSettings: TUISettings = {
   agents: {
-    architect: ['Kimi', 'Gemini', 'Codex', 'Claude'],
-    executor: ['Claude (GLM 4.7)', 'Kimi'],
+    architect: ['Claude (Kimi)', 'Gemini', 'Codex', 'Claude'],
+    executor: ['Claude (GLM)', 'Claude (Kimi)'],
     auditor: ['Gemini', 'Codex', 'Claude'],
-    consultant: ['Codex', 'Kimi'],
+    consultant: ['Codex', 'Claude (Kimi)'],
   },
   parallel: true,
   maxConcurrency: 3,
@@ -46,7 +46,7 @@ const defaultSettings: TUISettings = {
   autoRevertOnFailure: true,
 };
 
-const modelOptions = ['Kimi', 'Claude (GLM 4.7)', 'Gemini', 'Codex', 'Claude'];
+const modelOptions = ['Claude (Kimi)', 'Claude (GLM)', 'Gemini', 'Codex', 'Claude'];
 
 export default function SettingsWeb() {
   const [settings, setSettings] = useState<TUISettings>(defaultSettings);
@@ -548,19 +548,19 @@ export default function SettingsWeb() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
-            <span className="font-medium">Claude (GLM 4.7):</span>
+            <span className="font-medium">Claude (GLM):</span>
             <span className="text-gray-600 dark:text-gray-400"> $0.05/M tokens (Most economical)</span>
           </div>
           <div>
-            <span className="font-medium">Gemini 3 Pro:</span>
+            <span className="font-medium">Gemini:</span>
             <span className="text-gray-600 dark:text-gray-400"> $0.15/M tokens (Massive context)</span>
           </div>
           <div>
-            <span className="font-medium">Kimi k2.5:</span>
+            <span className="font-medium">Claude (Kimi):</span>
             <span className="text-gray-600 dark:text-gray-400"> $0.30/M tokens (Agent Swarm)</span>
           </div>
           <div>
-            <span className="font-medium">GPT-5.2 Codex:</span>
+            <span className="font-medium">Codex:</span>
             <span className="text-gray-600 dark:text-gray-400"> $0.50/M tokens (Surgical use)</span>
           </div>
         </div>

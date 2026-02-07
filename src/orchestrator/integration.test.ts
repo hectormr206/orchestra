@@ -74,7 +74,7 @@ describe('Orchestrator Integration', () => {
       autoRevertOnFailure: true,
       agents: {
         architect: ['Codex'],
-        executor: ['Claude (GLM 4.7)'],
+        executor: ['Claude (GLM)'],
         auditor: ['Codex'],
         consultant: ['Codex'],
       },
@@ -213,7 +213,7 @@ describe('Orchestrator Integration', () => {
         autoRevertOnFailure: true,
         agents: {
           architect: ['Codex'],
-          executor: ['Claude (GLM 4.7)'],
+          executor: ['Claude (GLM)'],
           auditor: ['Codex'],
           consultant: ['Codex'],
         },
@@ -249,7 +249,7 @@ describe('Orchestrator Integration', () => {
         autoRevertOnFailure: true,
         agents: {
           architect: ['Codex'],
-          executor: ['Claude (GLM 4.7)'],
+          executor: ['Claude (GLM)'],
           auditor: ['Codex'],
           consultant: ['Codex'],
         },

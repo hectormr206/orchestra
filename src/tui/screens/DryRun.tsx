@@ -52,8 +52,8 @@ export const DryRun: React.FC<DryRunProps> = ({
   }, [task, plan]);
 
   const actions = [
-    { label: "Execute", color: "green", icon: "▶", action: onApprove },
-    { label: "Cancel", color: "red", icon: "✗", action: onReject },
+    { label: "Execute", color: "green", icon: ">", action: onApprove },
+    { label: "Cancel", color: "red", icon: "x", action: onReject },
     { label: "Back", color: "gray", icon: "←", action: onBack },
   ];
 
@@ -95,19 +95,18 @@ export const DryRun: React.FC<DryRunProps> = ({
 
   if (loading) {
     return (
-      <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Box flexDirection="column" padding={1}>
         <Box
-          borderStyle="double"
+          borderStyle="single"
           borderColor="cyan"
           paddingX={2}
-          backgroundColor="black"
         >
-          <Text bold color="cyan" backgroundColor="black">
-            🔍 DRY RUN ANALYSIS
+          <Text bold color="cyan">
+            ? DRY RUN ANALYSIS
           </Text>
         </Box>
-        <Box marginTop={2} backgroundColor="black">
-          <Text color="yellow" backgroundColor="black">
+        <Box marginTop={2}>
+          <Text color="yellow">
             Analyzing task...
           </Text>
         </Box>
@@ -117,24 +116,23 @@ export const DryRun: React.FC<DryRunProps> = ({
 
   if (!dryRunData) {
     return (
-      <Box flexDirection="column" padding={1} backgroundColor="black">
+      <Box flexDirection="column" padding={1}>
         <Box
-          borderStyle="double"
+          borderStyle="single"
           borderColor="cyan"
           paddingX={2}
-          backgroundColor="black"
         >
-          <Text bold color="cyan" backgroundColor="black">
-            🔍 DRY RUN ANALYSIS
+          <Text bold color="cyan">
+            ? DRY RUN ANALYSIS
           </Text>
         </Box>
-        <Box marginTop={2} backgroundColor="black">
-          <Text color="red" backgroundColor="black">
+        <Box marginTop={2}>
+          <Text color="red">
             Failed to analyze task
           </Text>
         </Box>
-        <Box marginTop={1} backgroundColor="black">
-          <Text color="gray" backgroundColor="black">
+        <Box marginTop={1}>
+          <Text color="gray">
             Press Esc or Back to return
           </Text>
         </Box>
@@ -143,52 +141,51 @@ export const DryRun: React.FC<DryRunProps> = ({
   }
 
   return (
-    <Box flexDirection="column" padding={1} backgroundColor="black">
+    <Box flexDirection="column" padding={1}>
       <Box
-        borderStyle="double"
+        borderStyle="single"
         borderColor="cyan"
         paddingX={2}
-        backgroundColor="black"
       >
-        <Text bold color="cyan" backgroundColor="black">
-          🔍 DRY RUN ANALYSIS
+        <Text bold color="cyan">
+          ? DRY RUN ANALYSIS
         </Text>
       </Box>
 
       {/* Task */}
-      <Box marginTop={1} backgroundColor="black">
-        <Text bold color="white" backgroundColor="black">
-          📋 Task:
+      <Box marginTop={1}>
+        <Text bold color="white">
+          = Task:
         </Text>
       </Box>
-      <Box marginLeft={2} backgroundColor="black">
-        <Text color="gray" backgroundColor="black">
+      <Box marginLeft={2}>
+        <Text color="gray">
           {dryRunData.task}
         </Text>
       </Box>
 
       {/* Adapters */}
-      <Box marginTop={1} backgroundColor="black">
-        <Text bold color="white" backgroundColor="black">
-          🤖 Adapters:
+      <Box marginTop={1}>
+        <Text bold color="white">
+          @ Adapters:
         </Text>
       </Box>
-      <Box marginLeft={2} flexDirection="column" backgroundColor="black">
-        <Text color="gray" backgroundColor="black">
+      <Box marginLeft={2} flexDirection="column">
+        <Text color="gray">
           Architect:{" "}
-          <Text color="green" backgroundColor="black">
+          <Text color="green">
             {dryRunData.adaptersToUse.architect}
           </Text>
         </Text>
-        <Text color="gray" backgroundColor="black">
+        <Text color="gray">
           Executor:{" "}
-          <Text color="green" backgroundColor="black">
+          <Text color="green">
             {dryRunData.adaptersToUse.executor}
           </Text>
         </Text>
-        <Text color="gray" backgroundColor="black">
+        <Text color="gray">
           Auditor:{" "}
-          <Text color="green" backgroundColor="black">
+          <Text color="green">
             {dryRunData.adaptersToUse.auditor}
           </Text>
         </Text>
@@ -197,7 +194,7 @@ export const DryRun: React.FC<DryRunProps> = ({
       {/* Estimated Files */}
       <Box marginTop={1}>
         <Text bold color="white">
-          📁 Files to create/modify ({dryRunData.estimatedFiles.length}):
+          {">"} Files to create/modify ({dryRunData.estimatedFiles.length}):
         </Text>
       </Box>
       <Box
@@ -207,15 +204,14 @@ export const DryRun: React.FC<DryRunProps> = ({
         borderColor="gray"
         padding={1}
         height={10}
-        backgroundColor="black"
       >
         {dryRunData.estimatedFiles.length === 0 ? (
-          <Text color="gray" backgroundColor="black">
+          <Text color="gray">
             No files detected
           </Text>
         ) : (
           visibleFiles.map((file, index) => (
-            <Text key={index} color="yellow" backgroundColor="black">
+            <Text key={index} color="yellow">
               {"  "}• {file}
             </Text>
           ))
@@ -224,7 +220,7 @@ export const DryRun: React.FC<DryRunProps> = ({
       {dryRunData.estimatedFiles.length > 8 && (
         <Box justifyContent="flex-end">
           <Text color="gray">
-            Scroll: {scrollPercent}% │ {scrollOffset + 1}-
+            Scroll: {scrollPercent}% | {scrollOffset + 1}-
             {Math.min(scrollOffset + 8, dryRunData.estimatedFiles.length)}/
             {dryRunData.estimatedFiles.length}
           </Text>
@@ -234,7 +230,7 @@ export const DryRun: React.FC<DryRunProps> = ({
       {/* Estimated Duration */}
       <Box marginTop={1}>
         <Text bold color="white">
-          ⏱️ Estimated Duration:
+          ~ Estimated Duration:
         </Text>
       </Box>
       <Box marginLeft={2}>
@@ -246,7 +242,7 @@ export const DryRun: React.FC<DryRunProps> = ({
         <>
           <Box marginTop={1}>
             <Text bold color="yellow">
-              ⚠️ Warnings:
+              ! Warnings:
             </Text>
           </Box>
           <Box marginLeft={2} flexDirection="column">
@@ -265,9 +261,8 @@ export const DryRun: React.FC<DryRunProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
+        <Text color="white">
           This is a dry run. No files will be created or modified.
         </Text>
       </Box>
@@ -280,7 +275,7 @@ export const DryRun: React.FC<DryRunProps> = ({
               color={selectedAction === index ? action.color : "gray"}
               bold={selectedAction === index}
             >
-              {selectedAction === index ? "▶ " : "  "}[{action.icon}]{" "}
+              {selectedAction === index ? "> " : "  "}[{action.icon}]{" "}
               {action.label}
             </Text>
           </Box>
@@ -293,10 +288,9 @@ export const DryRun: React.FC<DryRunProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
-          ←/→: Select action │ ↑/↓: Scroll files │ Enter: Confirm │ e/c/b: Quick
+        <Text color="white">
+          ←/→: Select action | ↑/↓: Scroll files | Enter: Confirm | e/c/b: Quick
           select
         </Text>
       </Box>

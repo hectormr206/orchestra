@@ -37,7 +37,7 @@ describe('GeminiAdapter', () => {
       const info = adapter.getInfo();
 
       expect(info.name).toBe('GeminiAdapter');
-      expect(info.model).toBe('Gemini Pro');
+      expect(info.model).toBe('Gemini');
       expect(info.provider).toBe('Google');
     });
   });

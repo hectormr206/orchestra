@@ -26,37 +26,11 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { TestResult } from '../types.js';
 import type { CommitResult } from '../utils/gitIntegration.js';
-import { createServer } from 'net';
+import { findAvailablePort } from '../utils/portUtils.js';
 
 // ES module equivalents for __dirname and __filename
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-/**
- * Find an available port starting from the given port
- */
-async function findAvailablePort(startPort: number): Promise<number> {
-  const isPortAvailable = (port: number): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const server = createServer();
-      server.once('error', () => resolve(false));
-      server.once('listening', () => {
-        server.close();
-        resolve(true);
-      });
-      server.listen(port);
-    });
-  };
-
-  let port = startPort;
-  while (port < startPort + 100) {
-    if (await isPortAvailable(port)) {
-      return port;
-    }
-    port++;
-  }
-  throw new Error(`No available ports found in range ${startPort}-${startPort + 100}`);
-}
 
 /**
  * Pregunta al usuario y retorna la respuesta

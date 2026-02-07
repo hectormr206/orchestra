@@ -46,11 +46,11 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const categories: Array<{ value: SettingCategory; label: string }> = [
-    { value: "adapters", label: "🤖 Adapters" },
-    { value: "recovery", label: "🔧 Recovery" },
-    { value: "parallelization", label: "⚡ Parallelization" },
-    { value: "cache", label: "💾 Cache" },
-    { value: "agents", label: "👥 Agent Models" },
+    { value: "adapters", label: "> Adapters" },
+    { value: "recovery", label: "~ Recovery" },
+    { value: "parallelization", label: "! Parallelization" },
+    { value: "cache", label: "= Cache" },
+    { value: "agents", label: "@ Agent Models" },
   ];
 
   const settingItems: SettingItem[] = [
@@ -293,7 +293,7 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   const renderValue = (item: SettingItem) => {
     if (item.key.endsWith("ApiKey")) {
       return (
-        <Text color="white" backgroundColor="black">
+        <Text color="white">
           (Environment Variable)
         </Text>
       );
@@ -313,19 +313,19 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
     switch (item.type) {
       case "boolean":
         return (
-          <Text color={item.value ? "green" : "red"} backgroundColor="black">
-            {item.value ? "✓ Enabled" : "✗ Disabled"}
+          <Text color={item.value ? "green" : "red"}>
+            {item.value ? "[x] Enabled" : "[ ] Disabled"}
           </Text>
         );
       case "number":
         return (
-          <Text color="cyan" backgroundColor="black">
+          <Text color="cyan">
             {String(item.value)}
           </Text>
         );
       default:
         return (
-          <Text color="white" backgroundColor="black">
+          <Text color="white">
             {String(item.value || "-")}
           </Text>
         );
@@ -335,25 +335,23 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
   return (
     <Box flexDirection="column" padding={1}>
       <Box
-        borderStyle="double"
+        borderStyle="single"
         borderColor="cyan"
         paddingX={2}
-        backgroundColor="black"
       >
-        <Text bold color="cyan" backgroundColor="black">
-          ⚙️ ADVANCED SETTINGS
+        <Text bold color="cyan">
+          * ADVANCED SETTINGS
         </Text>
       </Box>
 
       {/* Category Tabs */}
-      <Box marginTop={1} backgroundColor="black">
+      <Box marginTop={1}>
         {categories.map((cat) => (
-          <Box key={cat.value} marginX={1} backgroundColor="black">
+          <Box key={cat.value} marginX={1}>
             <Text
               color={currentCategory === cat.value ? "cyan" : "white"}
               bold={currentCategory === cat.value}
               underline={currentCategory === cat.value}
-              backgroundColor="black"
             >
               {cat.label}
             </Text>
@@ -369,7 +367,6 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         borderColor="gray"
         padding={1}
         height={18}
-        backgroundColor="black"
       >
         {visibleItems.map((item, index) => (
           <Box
@@ -442,15 +439,14 @@ export const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Box flexDirection="column" backgroundColor="black">
-          <Text color="white" backgroundColor="black">
-            ↑/↓: Navigate │ c: Switch category │ e: Edit │ Space: Toggle boolean
-            │ s: Save │ Esc: Back
+        <Box flexDirection="column">
+          <Text color="white">
+            ↑/↓: Navigate | c: Switch category | e: Edit | Space: Toggle boolean
+            | s: Save | Esc: Back
           </Text>
-          <Text color="white" backgroundColor="black">
-            💡 API keys are set as environment variables: ZAI_API_KEY,
+          <Text color="white">
+            * API keys are set as environment variables: ZAI_API_KEY,
             GEMINI_API_KEY, OPENAI_API_KEY
           </Text>
         </Box>

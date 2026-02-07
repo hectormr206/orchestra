@@ -460,4 +460,29 @@ export class StateManager {
       await rm(this.orchestraDir, { recursive: true, force: true });
     }
   }
+
+  /**
+   * Guarda metadata arbitraria para la sesión actual
+   * Útil para almacenar resultados intermedios como Early Observer issues
+   */
+  async saveMetadata(key: string, data: unknown): Promise<void> {
+    const metadataFile = path.join(this.orchestraDir, `metadata-${key}.json`);
+    await writeFile(metadataFile, JSON.stringify(data, null, 2), "utf-8");
+  }
+
+  /**
+   * Carga metadata previamente guardada
+   */
+  async loadMetadata<T>(key: string): Promise<T | null> {
+    const metadataFile = path.join(this.orchestraDir, `metadata-${key}.json`);
+    if (!existsSync(metadataFile)) {
+      return null;
+    }
+    try {
+      const content = await readFile(metadataFile, "utf-8");
+      return JSON.parse(content) as T;
+    } catch {
+      return null;
+    }
+  }
 }

@@ -33,7 +33,7 @@ import {
   parseAuditResponse,
   parseSingleFileAuditResponse,
   buildFixPrompt,
-  isValidPythonCode,
+  isValidCode,
   type AuditResult,
   type AuditIssue,
   type SingleFileAuditResult,
@@ -57,12 +57,27 @@ import type {
   AgentResult,
   TestResult,
   SyntaxValidationResult,
+  ObserverResult,
+  ObserverConfig,
 } from "../types.js";
+import { Observer, type ObserverCallbacks } from "../observer/Observer.js";
+import { buildVisualFixPrompt, buildOutputFixPrompt } from "../prompts/observer.js";
 import { getLearningManager } from "../learning/LearningManager.js";
 import { collectExperienceFromOrchestration } from "../learning/OrchestratorIntegration.js";
 import type { MetricsCollector } from "../utils/metrics.js";
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Solicitud de corrección para el Consultor Paralelo
+ */
+interface ConsultantFixRequest {
+  filePath: string;
+  fileName: string;
+  errorType: "syntax_error" | "incomplete_code" | "validation_error";
+  errorMessage: string;
+  code: string;
+}
 
 /**
  * Ejecuta tareas en paralelo con control de concurrencia
@@ -181,6 +196,16 @@ export interface OrchestratorCallbacks {
     recovered: string[],
     failed: string[],
   ) => void;
+  /** Called when observer phase starts */
+  onObserverStart?: () => void;
+  /** Called when a route is being captured */
+  onRouteCapture?: (route: string, index: number, total: number) => void;
+  /** Called when a route validation completes */
+  onRouteValidation?: (route: string, result: import("../types.js").VisualValidationResult) => void;
+  /** Called when observer phase completes */
+  onObserverComplete?: (result: ObserverResult) => void;
+  /** Called when observer encounters an error */
+  onObserverError?: (error: string) => void;
 }
 
 export class Orchestrator {
@@ -226,11 +251,25 @@ export class Orchestrator {
       recoveryTimeout: config.recoveryTimeout || 600000,
       autoRevertOnFailure: config.autoRevertOnFailure ?? true,
       agents: config.agents || {
-        architect: ["Kimi", "Gemini"],
-        executor: ["Claude (GLM 4.7)", "Kimi"],
+        architect: ["Claude (Kimi)", "Gemini"],
+        executor: ["Claude (GLM)", "Claude (Kimi)"],
         auditor: ["Gemini", "Codex"],
-        consultant: ["Codex", "Kimi"],
+        consultant: ["Codex", "Claude (Kimi)"],
       },
+      observerConfig: config.observerConfig,
+      // Parallel Consultant settings
+      parallelConsultant: config.parallelConsultant ?? true,
+      consultantMaxConcurrency: config.consultantMaxConcurrency || 3,
+      // Early Observer settings
+      earlyObserver: config.earlyObserver ?? false,
+      criticalFilesPatterns: config.criticalFilesPatterns || [
+        "src/App.tsx",
+        "src/main.ts",
+        "src/index.ts",
+        "app.py",
+        "main.py",
+      ],
+      criticalFilesThreshold: config.criticalFilesThreshold || 1,
     };
 
     this.callbacks = callbacks;
@@ -274,8 +313,7 @@ export class Orchestrator {
 
     const getAdapterByName = (name: string): Adapter => {
       switch (name) {
-        case "GLM 4.7":
-        case "Claude (GLM 4.7)":
+        case "Claude (GLM)":
           return this.glmAdapter;
         case "Gemini":
           return this.geminiAdapter;
@@ -283,7 +321,7 @@ export class Orchestrator {
           return this.codexAdapter;
         case "Claude":
           return this.claudeAdapter;
-        case "Kimi":
+        case "Claude (Kimi)":
           return this.kimiAdapter;
         default:
           return this.claudeAdapter;
@@ -396,14 +434,28 @@ export class Orchestrator {
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // FASE 5: GIT COMMIT (opcional)
+      // FASE 5: OBSERVER - Visual Validation (opcional)
+      // ═══════════════════════════════════════════════════════════════
+      if (this.config.observerConfig?.enabled) {
+        const observerSuccess = await this.runObserverPhase();
+        if (!observerSuccess) {
+          this.callbacks.onError?.(
+            "observing",
+            "Visual validation found issues (non-blocking)",
+          );
+          // Non-blocking - continue to commit
+        }
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // FASE 6: GIT COMMIT (opcional)
       // ═══════════════════════════════════════════════════════════════
       if (this.config.gitCommit) {
         await this.runGitCommit(task);
       }
 
       // ═══════════════════════════════════════════════════════════════
-      // FASE 6: LEARNING - Collect experience (successful execution)
+      // FASE 7: LEARNING - Collect experience (successful execution)
       // ═══════════════════════════════════════════════════════════════
       await this.collectLearningExperience(task, true);
 
@@ -552,6 +604,11 @@ export class Orchestrator {
       case "failed":
         // Intentar recuperar desde el último checkpoint exitoso
         return this.resumeFromLastCheckpoint(state);
+
+      case "testing":
+      case "observing":
+        // Re-run from tests/observer forward
+        return this.resumeFromExecutor(state.iteration);
 
       case "completed":
         this.callbacks.onError?.("resume", "La sesión ya está completada");
@@ -703,7 +760,7 @@ export class Orchestrator {
       this.callbacks.onIteration?.(iteration, this.config.maxIterations);
       await this.stateManager.setIteration(iteration);
 
-      const auditResult = await this.runAuditor();
+      const auditResult = await this.runAuditor(iteration, this.config.maxIterations);
       if (!auditResult) {
         return false;
       }
@@ -713,9 +770,21 @@ export class Orchestrator {
       if (auditResult.status === "APPROVED") {
         approved = true;
       } else {
+        // Severity-based auto-approval on last iteration:
+        // If only minor issues remain, consider it approved
+        if (iteration >= this.config.maxIterations) {
+          const hasCriticalOrMajor = auditResult.issues.some(
+            (i) => i.severity === "critical" || i.severity === "major",
+          );
+          if (!hasCriticalOrMajor) {
+            approved = true;
+            break;
+          }
+        }
+
         // Hay issues - corregir y re-auditar
         if (iteration < this.config.maxIterations) {
-          const fixSuccess = await this.runFixes(auditResult.issues);
+          const fixSuccess = await this.runFixes(auditResult.issues, iteration, this.config.maxIterations);
           if (!fixSuccess) {
             return false;
           }
@@ -867,6 +936,10 @@ export class Orchestrator {
         }
 
         const duration = Date.now() - startTime;
+
+        // Notify Early Observer about file completion
+        await this.notifyFileComplete(destPath, planContent);
+
         this.callbacks.onFileComplete?.(file.path, true, duration);
         return { success: true, duration };
       } catch (err) {
@@ -1003,12 +1076,14 @@ export class Orchestrator {
     planContent: string,
     index: number,
     total: number,
+    iteration?: number,
+    maxIterations?: number,
   ): Promise<SingleFileAuditResult> {
     const startTime = Date.now();
 
     this.callbacks.onFileStart?.(file.path, index, total);
 
-    const prompt = buildSingleFileAuditorPrompt(planContent, file);
+    const prompt = buildSingleFileAuditorPrompt(planContent, file, iteration, maxIterations);
     const auditFile = this.stateManager.getFilePath(
       `audit_${file.path.replace(/\//g, "_")}.json`,
     );
@@ -1057,7 +1132,7 @@ export class Orchestrator {
   /**
    * Ejecuta el Auditor
    */
-  private async runAuditor(): Promise<AuditResult | null> {
+  private async runAuditor(iteration?: number, maxIterations?: number): Promise<AuditResult | null> {
     // Leer el plan
     const planFile = this.stateManager.getFilePath("plan.md");
     const planContent = await readFile(planFile, "utf-8");
@@ -1104,6 +1179,8 @@ export class Orchestrator {
             planContent,
             index,
             files.length,
+            iteration,
+            maxIterations,
           );
           const idx = inProgressFiles.indexOf(file.path);
           if (idx > -1) inProgressFiles.splice(idx, 1);
@@ -1156,7 +1233,7 @@ export class Orchestrator {
     // ═══════════════════════════════════════════════════════════════
     this.callbacks.onPhaseStart?.("auditing", "Auditor");
 
-    const prompt = buildAuditorPrompt(planContent, files);
+    const prompt = buildAuditorPrompt(planContent, files, iteration, maxIterations);
     const auditFile = this.stateManager.getFilePath("audit-result.json");
 
     const result = await this.auditorAdapter.execute({
@@ -1197,6 +1274,8 @@ export class Orchestrator {
     planContent: string,
     index: number,
     total: number,
+    iteration?: number,
+    maxIterations?: number,
   ): Promise<{ success: boolean; duration: number; error?: string }> {
     const startTime = Date.now();
     const filePath = path.join(process.cwd(), fileName);
@@ -1215,6 +1294,8 @@ export class Orchestrator {
       fileName,
       fileIssues,
       planContent,
+      iteration,
+      maxIterations,
     );
     const tempFile = this.stateManager.getFilePath(
       `fix_${fileName.replace(/\//g, "_")}`,
@@ -1255,7 +1336,7 @@ export class Orchestrator {
   /**
    * Ejecuta correcciones basadas en el feedback del Auditor
    */
-  private async runFixes(issues: AuditIssue[]): Promise<boolean> {
+  private async runFixes(issues: AuditIssue[], iteration?: number, maxIterations?: number): Promise<boolean> {
     // Leer el plan para contexto
     const planFile = this.stateManager.getFilePath("plan.md");
     const planContent = await readFile(planFile, "utf-8");
@@ -1295,6 +1376,8 @@ export class Orchestrator {
             planContent,
             index,
             filesToFix.length,
+            iteration,
+            maxIterations,
           );
           const idx = inProgressFiles.indexOf(fileName);
           if (idx > -1) inProgressFiles.splice(idx, 1);
@@ -1326,6 +1409,8 @@ export class Orchestrator {
           planContent,
           i,
           filesToFix.length,
+          iteration,
+          maxIterations,
         );
         totalDuration += result.duration;
 
@@ -1428,15 +1513,28 @@ export class Orchestrator {
     const lines = cleaned.split("\n");
     let startIndex = 0;
 
-    // Patrones que indican inicio de código Python
+    // Patrones que indican inicio de código (multi-lenguaje)
     const codePatterns = [
-      /^(from|import)\s+/, // import statements
-      /^(class|def)\s+/, // class or function definitions
-      /^#!.*python/, // shebang
-      /^#\s*(coding|-\*-)/, // encoding declaration
-      /^"""[^"]*$/, // docstring start
-      /^'''[^']*$/, // docstring start
+      /^(from|import)\s+/, // import statements (Python, JS, TS)
+      /^(class|def)\s+/, // class or function definitions (Python)
+      /^#!.*/, // shebang (any language)
+      /^#\s*(coding|-\*-)/, // encoding declaration (Python)
+      /^"""[^"]*$/, // docstring start (Python)
+      /^'''[^']*$/, // docstring start (Python)
       /^[a-zA-Z_][a-zA-Z0-9_]*\s*=/, // variable assignment
+      /^(export|const|let|var|function|async|type|interface|enum|declare)\s+/, // JS/TS
+      /^"use /, // "use client" / "use strict" (Next.js, JS)
+      /^'use /, // 'use client' / 'use strict'
+      /^\/\//, // single-line comment (JS/TS/Go/Rust)
+      /^\/\*/, // multi-line comment start
+      /^package\s+/, // Go package
+      /^(use|mod|fn|pub|struct|impl|trait)\s+/, // Rust
+      /^#\[/, // Rust attribute
+      /^@/, // decorator (Python, TS)
+      /^<!DOCTYPE/i, // HTML
+      /^<[a-z]/i, // HTML/JSX tag
+      /^module\.exports/, // CommonJS
+      /^require\(/, // CommonJS require
     ];
 
     for (let i = 0; i < lines.length; i++) {
@@ -1631,6 +1729,88 @@ export class Orchestrator {
     }
 
     return lines.join("\n");
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // OBSERVER PHASE: Visual validation with headless browser + Vision AI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Runs the Observer phase for visual validation
+   */
+  private async runObserverPhase(): Promise<boolean> {
+    const observerConfig = this.config.observerConfig;
+    if (!observerConfig) return true;
+
+    this.callbacks.onPhaseStart?.("observing", "Observer");
+    await this.stateManager.setPhase("observing");
+
+    const planFile = this.stateManager.getFilePath("plan.md");
+    let planContent = "";
+    if (existsSync(planFile)) {
+      planContent = await readFile(planFile, "utf-8");
+    }
+
+    const observerCallbacks: import("../observer/Observer.js").ObserverCallbacks = {
+      onObserverStart: () => this.callbacks.onObserverStart?.(),
+      onRouteCapture: (route, index, total) =>
+        this.callbacks.onRouteCapture?.(route, index, total),
+      onRouteValidation: (route, result) =>
+        this.callbacks.onRouteValidation?.(route, result),
+      onObserverComplete: (result) =>
+        this.callbacks.onObserverComplete?.(result),
+      onObserverError: (error) => this.callbacks.onObserverError?.(error),
+    };
+
+    const observer = new Observer(observerConfig, observerCallbacks);
+
+    for (let i = 1; i <= observerConfig.maxVisualIterations; i++) {
+      const result = await observer.validate(planContent);
+
+      if (result.success) {
+        this.callbacks.onPhaseComplete?.("observing", "Observer", {
+          success: true,
+          duration: result.duration,
+        });
+        return true;
+      }
+
+      // Fix visual issues if we have more iterations
+      if (i < observerConfig.maxVisualIterations) {
+        await this.fixVisualIssues(result, planContent);
+      }
+    }
+
+    this.callbacks.onPhaseComplete?.("observing", "Observer", {
+      success: false,
+      duration: 0,
+    });
+    return false;
+  }
+
+  /**
+   * Fix issues reported by the Observer using the Executor
+   */
+  private async fixVisualIssues(
+    result: ObserverResult,
+    planContent: string,
+  ): Promise<void> {
+    const isOutputMode = this.config.observerConfig?.mode === "output";
+    const fixPrompt = isOutputMode
+      ? buildOutputFixPrompt(result, planContent)
+      : buildVisualFixPrompt(result, planContent);
+
+    this.callbacks.onPhaseStart?.("fixing", "Executor (Visual Fix)");
+
+    await this.executorAdapter.execute({
+      prompt: fixPrompt,
+      workingDir: process.cwd(),
+    });
+
+    this.callbacks.onPhaseComplete?.("fixing", "Executor (Visual Fix)", {
+      success: true,
+      duration: 0,
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1832,6 +2012,438 @@ export class Orchestrator {
     }
 
     return allApproved;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PARALLEL CONSULTANT: Procesar múltiples archivos con errores simultáneamente
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Crea una solicitud de corrección para el Consultor
+   */
+  private createConsultantRequest(
+    filePath: string,
+    fileName: string,
+    errorType: "syntax_error" | "incomplete_code" | "validation_error",
+    errorMessage: string,
+    code: string,
+  ): ConsultantFixRequest {
+    return { filePath, fileName, errorType, errorMessage, code };
+  }
+
+  /**
+   * Ejecuta el Consultor en paralelo para múltiples archivos con errores
+   *
+   * Esta función permite procesar simultáneamente diferentes archivos que necesitan
+   * corrección de sintaxis, completado de código o ayuda algorítmica.
+   *
+   * @param requests Lista de solicitudes de corrección
+   * @param planContext Contexto del plan de implementación
+   * @returns Resultados de las correcciones por archivo
+   */
+  private async runParallelConsultant(
+    requests: ConsultantFixRequest[],
+    planContext: string,
+  ): Promise<Map<string, { success: boolean; error?: string }>> {
+    if (requests.length === 0) {
+      return new Map();
+    }
+
+    // Si no está habilitado el paralelismo o solo hay una solicitud, procesar secuencialmente
+    if (!this.config.parallelConsultant || requests.length === 1) {
+      const results = new Map<string, { success: boolean; error?: string }>();
+      for (const request of requests) {
+        const result = await this.runConsultantForFile(request, planContext);
+        results.set(request.filePath, result);
+      }
+      return results;
+    }
+
+    this.callbacks.onPhaseStart?.(
+      "consulting",
+      `Consultor Paralelo (${requests.length} archivos)`,
+    );
+    await this.stateManager.setPhase("consulting");
+    await this.stateManager.setAgentStatus("consultant", "in_progress");
+
+    const startTime = Date.now();
+    const inProgressFiles: string[] = [];
+
+    const results = await runWithConcurrency(
+      requests,
+      async (request, index) => {
+        inProgressFiles.push(request.fileName);
+        this.callbacks.onConsultant?.(request.fileName, `Iniciando corrección: ${request.errorType}`);
+
+        const result = await this.runConsultantForFile(request, planContext);
+
+        const idx = inProgressFiles.indexOf(request.fileName);
+        if (idx > -1) inProgressFiles.splice(idx, 1);
+
+        return { filePath: request.filePath, result };
+      },
+      this.config.consultantMaxConcurrency,
+      (completed, total, inProgress) => {
+        this.callbacks.onParallelProgress?.(completed, total, [...inProgressFiles]);
+      },
+    );
+
+    const duration = Date.now() - startTime;
+    const resultMap = new Map<string, { success: boolean; error?: string }>();
+    let successCount = 0;
+
+    for (const item of results) {
+      resultMap.set(item.filePath, item.result);
+      if (item.result.success) successCount++;
+    }
+
+    await this.stateManager.setAgentStatus("consultant", "completed", duration);
+    this.callbacks.onPhaseComplete?.(
+      "consulting",
+      `Consultor Paralelo (${successCount}/${requests.length} exitosos)`,
+      {
+        success: successCount === requests.length,
+        duration,
+      },
+    );
+
+    return resultMap;
+  }
+
+  /**
+   * Ejecuta el Consultor para un archivo específico
+   */
+  private async runConsultantForFile(
+    request: ConsultantFixRequest,
+    planContext: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      let prompt: string;
+      let tempFile: string;
+
+      switch (request.errorType) {
+        case "incomplete_code":
+          prompt = buildCompleteCodePrompt(request.fileName, request.code, planContext);
+          tempFile = this.stateManager.getFilePath(`consultant_${request.fileName.replace(/\//g, "_")}`);
+          break;
+        case "syntax_error":
+          prompt = buildSyntaxFixPrompt(request.fileName, request.code, request.errorMessage);
+          tempFile = this.stateManager.getFilePath(`consultant_fix_${request.fileName.replace(/\//g, "_")}`);
+          break;
+        case "validation_error":
+          prompt = buildCompleteCodePrompt(
+            request.fileName,
+            request.code,
+            `Validation failed: ${request.errorMessage}\n\n${planContext}`,
+          );
+          tempFile = this.stateManager.getFilePath(`consultant_val_${request.fileName.replace(/\//g, "_")}`);
+          break;
+        default:
+          return { success: false, error: `Unknown error type: ${request.errorType}` };
+      }
+
+      const result = await this.consultantAdapter.execute({
+        prompt,
+        outputFile: tempFile,
+      });
+
+      if (!result.success) {
+        return { success: false, error: result.error || "Consultant execution failed" };
+      }
+
+      let fixedCode = await readFile(tempFile, "utf-8");
+      fixedCode = parseConsultantResponse(fixedCode);
+
+      if (!fixedCode || !this.isValidCode(fixedCode, request.fileName)) {
+        return { success: false, error: "Consultant returned invalid code" };
+      }
+
+      await writeFile(request.filePath, fixedCode, "utf-8");
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  /**
+   * Valida y corrige archivos Python usando Consultor en paralelo
+   * Versión mejorada que procesa múltiples archivos simultáneamente
+   */
+  private async validateAndFixPythonParallel(
+    files: Array<{ filePath: string; fileName: string }>,
+    planContext: string,
+  ): Promise<Map<string, boolean>> {
+    const results = new Map<string, boolean>();
+    const consultantRequests: ConsultantFixRequest[] = [];
+
+    // Primera pasada: detectar problemas sin hacer correcciones
+    for (const { filePath, fileName } of files) {
+      try {
+        const code = await readFile(filePath, "utf-8");
+
+        // Detectar código incompleto
+        const incomplete = detectIncompleteCode(code);
+        if (incomplete.isIncomplete) {
+          consultantRequests.push({
+            filePath,
+            fileName,
+            errorType: "incomplete_code",
+            errorMessage: incomplete.reason || "Code appears to be incomplete",
+            code,
+          });
+          continue;
+        }
+
+        // Validar sintaxis Python
+        const syntaxResult = await this.validatePythonSyntax(filePath);
+        this.callbacks.onSyntaxCheck?.(fileName, syntaxResult.valid, syntaxResult.error);
+
+        if (!syntaxResult.valid) {
+          consultantRequests.push({
+            filePath,
+            fileName,
+            errorType: "syntax_error",
+            errorMessage: syntaxResult.error || "Syntax error detected",
+            code,
+          });
+        } else {
+          results.set(filePath, true);
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        results.set(filePath, false);
+        this.callbacks.onError?.("consulting", `Error validating ${fileName}: ${errorMessage}`);
+      }
+    }
+
+    // Ejecutar correcciones en paralelo si hay solicitudes pendientes
+    if (consultantRequests.length > 0) {
+      const consultantResults = await this.runParallelConsultant(consultantRequests, planContext);
+
+      // Actualizar resultados finales
+      for (const { filePath } of files) {
+        if (consultantResults.has(filePath)) {
+          const result = consultantResults.get(filePath)!;
+          results.set(filePath, result.success);
+
+          // Re-validar archivos corregidos
+          if (result.success) {
+            const recheck = await this.validatePythonSyntax(filePath);
+            if (!recheck.valid) {
+              results.set(filePath, false);
+              this.callbacks.onError?.("consulting", `Re-validation failed for ${filePath}`);
+            }
+          }
+        }
+      }
+    }
+
+    return results;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // EARLY OBSERVER: Iniciar validación visual tan pronto como archivos críticos estén listos
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Estado del Early Observer
+   */
+  private earlyObserverState: {
+    started: boolean;
+    completed: boolean;
+    result?: import("../types.js").ObserverResult;
+    criticalFilesReady: Set<string>;
+    promise?: Promise<void>;
+  } = {
+    started: false,
+    completed: false,
+    criticalFilesReady: new Set(),
+  };
+
+  /**
+   * Verifica si un archivo es considerado crítico para el Early Observer
+   */
+  private isCriticalFile(filePath: string): boolean {
+    const normalizedPath = filePath.replace(/\\/g, "/");
+    return this.config.criticalFilesPatterns.some((pattern) => {
+      // Soporte para patrones glob simples
+      const regex = new RegExp(pattern.replace(/\*/g, ".*").replace(/\?/g, "."));
+      return regex.test(normalizedPath) || normalizedPath.includes(pattern);
+    });
+  }
+
+  /**
+   * Notifica que un archivo ha sido completado y verifica si se puede iniciar Early Observer
+   *
+   * @param filePath Ruta del archivo completado
+   * @param planContent Contenido del plan de implementación
+   */
+  private async notifyFileComplete(filePath: string, planContent: string): Promise<void> {
+    if (!this.config.earlyObserver || !this.config.observerConfig?.enabled) {
+      return;
+    }
+
+    // Si ya se inició o completó, no hacer nada
+    if (this.earlyObserverState.started || this.earlyObserverState.completed) {
+      return;
+    }
+
+    const normalizedPath = filePath.replace(process.cwd(), "").replace(/\\/g, "/").replace(/^\//, "");
+
+    if (this.isCriticalFile(normalizedPath)) {
+      this.earlyObserverState.criticalFilesReady.add(normalizedPath);
+
+      // Verificar si tenemos suficientes archivos críticos para iniciar
+      if (this.earlyObserverState.criticalFilesReady.size >= this.config.criticalFilesThreshold) {
+        this.callbacks.onPhaseStart?.(
+          "observing",
+          "Early Observer (critical files ready)",
+        );
+
+        // Iniciar Early Observer en paralelo (sin await)
+        this.earlyObserverState.promise = this.startEarlyObserver(planContent);
+      }
+    }
+  }
+
+  /**
+   * Inicia el Early Observer para validación temprana
+   *
+   * Esta función se ejecuta en paralelo con la generación de archivos restantes,
+   * permitiendo detectar problemas visuales tan pronto como los archivos críticos
+   * estén listos.
+   */
+  private async startEarlyObserver(planContent: string): Promise<void> {
+    if (this.earlyObserverState.started) return;
+    this.earlyObserverState.started = true;
+
+    try {
+      const observerConfig = this.config.observerConfig;
+      if (!observerConfig) return;
+
+      // Crear una versión especial del observer config con menos iteraciones
+      // para el early observer (solo queremos un sanity check rápido)
+      const earlyObserverConfig: ObserverConfig = {
+        ...observerConfig,
+        maxVisualIterations: 1, // Solo una iteración para early observer
+        routes: observerConfig.routes.slice(0, 2), // Limitar a rutas principales
+      };
+
+      const observerCallbacks: ObserverCallbacks = {
+        onObserverStart: () => this.callbacks.onObserverStart?.(),
+        onRouteCapture: (route, index, total) =>
+          this.callbacks.onRouteCapture?.(route, index, total),
+        onRouteValidation: (route, result) =>
+          this.callbacks.onRouteValidation?.(route, result),
+        onObserverComplete: (result) => {
+          this.earlyObserverState.result = result;
+          this.callbacks.onObserverComplete?.(result);
+        },
+        onObserverError: (error) => {
+          this.callbacks.onObserverError?.(error);
+        },
+      };
+
+      const observer = new Observer(earlyObserverConfig, observerCallbacks);
+      const result = await observer.validate(planContent);
+
+      this.earlyObserverState.result = result;
+      this.earlyObserverState.completed = true;
+
+      if (result.success) {
+        this.callbacks.onPhaseComplete?.(
+          "observing",
+          "Early Observer (PASSED - no visual issues in critical files)",
+          {
+            success: true,
+            duration: result.duration,
+          },
+        );
+      } else {
+        this.callbacks.onPhaseComplete?.(
+          "observing",
+          "Early Observer (NEEDS_WORK - visual issues detected)",
+          {
+            success: false,
+            duration: result.duration,
+          },
+        );
+
+        // Guardar los issues para aplicar correcciones después
+        await this.stateManager.saveMetadata("earlyObserverIssues", {
+          timestamp: Date.now(),
+          validations: result.validations,
+          criticalFiles: Array.from(this.earlyObserverState.criticalFilesReady),
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.callbacks.onObserverError?.(`Early Observer error: ${errorMessage}`);
+      this.earlyObserverState.completed = true;
+    }
+  }
+
+  /**
+   * Aplica correcciones basadas en los resultados del Early Observer
+   *
+   * @param planContent Contenido del plan de implementación
+   * @returns true si se aplicaron correcciones exitosamente
+   */
+  private async applyEarlyObserverFixes(planContent: string): Promise<boolean> {
+    if (!this.earlyObserverState.result || this.earlyObserverState.result.success) {
+      return true; // No hay issues que corregir
+    }
+
+    this.callbacks.onPhaseStart?.("fixing", "Executor (Early Observer Fixes)");
+
+    const isOutputMode = this.config.observerConfig?.mode === "output";
+    const fixPrompt = isOutputMode
+      ? buildOutputFixPrompt(this.earlyObserverState.result, planContent)
+      : buildVisualFixPrompt(this.earlyObserverState.result, planContent);
+
+    try {
+      await this.executorAdapter.execute({
+        prompt: fixPrompt,
+        workingDir: process.cwd(),
+      });
+
+      this.callbacks.onPhaseComplete?.("fixing", "Executor (Early Observer Fixes)", {
+        success: true,
+        duration: 0,
+      });
+
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.callbacks.onError?.("fixing", `Failed to apply Early Observer fixes: ${errorMessage}`);
+      return false;
+    }
+  }
+
+  /**
+   * Espera a que el Early Observer complete (si fue iniciado)
+   *
+   * @returns Resultado del Early Observer o null si no se inició
+   */
+  private async waitForEarlyObserver(): Promise<import("../types.js").ObserverResult | null> {
+    if (!this.earlyObserverState.promise) {
+      return null;
+    }
+
+    await this.earlyObserverState.promise;
+    return this.earlyObserverState.result || null;
+  }
+
+  /**
+   * Reinicia el estado del Early Observer para una nueva ejecución
+   */
+  private resetEarlyObserver(): void {
+    this.earlyObserverState = {
+      started: false,
+      completed: false,
+      criticalFilesReady: new Set(),
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

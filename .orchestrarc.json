@@ -20,10 +20,21 @@
     "recoveryTimeoutMinutes": 15,
     "autoRevertOnFailure": true,
     "agents": {
-      "architect": ["Claude (GLM 4.7)"],
-      "executor": ["Claude (GLM 4.7)"],
-      "auditor": ["Claude (GLM 4.7)"],
-      "consultant": ["Claude (GLM 4.7)"]
+      "architect": ["Claude (GLM)"],
+      "executor": ["Claude (GLM)"],
+      "auditor": ["Claude (GLM)"],
+      "consultant": ["Claude (GLM)"]
     }
+  },
+  "observer": {
+    "enabled": true,
+    "appUrl": "http://localhost:3000",
+    "devServerCommand": "npm run dev",
+    "renderWaitMs": 3000,
+    "maxVisualIterations": 3,
+    "viewport": { "width": 1920, "height": 1080 },
+    "routes": ["/"],
+    "captureConsoleErrors": true,
+    "visionModel": "kimi"
   }
 }

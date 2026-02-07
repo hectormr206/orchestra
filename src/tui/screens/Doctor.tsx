@@ -21,6 +21,8 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
     { name: "Kimi CLI", status: "checking" },
     { name: "Python 3", status: "checking" },
     { name: "ZAI_API_KEY", status: "checking" },
+    { name: "KIMI_API_KEY", status: "checking" },
+    { name: "Playwright", status: "checking" },
     { name: "GitHub CLI", status: "checking" },
     { name: "Config File", status: "checking" },
   ]);
@@ -119,6 +121,34 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
         });
       }
 
+      // KIMI_API_KEY (for Observer Vision)
+      if (process.env.KIMI_API_KEY) {
+        const key = process.env.KIMI_API_KEY;
+        updateCheck("KIMI_API_KEY", {
+          status: "ok",
+          version: key.substring(0, 8) + "...",
+        });
+      } else {
+        updateCheck("KIMI_API_KEY", {
+          status: "warning",
+          message: "Optional - for Observer Vision",
+        });
+      }
+
+      // Playwright (for Observer)
+      try {
+        const { stdout } = await execFileAsync("npx", ["playwright", "--version"]);
+        updateCheck("Playwright", {
+          status: "ok",
+          version: stdout.trim(),
+        });
+      } catch {
+        updateCheck("Playwright", {
+          status: "warning",
+          message: "Optional - for Observer visual validation",
+        });
+      }
+
       // GitHub CLI
       try {
         const { stdout } = await execFileAsync("gh", ["--version"]);
@@ -156,13 +186,13 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
   const getStatusIcon = (status: CheckResult["status"]) => {
     switch (status) {
       case "checking":
-        return "◈";
+        return ".";
       case "ok":
-        return "✓";
+        return "+";
       case "warning":
-        return "⚠";
+        return "!";
       case "error":
-        return "✗";
+        return "x";
     }
   };
 
@@ -187,13 +217,12 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
   return (
     <Box flexDirection="column" padding={1}>
       <Box
-        borderStyle="double"
+        borderStyle="single"
         borderColor="cyan"
         paddingX={2}
-        backgroundColor="black"
       >
-        <Text bold color="cyan" backgroundColor="black">
-          🩺 SYSTEM DOCTOR
+        <Text bold color="cyan">
+          + SYSTEM DOCTOR
         </Text>
       </Box>
 
@@ -203,28 +232,25 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
         borderStyle="single"
         borderColor="gray"
         padding={1}
-        backgroundColor="black"
       >
         {checks.map((check) => (
-          <Box key={check.name} backgroundColor="black">
-            <Box width={4} backgroundColor="black">
+          <Box key={check.name}>
+            <Box width={4}>
               <Text
                 color={getStatusColor(check.status)}
-                backgroundColor="black"
               >
                 {getStatusIcon(check.status)}
               </Text>
             </Box>
-            <Box width={15} backgroundColor="black">
-              <Text color="white" backgroundColor="black">
+            <Box width={15}>
+              <Text color="white">
                 {check.name}
               </Text>
             </Box>
-            <Box backgroundColor="black">
+            <Box>
               {check.version && (
                 <Text
                   color={getStatusColor(check.status)}
-                  backgroundColor="black"
                 >
                   {check.version}
                 </Text>
@@ -232,7 +258,6 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
               {check.message && (
                 <Text
                   color={getStatusColor(check.status)}
-                  backgroundColor="black"
                 >
                   {" "}
                   {check.message}
@@ -246,31 +271,30 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
       {/* Summary */}
       <Box
         marginTop={1}
-        borderStyle="round"
+        borderStyle="single"
         padding={1}
-        backgroundColor="black"
       >
         {checkingCount > 0 ? (
-          <Text color="white" backgroundColor="black">
+          <Text color="white">
             Checking... {checkingCount} remaining
           </Text>
         ) : (
-          <Box backgroundColor="black">
-            <Text color="green" backgroundColor="black">
+          <Box>
+            <Text color="green">
               {okCount} OK
             </Text>
-            <Text color="white" backgroundColor="black">
+            <Text color="white">
               {" "}
-              │{" "}
+              |{" "}
             </Text>
-            <Text color="yellow" backgroundColor="black">
+            <Text color="yellow">
               {warningCount} Warnings
             </Text>
-            <Text color="white" backgroundColor="black">
+            <Text color="white">
               {" "}
-              │{" "}
+              |{" "}
             </Text>
-            <Text color="red" backgroundColor="black">
+            <Text color="red">
               {errorCount} Errors
             </Text>
           </Box>
@@ -283,9 +307,8 @@ export const Doctor: React.FC<DoctorProps> = ({ onBack }) => {
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
+        <Text color="white">
           Press Esc or q to go back
         </Text>
       </Box>

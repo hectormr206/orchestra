@@ -183,7 +183,7 @@ export class GeminiAdapter {
   getInfo(): { name: string; model: string; provider: string } {
     return {
       name: 'GeminiAdapter',
-      model: 'Gemini Pro',
+      model: 'Gemini',
       provider: 'Google',
     };
   }

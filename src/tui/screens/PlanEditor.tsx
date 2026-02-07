@@ -153,15 +153,14 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
       : 0;
 
   return (
-    <Box flexDirection="column" padding={1} backgroundColor="black">
+    <Box flexDirection="column" padding={1}>
       <Box
-        borderStyle="double"
+        borderStyle="single"
         borderColor="cyan"
         paddingX={2}
-        backgroundColor="black"
       >
-        <Text bold color="cyan" backgroundColor="black">
-          ✎ PLAN EDITOR
+        <Text bold color="cyan">
+          * PLAN EDITOR
         </Text>
       </Box>
 
@@ -173,7 +172,6 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
         borderColor="gray"
         padding={1}
         height={visibleLines + 2}
-        backgroundColor="black"
       >
         {visibleLinesSlice.map((line, index) => {
           const actualIndex = scrollOffset + index;
@@ -214,7 +212,7 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
             content = (
               <Text color="white">
                 {"  "}
-                <Text color="green">●</Text> {trimmed.substring(2)}
+                <Text color="green">-</Text> {trimmed.substring(2)}
               </Text>
             );
           } else if (/^\d+\./.test(trimmed)) {
@@ -271,19 +269,18 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
+        <Text color="white">
           Line:{" "}
-          <Text color="white" backgroundColor="black">
+          <Text color="white">
             {currentLine + 1}
           </Text>
-          /{lines.length} │ Scroll:{" "}
-          <Text color="white" backgroundColor="black">
+          /{lines.length} | Scroll:{" "}
+          <Text color="white">
             {scrollPercent}%
           </Text>{" "}
-          │ Lines:{" "}
-          <Text color="white" backgroundColor="black">
+          | Lines:{" "}
+          <Text color="white">
             {scrollOffset + 1}-
             {Math.min(scrollOffset + visibleLines, lines.length)}
           </Text>
@@ -297,21 +294,20 @@ export const PlanEditor: React.FC<PlanEditorProps> = ({
           borderStyle="single"
           borderColor="cyan"
           paddingX={1}
-          backgroundColor="black"
         >
-          <Box flexDirection="column" backgroundColor="black">
-            <Text color="cyan" bold backgroundColor="black">
+          <Box flexDirection="column">
+            <Text color="cyan" bold>
               Commands:
             </Text>
-            <Text color="white" backgroundColor="black">
+            <Text color="white">
               {" "}
-              ↑/↓: Navigate │ e: Edit line │ i: Insert line │ d: Delete line
+              ↑/↓: Navigate | e: Edit line | i: Insert line | d: Delete line
             </Text>
-            <Text color="white" backgroundColor="black">
+            <Text color="white">
               {" "}
-              n: New line at end │ PgUp/PgDn: Scroll │ s: Save │ Esc: Cancel
+              n: New line at end | PgUp/PgDn: Scroll | s: Save | Esc: Cancel
             </Text>
-            <Text color="white" backgroundColor="black">
+            <Text color="white">
               {" "}
               h: Toggle help
             </Text>

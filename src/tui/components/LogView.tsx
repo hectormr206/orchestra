@@ -12,28 +12,67 @@ interface LogViewProps {
   logs: LogEntry[];
   maxLines?: number;
   showTimestamp?: boolean;
-  enableScroll?: boolean; // Nueva prop para habilitar scroll
+  enableScroll?: boolean;
+  isActive?: boolean;
 }
 
-export const LogView: React.FC<LogViewProps> = ({
+const getLevelColor = (level: LogEntry["level"]) => {
+  switch (level) {
+    case "info":
+      return "blue";
+    case "success":
+      return "green";
+    case "warning":
+      return "yellow";
+    case "error":
+      return "red";
+    case "debug":
+      return "gray";
+  }
+};
+
+const getLevelIcon = (level: LogEntry["level"]) => {
+  switch (level) {
+    case "info":
+      return "i";
+    case "success":
+      return "+";
+    case "warning":
+      return "!";
+    case "error":
+      return "x";
+    case "debug":
+      return ".";
+  }
+};
+
+const logsAreEqual = (prev: LogViewProps, next: LogViewProps) => {
+  return (
+    prev.logs.length === next.logs.length &&
+    prev.maxLines === next.maxLines &&
+    prev.enableScroll === next.enableScroll &&
+    prev.isActive === next.isActive
+  );
+};
+
+export const LogView: React.FC<LogViewProps> = React.memo(({
   logs,
   maxLines = 15,
   showTimestamp = true,
   enableScroll = true,
+  isActive = true,
 }) => {
   const [scrollOffset, setScrollOffset] = useState(0);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
-  // Auto-scroll al final cuando hay nuevos logs (si estábamos al final)
   useEffect(() => {
     if (isAtBottom) {
       setScrollOffset(Math.max(0, logs.length - maxLines));
     }
   }, [logs.length, maxLines, isAtBottom]);
 
-  // Manejar scroll con flechas arriba/abajo
   useInput((input, key) => {
-    if (!enableScroll) return;
+    if (!enableScroll || !isActive) return;
 
     if (key.upArrow) {
       setScrollOffset((prev) => {
@@ -62,46 +101,14 @@ export const LogView: React.FC<LogViewProps> = ({
         return newOffset;
       });
     } else if (input === "g") {
-      // 'g' para ir al inicio
       setScrollOffset(0);
       setIsAtBottom(false);
     } else if (input === "G") {
-      // 'G' para ir al final
       const maxOffset = Math.max(0, logs.length - maxLines);
       setScrollOffset(maxOffset);
       setIsAtBottom(true);
     }
   });
-
-  const getLevelColor = (level: LogEntry["level"]) => {
-    switch (level) {
-      case "info":
-        return "blue";
-      case "success":
-        return "green";
-      case "warning":
-        return "yellow";
-      case "error":
-        return "red";
-      case "debug":
-        return "gray";
-    }
-  };
-
-  const getLevelIcon = (level: LogEntry["level"]) => {
-    switch (level) {
-      case "info":
-        return "ℹ";
-      case "success":
-        return "✓";
-      case "warning":
-        return "⚠";
-      case "error":
-        return "✗";
-      case "debug":
-        return "·";
-    }
-  };
 
   const visibleLogs = enableScroll
     ? logs.slice(scrollOffset, scrollOffset + maxLines)
@@ -129,13 +136,12 @@ export const LogView: React.FC<LogViewProps> = ({
         </Text>
         {enableScroll && totalLogs > maxLines && (
           <Text color="cyan" dimColor>
-            {canScrollUp && "↑"} {scrollOffset + 1}-
+            {canScrollUp && "^"} {scrollOffset + 1}-
             {Math.min(scrollOffset + maxLines, totalLogs)}/{totalLogs} (
-            {scrollPercentage}%) {canScrollDown && "↓"}
+            {scrollPercentage}%) {canScrollDown && "v"}
           </Text>
         )}
       </Box>
-      <Text color="gray">{"─".repeat(50)}</Text>
       {visibleLogs.length === 0 ? (
         <Text color="gray" dimColor>
           No logs yet...
@@ -160,10 +166,10 @@ export const LogView: React.FC<LogViewProps> = ({
       {enableScroll && totalLogs > maxLines && (
         <Box marginTop={1}>
           <Text color="gray" dimColor>
-            [↑/↓: Scroll | PgUp/PgDn: Page | g: Top | G: Bottom]
+            [Up/Down: Scroll | PgUp/PgDn: Page | g: Top | G: Bottom]
           </Text>
         </Box>
       )}
     </Box>
   );
-};
+}, logsAreEqual);

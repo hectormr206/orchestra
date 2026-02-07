@@ -14,7 +14,7 @@ interface DurationDisplayProps {
  * Isolated component that displays elapsed time.
  * Uses its own local state to avoid re-rendering parent components.
  */
-export const DurationDisplay: React.FC<DurationDisplayProps> = ({
+export const DurationDisplay: React.FC<DurationDisplayProps> = React.memo(({
   startTime,
   isRunning,
   interval = 1000,
@@ -54,4 +54,4 @@ export const DurationDisplay: React.FC<DurationDisplayProps> = ({
   };
 
   return <Text color="white">{formatDuration(duration)}</Text>;
-};
+});

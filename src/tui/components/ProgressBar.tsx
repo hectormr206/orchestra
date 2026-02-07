@@ -9,7 +9,7 @@ interface ProgressBarProps {
   color?: string;
 }
 
-export const ProgressBar: React.FC<ProgressBarProps> = ({
+export const ProgressBar: React.FC<ProgressBarProps> = React.memo(({
   percent,
   width = 40,
   label,
@@ -20,17 +20,17 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
   const filledWidth = Math.round((clampedPercent / 100) * width);
   const emptyWidth = width - filledWidth;
 
-  const filled = '█'.repeat(filledWidth);
-  const empty = '░'.repeat(emptyWidth);
+  const filled = '='.repeat(filledWidth);
+  const empty = '-'.repeat(emptyWidth);
 
   return (
     <Box>
-      {label && <Text color="cyan" backgroundColor="black">{label} </Text>}
-      <Text color={color} backgroundColor="black">{filled}</Text>
-      <Text color="cyan" backgroundColor="black">{empty}</Text>
+      {label && <Text color="cyan">{label} </Text>}
+      <Text color={color}>{filled}</Text>
+      <Text color="cyan">{empty}</Text>
       {showPercent && (
-        <Text color="cyan" backgroundColor="black"> {clampedPercent.toFixed(0)}%</Text>
+        <Text color="cyan"> {clampedPercent.toFixed(0)}%</Text>
       )}
     </Box>
   );
-};
+});

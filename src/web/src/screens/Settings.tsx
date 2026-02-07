@@ -38,7 +38,7 @@ interface ConfigSettings {
 }
 
 const MODEL_TYPES = [
-  'Claude (GLM 4.7)',
+  'Claude (GLM)',
   'Gemini',
   'Codex',
   'Claude (Opus 4.5)'
@@ -82,10 +82,10 @@ const DEFAULT_CONFIG: ConfigSettings = {
     autoRevertOnFailure: true
   },
   agents: {
-    architect: ['Codex', 'Gemini', 'Claude (GLM 4.7)'],
-    executor: ['Claude (GLM 4.7)'],
-    auditor: ['Gemini', 'Claude (GLM 4.7)'],
-    consultant: ['Codex', 'Gemini', 'Claude (GLM 4.7)']
+    architect: ['Codex', 'Gemini', 'Claude (GLM)'],
+    executor: ['Claude (GLM)'],
+    auditor: ['Gemini', 'Claude (GLM)'],
+    consultant: ['Codex', 'Gemini', 'Claude (GLM)']
   },
   languages: ['typescript', 'javascript']
 };

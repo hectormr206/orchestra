@@ -42,7 +42,7 @@ describe('GLMAdapter', () => {
       const info = adapter.getInfo();
 
       expect(info.name).toBe('GLMAdapter');
-      expect(info.model).toBe('Claude (GLM 4.7)');
+      expect(info.model).toBe('Claude (GLM)');
       expect(info.provider).toBe('z.ai');
     });
 

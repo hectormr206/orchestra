@@ -235,11 +235,19 @@ class ProfileManagerImpl implements ProfileManager {
       recoveryTimeoutMinutes: 10,
       autoRevertOnFailure: true,
       agents: {
-        architect: ['Kimi', 'Gemini'],
-        executor: ['Claude (GLM 4.7)', 'Kimi'],
+        architect: ['Claude (Kimi)', 'Gemini'],
+        executor: ['Claude (GLM)', 'Claude (Kimi)'],
         auditor: ['Gemini', 'Codex'],
-        consultant: ['Codex', 'Kimi'],
+        consultant: ['Codex', 'Claude (Kimi)'],
       },
+      // Observer settings
+      observerEnabled: false,
+      observerMode: 'web',
+      observerAppUrl: 'http://localhost:3000',
+      observerDevServerCommand: '',
+      observerVisionModel: 'kimi',
+      observerRoutes: '',
+      observerCommands: '',
     };
 
     return { ...defaults, ...settings };

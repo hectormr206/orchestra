@@ -70,18 +70,18 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onBack }) => {
 
   if (loading) {
     return (
-      <Box flexDirection="column" padding={1} backgroundColor="black">
-        <Text color="cyan" backgroundColor="black">Loading analytics...</Text>
+      <Box flexDirection="column" padding={1}>
+        <Text color="cyan">Loading analytics...</Text>
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box flexDirection="column" padding={1} backgroundColor="black">
-        <Text color="red" backgroundColor="black">Error: {error}</Text>
+      <Box flexDirection="column" padding={1}>
+        <Text color="red">Error: {error}</Text>
         <Box marginTop={1}>
-          <Text color="gray" backgroundColor="black">Press q to go back</Text>
+          <Text color="gray">Press q to go back</Text>
         </Box>
       </Box>
     );
@@ -96,55 +96,54 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onBack }) => {
   };
 
   return (
-    <Box flexDirection="column" padding={1} backgroundColor="black">
+    <Box flexDirection="column" padding={1}>
       {/* Header */}
-      <Box borderStyle="double" borderColor="cyan" paddingX={2} backgroundColor="black">
-        <Text bold color="cyan" backgroundColor="black">📊 ANALYTICS DASHBOARD</Text>
+      <Box borderStyle="single" borderColor="cyan" paddingX={2}>
+        <Text bold color="cyan"># ANALYTICS DASHBOARD</Text>
       </Box>
 
       {/* Time Range Selector */}
-      <Box marginTop={1} backgroundColor="black">
-        <Text color="white" backgroundColor="black">Range: </Text>
-        <Text color={timeRange === '7d' ? 'cyan' : 'gray'} bold={timeRange === '7d'} backgroundColor="black">1: 7d</Text>
-        <Text color="white" backgroundColor="black"> │ </Text>
-        <Text color={timeRange === '30d' ? 'cyan' : 'gray'} bold={timeRange === '30d'} backgroundColor="black">2: 30d</Text>
-        <Text color="white" backgroundColor="black"> │ </Text>
-        <Text color={timeRange === '90d' ? 'cyan' : 'gray'} bold={timeRange === '90d'} backgroundColor="black">3: 90d</Text>
-        <Text color="white" backgroundColor="black"> │ </Text>
-        <Text color={timeRange === 'all' ? 'cyan' : 'gray'} bold={timeRange === 'all'} backgroundColor="black">4: all</Text>
-        <Text color="white" backgroundColor="black"> │ </Text>
-        <Text color="gray" backgroundColor="black">q: Back</Text>
+      <Box marginTop={1}>
+        <Text color="white">Range: </Text>
+        <Text color={timeRange === '7d' ? 'cyan' : 'gray'} bold={timeRange === '7d'}>1: 7d</Text>
+        <Text color="white"> | </Text>
+        <Text color={timeRange === '30d' ? 'cyan' : 'gray'} bold={timeRange === '30d'}>2: 30d</Text>
+        <Text color="white"> | </Text>
+        <Text color={timeRange === '90d' ? 'cyan' : 'gray'} bold={timeRange === '90d'}>3: 90d</Text>
+        <Text color="white"> | </Text>
+        <Text color={timeRange === 'all' ? 'cyan' : 'gray'} bold={timeRange === 'all'}>4: all</Text>
+        <Text color="white"> | </Text>
+        <Text color="gray">q: Back</Text>
       </Box>
 
       {/* Success Rate Trend */}
       <Box
         marginTop={1}
-        borderStyle="round"
+        borderStyle="single"
         borderColor="cyan"
         flexDirection="column"
         padding={1}
-        backgroundColor="black"
       >
-        <Text bold color="cyan" backgroundColor="black">📈 Success Rate Trend (Last 8 periods)</Text>
+        <Text bold color="cyan">^ Success Rate Trend (Last 8 periods)</Text>
         {trends.length === 0 ? (
-          <Text color="gray" backgroundColor="black">No trend data available</Text>
+          <Text color="gray">No trend data available</Text>
         ) : (
           <Box flexDirection="column" marginTop={1}>
             {trends.slice(-8).map(t => (
-              <Box key={t.period} backgroundColor="black">
-                <Box width={12} backgroundColor="black">
-                  <Text color="white" backgroundColor="black">{t.period}:</Text>
+              <Box key={t.period}>
+                <Box width={12}>
+                  <Text color="white">{t.period}:</Text>
                 </Box>
-                <Box width={10} backgroundColor="black">
-                  <Text color={t.successRate > 0.8 ? 'green' : t.successRate > 0.5 ? 'yellow' : 'red'} backgroundColor="black">
+                <Box width={10}>
+                  <Text color={t.successRate > 0.8 ? 'green' : t.successRate > 0.5 ? 'yellow' : 'red'}>
                     {(t.successRate * 100).toFixed(1)}%
                   </Text>
                 </Box>
-                <Text color="gray" backgroundColor="black">
+                <Text color="gray">
                   ({t.completed}/{t.total})
                 </Text>
-                <Text color="white" backgroundColor="black"> │ </Text>
-                <Text color="gray" backgroundColor="black">
+                <Text color="white"> | </Text>
+                <Text color="gray">
                   Avg: {formatDuration(t.avgDuration)}
                 </Text>
               </Box>
@@ -156,33 +155,32 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onBack }) => {
       {/* Agent Performance */}
       <Box
         marginTop={1}
-        borderStyle="round"
+        borderStyle="single"
         borderColor="magenta"
         flexDirection="column"
         padding={1}
-        backgroundColor="black"
       >
-        <Text bold color="magenta" backgroundColor="black">🤖 Agent Performance</Text>
+        <Text bold color="magenta">@ Agent Performance</Text>
         {agentStats.length === 0 ? (
-          <Text color="gray" backgroundColor="black">No agent data available</Text>
+          <Text color="gray">No agent data available</Text>
         ) : (
           <Box flexDirection="column" marginTop={1}>
             {agentStats.map(a => (
-              <Box key={a.agentRole} backgroundColor="black">
-                <Box width={12} backgroundColor="black">
-                  <Text color="white" backgroundColor="black">{a.agentRole}:</Text>
+              <Box key={a.agentRole}>
+                <Box width={12}>
+                  <Text color="white">{a.agentRole}:</Text>
                 </Box>
-                <Box width={10} backgroundColor="black">
-                  <Text color={a.successRate > 0.8 ? 'green' : 'yellow'} backgroundColor="black">
+                <Box width={10}>
+                  <Text color={a.successRate > 0.8 ? 'green' : 'yellow'}>
                     {(a.successRate * 100).toFixed(1)}%
                   </Text>
                 </Box>
-                <Text color="white" backgroundColor="black"> │ </Text>
-                <Text color="gray" backgroundColor="black">
+                <Text color="white"> | </Text>
+                <Text color="gray">
                   {a.avgLatencyMs.toFixed(0)}ms
                 </Text>
-                <Text color="white" backgroundColor="black"> │ </Text>
-                <Text color="gray" backgroundColor="black">
+                <Text color="white"> | </Text>
+                <Text color="gray">
                   ${a.totalCost.toFixed(2)}
                 </Text>
               </Box>
@@ -194,28 +192,27 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onBack }) => {
       {/* Top Errors */}
       <Box
         marginTop={1}
-        borderStyle="round"
+        borderStyle="single"
         borderColor="red"
         flexDirection="column"
         padding={1}
-        backgroundColor="black"
       >
-        <Text bold color="red" backgroundColor="black">⚠️  Top Errors (Frequency)</Text>
+        <Text bold color="red">! Top Errors (Frequency)</Text>
         {topErrors.length === 0 ? (
-          <Text color="gray" backgroundColor="black">No errors found 🎉</Text>
+          <Text color="gray">No errors found :)</Text>
         ) : (
           <Box flexDirection="column" marginTop={1}>
             {topErrors.slice(0, 5).map((e, idx) => (
-              <Box key={idx} flexDirection="column" marginBottom={1} backgroundColor="black">
-                <Box backgroundColor="black">
-                  <Text color="white" backgroundColor="black">{idx + 1}. </Text>
-                  <Text color="yellow" backgroundColor="black">[{e.count}x] </Text>
-                  <Text color="red" backgroundColor="black">
+              <Box key={idx} flexDirection="column" marginBottom={1}>
+                <Box>
+                  <Text color="white">{idx + 1}. </Text>
+                  <Text color="yellow">[{e.count}x] </Text>
+                  <Text color="red">
                     {e.errorMessage.substring(0, 60)}...
                   </Text>
                 </Box>
-                <Box marginLeft={3} backgroundColor="black">
-                  <Text color="gray" backgroundColor="black">
+                <Box marginLeft={3}>
+                  <Text color="gray">
                     Affected: {e.affectedSessions.length} session(s)
                   </Text>
                 </Box>
@@ -231,10 +228,9 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onBack }) => {
         borderStyle="single"
         borderColor="gray"
         paddingX={1}
-        backgroundColor="black"
       >
-        <Text color="white" backgroundColor="black">
-          1-4: Change time range │ q/Esc: Back
+        <Text color="white">
+          1-4: Change time range | q/Esc: Back
         </Text>
       </Box>
     </Box>

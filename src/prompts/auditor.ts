@@ -31,6 +31,8 @@ export interface SingleFileAuditResult {
 export function buildSingleFileAuditorPrompt(
   planContent: string,
   file: { path: string; content: string },
+  iteration?: number,
+  maxIterations?: number,
 ): string {
   const fileType = detectFileType(file.path);
 
@@ -47,7 +49,7 @@ export function buildSingleFileAuditorPrompt(
       return buildUnknownFileAuditPrompt(planContent, file);
     case "code":
     default:
-      return buildCodeAuditPrompt(planContent, file);
+      return buildCodeAuditPrompt(planContent, file, iteration, maxIterations);
   }
 }
 
@@ -173,12 +175,31 @@ function detectFileType(
 }
 
 /**
- * Prompt para archivos de código (estricto)
+ * Prompt para archivos de código (estricto en iter 1, progresivamente permisivo)
  */
 function buildCodeAuditPrompt(
   planContent: string,
   file: { path: string; content: string },
+  iteration?: number,
+  maxIterations?: number,
 ): string {
+  const isLateIteration = iteration && maxIterations && iteration >= maxIterations - 1;
+  const isLastIteration = iteration && maxIterations && iteration >= maxIterations;
+
+  const leniencyNote = isLastIteration
+    ? `\n## NOTA IMPORTANTE - ULTIMA ITERACION (${iteration}/${maxIterations})
+Este archivo ya fue corregido ${iteration! - 1} veces. Aplica criterio PRAGMATICO:
+- Si el codigo compila y la funcionalidad PRINCIPAL esta implementada: APPROVED
+- Solo rechaza si hay errores de SINTAXIS que impiden compilar o bugs CRITICOS
+- Issues menores o de estilo NO son razon para rechazar en esta iteracion
+- Prioriza que el codigo sea FUNCIONAL sobre que sea perfecto\n`
+    : isLateIteration
+    ? `\n## NOTA - ITERACION AVANZADA (${iteration}/${maxIterations})
+Este archivo ya fue corregido previamente. Se mas permisivo con issues menores.
+- Solo rechaza por errores criticos o funcionalidad principal faltante
+- Issues de estilo o mejoras opcionales: marca como "minor" pero aprueba\n`
+    : "";
+
   return `Eres un Auditor de Código Senior. Tu trabajo es revisar UN archivo específico.
 
 ## PLAN ORIGINAL (contexto)
@@ -188,7 +209,7 @@ ${planContent}
 \`\`\`
 ${file.content}
 \`\`\`
-
+${leniencyNote}
 ## TU TAREA
 
 Revisa SOLO este archivo y determina si cumple con su parte del plan. Busca:
@@ -556,10 +577,21 @@ export function parseSingleFileAuditResponse(
 export function buildAuditorPrompt(
   planContent: string,
   files: { path: string; content: string }[],
+  iteration?: number,
+  maxIterations?: number,
 ): string {
   const filesSection = files
     .map((f) => `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
     .join("\n\n");
+
+  const isLastIteration = iteration && maxIterations && iteration >= maxIterations;
+  const leniencyNote = isLastIteration
+    ? `\n## NOTA - ULTIMA ITERACION (${iteration}/${maxIterations})
+Estos archivos ya fueron corregidos multiples veces. Aplica criterio PRAGMATICO:
+- Si el codigo compila y la funcionalidad principal esta implementada: APPROVED
+- Solo rechaza por errores de SINTAXIS o bugs CRITICOS
+- Issues menores NO son razon para rechazar\n`
+    : "";
 
   return `Eres un Auditor de Código Senior. Tu trabajo es revisar código y verificar que cumple con el plan.
 
@@ -568,7 +600,7 @@ ${planContent}
 
 ## ARCHIVOS GENERADOS
 ${filesSection}
-
+${leniencyNote}
 ## TU TAREA
 
 Revisa el código y determina si cumple con el plan. Busca:
@@ -648,26 +680,76 @@ export function parseAuditResponse(response: string): AuditResult {
 }
 
 /**
- * Verifica si el código es válido (empieza con sintaxis Python válida)
+ * Verifica si el código es válido (empieza con sintaxis válida para cualquier lenguaje)
  */
-export function isValidPythonCode(code: string): boolean {
+export function isValidCode(code: string, fileName?: string): boolean {
   const lines = code.trim().split("\n");
   if (lines.length === 0) return false;
 
   const firstLine = lines[0].trim();
-  const validStarts = [
-    /^#/, // Comment or shebang
-    /^from\s+/, // from import
-    /^import\s+/, // import
-    /^class\s+/, // class definition
-    /^def\s+/, // function definition
-    /^@/, // decorator
-    /^"""/, // docstring
-    /^'''/, // docstring
-    /^[a-z_][a-z0-9_]*\s*=/i, // assignment
+  const extension = fileName?.split(".").pop()?.toLowerCase() || "";
+
+  // Python-specific patterns
+  const pythonStarts = [
+    /^#/, /^from\s+/, /^import\s+/, /^class\s+/, /^def\s+/,
+    /^@/, /^"""/, /^'''/, /^[a-z_][a-z0-9_]*\s*=/i,
   ];
 
-  return validStarts.some((pattern) => pattern.test(firstLine));
+  // JS/TS/JSX/TSX patterns
+  const jsStarts = [
+    /^import\s+/, /^export\s+/, /^const\s+/, /^let\s+/, /^var\s+/,
+    /^function\s+/, /^class\s+/, /^\/\//, /^\/\*/, /^"use /, /^'use /,
+    /^type\s+/, /^interface\s+/, /^enum\s+/, /^async\s+/, /^declare\s+/,
+    /^module\.exports/, /^require\(/, /^@/, // decorators
+  ];
+
+  // Go patterns
+  const goStarts = [
+    /^package\s+/, /^import\s+/, /^func\s+/, /^type\s+/, /^var\s+/,
+    /^const\s+/, /^\/\//, /^\/\*/,
+  ];
+
+  // Rust patterns
+  const rustStarts = [
+    /^use\s+/, /^mod\s+/, /^fn\s+/, /^pub\s+/, /^struct\s+/,
+    /^enum\s+/, /^impl\s+/, /^trait\s+/, /^#\[/, /^\/\//,
+    /^extern\s+/, /^const\s+/, /^let\s+/, /^static\s+/,
+  ];
+
+  // HTML/CSS/SCSS patterns
+  const markupStarts = [
+    /^<!DOCTYPE/i, /^<html/i, /^<\?xml/, /^<[a-z]/i,
+    /^@import/, /^@charset/, /^@media/, /^[.#a-z]/i, /^:root/,
+    /^\*\s*\{/, /^body\s*\{/, /^html\s*\{/,
+  ];
+
+  // Select patterns based on extension
+  if (["py"].includes(extension)) {
+    return pythonStarts.some((p) => p.test(firstLine));
+  }
+  if (["js", "ts", "jsx", "tsx", "mjs", "cjs", "mts", "cts"].includes(extension)) {
+    return jsStarts.some((p) => p.test(firstLine));
+  }
+  if (["go"].includes(extension)) {
+    return goStarts.some((p) => p.test(firstLine));
+  }
+  if (["rs"].includes(extension)) {
+    return rustStarts.some((p) => p.test(firstLine));
+  }
+  if (["html", "htm", "css", "scss", "sass", "less", "vue", "svelte"].includes(extension)) {
+    return markupStarts.some((p) => p.test(firstLine));
+  }
+
+  // For unknown extensions, check against ALL patterns
+  const allStarts = [...pythonStarts, ...jsStarts, ...goStarts, ...rustStarts, ...markupStarts];
+  return allStarts.some((p) => p.test(firstLine));
+}
+
+/**
+ * @deprecated Use isValidCode instead
+ */
+export function isValidPythonCode(code: string): boolean {
+  return isValidCode(code, "file.py");
 }
 
 /**
@@ -678,6 +760,8 @@ export function buildFixPrompt(
   fileName: string,
   issues: AuditIssue[],
   planContext?: string,
+  iteration?: number,
+  maxIterations?: number,
 ): string {
   const issuesText = issues
     .filter((i) => i.file === fileName || i.file === "unknown")
@@ -690,12 +774,16 @@ export function buildFixPrompt(
   const extension = fileName.split(".").pop()?.toLowerCase() || "";
   const examples = getFixExamples(extension, fileName);
 
-  // Si el código original no es válido, generar desde cero
-  if (!isValidPythonCode(originalCode)) {
-    return `═══════════════════════════════════════════════════════════════════════════════
-TAREA: REGENERAR ARCHIVO DESDE CERO
-═══════════════════════════════════════════════════════════════════════════════
+  const iterationContext = iteration && maxIterations
+    ? `\nITERACION: ${iteration} de ${maxIterations}. ${iteration >= maxIterations ? "ULTIMO INTENTO - corrige SOLO los problemas listados, no cambies nada mas." : ""}\n`
+    : "";
 
+  // Si el código original no es válido, generar desde cero
+  if (!isValidCode(originalCode, fileName)) {
+    return `===============================================================================
+TAREA: REGENERAR ARCHIVO DESDE CERO
+===============================================================================
+${iterationContext}
 El archivo "${fileName}" no contiene código válido y debe ser completamente reescrito.
 
 PROBLEMAS DETECTADOS POR EL AUDITOR:
@@ -705,54 +793,55 @@ ${planContext ? `CONTEXTO DEL PLAN:\n${planContext}\n` : ""}
 
 ${examples}
 
-═══════════════════════════════════════════════════════════════════════════════
-REGLAS CRÍTICAS DE FORMATO:
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
+REGLAS CRITICAS DE FORMATO:
+===============================================================================
 1. Tu respuesta debe comenzar DIRECTAMENTE con código válido
-2. La PRIMERA LÍNEA debe ser: from, import, class, def, # o """
+2. La PRIMERA LINEA debe ser codigo ejecutable (import, from, class, def, function, const, #, //, etc.)
 3. NO incluyas explicaciones ni texto introductorio
 4. NO uses markdown ni \`\`\`
 5. El código debe estar COMPLETO - todas las funciones implementadas
 6. Incluye TODOS los imports necesarios
 
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 GENERA EL CÓDIGO COMPLETO PARA: ${fileName}
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 `;
   }
 
-  return `═══════════════════════════════════════════════════════════════════════════════
+  return `===============================================================================
 TAREA: CORREGIR CÓDIGO EXISTENTE
-═══════════════════════════════════════════════════════════════════════════════
-
+===============================================================================
+${iterationContext}
 CÓDIGO ACTUAL DE ${fileName}:
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 ${originalCode}
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 
 PROBLEMAS DETECTADOS POR EL AUDITOR:
 ${issuesText}
 
 ${examples}
 
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 INSTRUCCIONES:
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 1. Corrige TODOS los problemas listados arriba
-2. Mantén la funcionalidad existente que funciona
+2. Mantén la funcionalidad existente que funciona - NO reescribas desde cero
 3. Asegúrate de que el código esté COMPLETO (sin funciones truncadas)
 4. Verifica que todos los imports estén presentes
+5. Cambia SOLO lo necesario para resolver los problemas
 
 REGLAS DE FORMATO:
 - Tu respuesta debe comenzar DIRECTAMENTE con código
-- La PRIMERA LÍNEA debe ser: from, import, class, def, # o """
+- La PRIMERA LINEA debe ser codigo ejecutable (import, from, class, def, function, const, #, //, etc.)
 - NO incluyas texto explicativo
 - NO uses markdown ni \`\`\`
 - Solo código limpio y funcional
 
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 GENERA EL CÓDIGO CORREGIDO:
-═══════════════════════════════════════════════════════════════════════════════
+===============================================================================
 `;
 }
 
@@ -764,7 +853,7 @@ function getFixExamples(extension: string, fileName: string): string {
     if (fileName.includes("model")) {
       return `
 EJEMPLO DE CÓDIGO CORRECTO PARA MODELOS:
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
@@ -789,7 +878,7 @@ class User(db.Model):
             'email': self.email,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 NOTA: El método to_dict() debe estar COMPLETO con el return y el diccionario cerrado.
 `;
     }
@@ -797,7 +886,7 @@ NOTA: El método to_dict() debe estar COMPLETO con el return y el diccionario ce
     if (fileName.includes("app")) {
       return `
 EJEMPLO DE CÓDIGO CORRECTO PARA APP FLASK:
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 from flask import Flask, request, jsonify
 from models import db, User
 
@@ -831,20 +920,64 @@ def create_user():
 
 if __name__ == '__main__':
     app.run(debug=True)
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 NOTA: Los decoradores @app.route NO deben tener espacios al inicio de la línea.
 `;
     }
   }
 
+  if (extension === "tsx" || extension === "jsx") {
+    return `
+EJEMPLO DE CÓDIGO CORRECTO PARA COMPONENTE REACT (${extension.toUpperCase()}):
+---------------------------------------------------------
+"use client"
+
+import React from "react"
+
+interface Props {
+  title: string
+}
+
+export default function Page({ title }: Props) {
+  return (
+    <div>
+      <h1>{title}</h1>
+    </div>
+  )
+}
+---------------------------------------------------------
+NOTA: La primera linea debe ser un import, directiva "use client", o export. NO texto explicativo.
+`;
+  }
+
+  if (extension === "ts" || extension === "js") {
+    return `
+EJEMPLO DE CÓDIGO CORRECTO PARA MODULO (${extension.toUpperCase()}):
+---------------------------------------------------------
+import { readFile } from "fs/promises"
+
+export interface Config {
+  name: string
+  port: number
+}
+
+export async function loadConfig(path: string): Promise<Config> {
+  const content = await readFile(path, "utf-8")
+  return JSON.parse(content)
+}
+---------------------------------------------------------
+NOTA: La primera linea debe ser import, export, const, function, o comentario. NO texto explicativo.
+`;
+  }
+
   if (extension === "txt" && fileName.includes("requirements")) {
     return `
 EJEMPLO DE requirements.txt CORRECTO:
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 Flask==3.0.0
 Flask-SQLAlchemy>=3.1.0
 python-dotenv>=1.0.0
-─────────────────────────────────────────────────────────
+---------------------------------------------------------
 NOTA: Una dependencia por línea, sin texto adicional.
 `;
   }
