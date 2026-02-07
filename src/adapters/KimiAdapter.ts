@@ -28,7 +28,7 @@ export class KimiAdapter {
 
     this.config = {
       command: this.isWindows ? "wsl" : "claude",
-      timeout: 600000, // 10 minutos (planning puede ser complejo)
+      timeout: 900000, // 15 minutos (igual que GLMAdapter)
       env: {
         ANTHROPIC_API_KEY: apiKey,
         ANTHROPIC_BASE_URL: "https://api.kimi.com/coding/",
@@ -97,6 +97,13 @@ export class KimiAdapter {
       proc.on("close", async (code) => {
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
+
+        // Debug: Loggear salida para diagnóstico (solo si hay error)
+        if (code !== 0) {
+          console.error(`[KimiAdapter Debug] Exit code: ${code}`);
+          console.error(`[KimiAdapter Debug] Stderr: ${stderr.substring(0, 500)}`);
+          console.error(`[KimiAdapter Debug] Stdout: ${stdout.substring(0, 500)}`);
+        }
 
         // Detectar límite de uso
         if (this.isRateLimitError(stderr) || this.isRateLimitError(stdout)) {
@@ -194,10 +201,17 @@ export class KimiAdapter {
       /resource exhausted/i,
       /limit reached/i,
       /usage limit/i,
-      /用量已达上限/i, // Mensaje en chino
-      /请求过于频繁/i,
+      /用量已达上限/i, // Mensaje en chino: "cuota/límite alcanzado"
+      /请求过于频繁/i, // Mensaje en chino: "demasiadas solicitudes"
     ];
-    return rateLimitPatterns.some((pattern) => pattern.test(output));
+    const hasPattern = rateLimitPatterns.some((pattern) => pattern.test(output));
+
+    // Debug: Si detectamos algo que parece rate limit, loggearlo
+    if (hasPattern && process.env.DEBUG_ADAPTERS) {
+      console.error(`[KimiAdapter] Rate limit pattern detected in: ${output.substring(0, 200)}`);
+    }
+
+    return hasPattern;
   }
 
   /**

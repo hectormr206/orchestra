@@ -77,11 +77,15 @@ export class FallbackAdapter implements Adapter {
       }
 
       // Verificar si es error de límite de uso
+      const errorLower = result.error?.toLowerCase() || "";
       const isRateLimit =
         result.error?.startsWith("RATE_LIMIT:") ||
-        result.error?.toLowerCase().includes("rate limit") ||
-        result.error?.toLowerCase().includes("limit") ||
-        result.error?.toLowerCase().includes("quota");
+        errorLower.includes("rate limit") ||
+        errorLower.includes("usage limit") ||
+        errorLower.includes("quota exceeded") ||
+        errorLower.includes("too many requests") ||
+        errorLower.includes("resource exhausted") ||
+        /\b429\b/.test(errorLower);
 
       if (isRateLimit) {
         this.rateLimitedAdapters.add(adapterInfo.name);
@@ -92,9 +96,16 @@ export class FallbackAdapter implements Adapter {
       // Try next adapter if available (for ANY failure, not just rate limits)
       if (i < this.adapters.length - 1) {
         const nextAdapter = this.adapters[i + 1].getInfo();
-        const reason = isRateLimit
-          ? "Límite de uso alcanzado"
-          : `Error: ${(result.error || "desconocido").substring(0, 50)}`;
+        let reason: string;
+        if (isRateLimit) {
+          reason = "Límite de uso alcanzado";
+        } else if (result.error?.includes("TIMEOUT")) {
+          reason = "Timeout";
+        } else if (result.error?.includes("CONTEXT_EXCEEDED")) {
+          reason = "Contexto excedido";
+        } else {
+          reason = `Error: ${(result.error || "desconocido").substring(0, 80)}`;
+        }
         this.callbacks.onAdapterFallback?.(
           adapterInfo.model,
           nextAdapter.model,

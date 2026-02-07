@@ -83,6 +83,13 @@ export class GLMAdapter {
         clearTimeout(timeoutId);
         const duration = Date.now() - startTime;
 
+        // Debug: Loggear salida para diagnóstico (solo si hay error)
+        if (code !== 0) {
+          console.error(`[GLMAdapter Debug] Exit code: ${code}`);
+          console.error(`[GLMAdapter Debug] Stderr: ${stderr.substring(0, 500)}`);
+          console.error(`[GLMAdapter Debug] Stdout: ${stdout.substring(0, 500)}`);
+        }
+
         // Detectar límite de uso
         if (this.isRateLimitError(stderr) || this.isRateLimitError(stdout)) {
           resolve({
@@ -167,7 +174,7 @@ export class GLMAdapter {
       /rate limit/i,
       /quota exceeded/i,
       /too many requests/i,
-      /429/,
+      /\b429\b/,
       /resource exhausted/i,
       /limit reached/i,
       /usage limit/i,
