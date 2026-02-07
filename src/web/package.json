@@ -1,5 +1,5 @@
 {
-  "name": "@ai-core/orchestra-web",
+  "name": "@orchestra-web",
   "version": "0.1.0",
   "description": "Web UI for Orchestra CLI",
   "type": "module",

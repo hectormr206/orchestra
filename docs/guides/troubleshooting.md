@@ -24,6 +24,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Local installation**:
+
    ```bash
    npm install
    npm run build
@@ -31,6 +32,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    ```
 
 2. **Global installation**:
+
    ```bash
    npm install -g .
    ```
@@ -47,12 +49,14 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Clear build cache**:
+
    ```bash
    rm -rf dist
    npm run build
    ```
 
 2. **Check TypeScript version**:
+
    ```bash
    npm list typescript
    # Should be >= 5.0
@@ -74,6 +78,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Create default config**:
+
    ```bash
    orchestra init
    ```
@@ -95,6 +100,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Validate config schema**:
+
    ```bash
    orchestra doctor
    ```
@@ -115,6 +121,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Set environment variables**:
+
    ```bash
    export ZAI_API_KEY="your-key"
    export GEMINI_API_KEY="your-key"
@@ -122,6 +129,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    ```
 
 2. **Use .env file**:
+
    ```bash
    # .env
    ZAI_API_KEY=your-key
@@ -144,6 +152,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    - Consider upgrading API tier
 
 2. **Switch adapter**:
+
    ```json
    {
      "adapters": {
@@ -168,6 +177,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Increase timeout**:
+
    ```json
    {
      "execution": {
@@ -196,11 +206,13 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Run performance profile**:
+
    ```bash
    clinic doctor -- node dist/cli/index.js start "test task"
    ```
 
 2. **Enable parallel execution**:
+
    ```json
    {
      "execution": {
@@ -211,6 +223,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    ```
 
 3. **Enable caching**:
+
    ```json
    {
      "cache": {
@@ -232,11 +245,13 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Clear cache**:
+
    ```bash
    orchestra cache clear
    ```
 
 2. **Reduce checkpoint history**:
+
    ```json
    {
      "recovery": {
@@ -261,16 +276,18 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Increase test timeout**:
+
    ```typescript
-   it('slow test', async () => {
+   it("slow test", async () => {
      // test code
    }, 10000); // 10 second timeout
    ```
 
 2. **Use proper mocks**:
+
    ```typescript
-   vi.mock('./adapter', () => ({
-     Adapter: vi.fn().mockResolvedValue({ data: 'mock' }),
+   vi.mock("./adapter", () => ({
+     Adapter: vi.fn().mockResolvedValue({ data: "mock" }),
    }));
    ```
 
@@ -286,6 +303,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Mock before import**:
+
    ```typescript
    vi.mock('./module', () => ({ ... }));
 
@@ -293,6 +311,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    ```
 
 2. **Use vi.mocked()**:
+
    ```typescript
    const mockedFn = vi.mocked(adapter.execute);
    ```
@@ -355,12 +374,14 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Check git config**:
+
    ```bash
    git config user.name
    git config user.email
    ```
 
 2. **Configure git**:
+
    ```bash
    git config --global user.name "Your Name"
    git config --global user.email "your.email@example.com"
@@ -382,6 +403,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Install gh CLI**:
+
    ```bash
    # macOS
    brew install gh
@@ -391,6 +413,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    ```
 
 2. **Authenticate**:
+
    ```bash
    gh auth login
    ```
@@ -411,6 +434,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
 **Solutions**:
 
 1. **Increase max iterations**:
+
    ```json
    {
      "execution": {
@@ -420,6 +444,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    ```
 
 2. **Increase recovery timeout**:
+
    ```json
    {
      "recovery": {
@@ -433,6 +458,7 @@ This guide covers common issues and solutions when using Orchestra CLI.
    - Consider custom rules in `.orchestra/rules/`
 
 4. **Enable partial recovery**:
+
    ```json
    {
      "recovery": {
@@ -455,22 +481,25 @@ This guide covers common issues and solutions when using Orchestra CLI.
 If none of these solutions work:
 
 1. **Run diagnostics**:
+
    ```bash
    orchestra doctor
    ```
 
 2. **Check logs**:
+
    ```bash
    cat .orchestra/session.json
    ```
 
 3. **Enable debug mode**:
+
    ```bash
    ORCHESTRA_DEBUG=1 orchestra start "your task"
    ```
 
 4. **Report issues**:
-   - GitHub: https://github.com/ai-core/orchestra/issues
+   - GitHub: https://github.com/orchestra/issues
    - Include: OS, Node version, error message, config
 
 ---

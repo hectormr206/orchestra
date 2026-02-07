@@ -47,13 +47,13 @@ ai-core/                          # Framework de conocimiento
 
 ```bash
 # Opción 1: Desde el directorio de ai-core
-cd ai-core/orchestra
+cd orchestra
 npm install
 npm run build
 npm link  # Hace disponible 'orchestra' globalmente
 
 # Opción 2: Como dependencia en otro proyecto
-npm install /path/to/ai-core/orchestra
+npm install /path/to/orchestra
 
 # Verificar instalación
 orchestra doctor
@@ -102,7 +102,7 @@ orchestra start "Create integration tests in tests/skills/ that validate all SKI
 ### Meta-desarrollo: Orchestra mejorándose a sí mismo
 
 ```bash
-cd /path/to/ai-core/orchestra
+cd /path/to/orchestra
 
 # Agregar nueva funcionalidad
 orchestra start "Add a new command 'orchestra templates' that lists and applies predefined task templates from a templates/ directory"
@@ -373,12 +373,12 @@ orchestra start "Add authentication" --skills security,backend
 
 ## Resumen
 
-| Escenario | Comando típico |
-|-----------|----------------|
-| Nuevo feature | `orchestra start "Add X" --auto` |
-| Refactoring | `orchestra start "Refactor X to Y"` |
-| Bug fix | `orchestra start "Fix bug in X where Y"` |
-| Tests | `orchestra start "Add tests for X" --test` |
-| Análisis previo | `orchestra dry-run "Complex task"` |
-| Desarrollo iterativo | `orchestra watch "Feature X"` |
-| Full workflow | `orchestra start "X" --auto --test --commit` |
+| Escenario            | Comando típico                               |
+| -------------------- | -------------------------------------------- |
+| Nuevo feature        | `orchestra start "Add X" --auto`             |
+| Refactoring          | `orchestra start "Refactor X to Y"`          |
+| Bug fix              | `orchestra start "Fix bug in X where Y"`     |
+| Tests                | `orchestra start "Add tests for X" --test`   |
+| Análisis previo      | `orchestra dry-run "Complex task"`           |
+| Desarrollo iterativo | `orchestra watch "Feature X"`                |
+| Full workflow        | `orchestra start "X" --auto --test --commit` |

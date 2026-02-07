@@ -1,5 +1,5 @@
 {
-  "name": "@ai-core/orchestra",
+  "name": "@orchestra",
   "version": "0.1.0",
   "description": "Meta-Orchestrator for AI development tools - coordinates Claude, Codex, Gemini, and GLM for complex development tasks",
   "type": "module",

@@ -14,7 +14,7 @@ Get up and running with Orchestra in under 15 minutes.
 
 ```bash
 # Clone the repository
-git clone https://github.com/ai-core/orchestra.git
+git clone https://github.com/orchestra.git
 cd orchestra
 
 # Install dependencies
@@ -73,6 +73,7 @@ orchestra start "Create a function to validate email addresses"
 ```
 
 Orchestra will:
+
 1. **Architect** - Create a plan
 2. **Execute** - Generate the code
 3. **Audit** - Review for quality
@@ -103,6 +104,7 @@ orchestra tui
 ```
 
 **Navigation:**
+
 - `Ctrl+N` - New task
 - `Ctrl+H` - View history
 - `Ctrl+S` - Settings
@@ -115,11 +117,13 @@ orchestra tui
 Orchestra also includes a modern web interface:
 
 **Terminal 1:** Start the server
+
 ```bash
 orchestra server
 ```
 
 **Terminal 2:** Start the Web UI
+
 ```bash
 orchestra web
 ```
@@ -127,6 +131,7 @@ orchestra web
 Then open `http://localhost:3000` in your browser.
 
 **Features:**
+
 - 📊 Visual dashboard with task statistics
 - 📁 Session history and details viewer
 - 🔌 Plugin marketplace browser
@@ -178,12 +183,12 @@ orchestra export <session-id> --format markdown
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| `API key not found` | Set `ZAI_API_KEY` environment variable |
-| Tests failing | Run `orchestra doctor` to check setup |
-| Slow execution | Enable parallel mode in `.orchestrarc.json` |
-| Import errors | Run `npm run build` to compile TypeScript |
+| Issue               | Solution                                    |
+| ------------------- | ------------------------------------------- |
+| `API key not found` | Set `ZAI_API_KEY` environment variable      |
+| Tests failing       | Run `orchestra doctor` to check setup       |
+| Slow execution      | Enable parallel mode in `.orchestrarc.json` |
+| Import errors       | Run `npm run build` to compile TypeScript   |
 
 ## Getting Help
 
@@ -200,14 +205,14 @@ orchestra start --help
 
 ## Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `ZAI_API_KEY` | Zhipu AI key (GLM 4.7) | Yes* |
-| `GEMINI_API_KEY` | Google Gemini key | Optional |
-| `ANTHROPIC_API_KEY` | Anthropic Claude key | Optional |
-| `ORCHESTRA_DEBUG` | Enable debug logs | Optional |
+| Variable            | Description            | Required |
+| ------------------- | ---------------------- | -------- |
+| `ZAI_API_KEY`       | Zhipu AI key (GLM 4.7) | Yes\*    |
+| `GEMINI_API_KEY`    | Google Gemini key      | Optional |
+| `ANTHROPIC_API_KEY` | Anthropic Claude key   | Optional |
+| `ORCHESTRA_DEBUG`   | Enable debug logs      | Optional |
 
-*At least one API key is required
+\*At least one API key is required
 
 ## Tips
 

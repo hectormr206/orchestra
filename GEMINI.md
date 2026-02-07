@@ -17,6 +17,7 @@
 > **Precedencia**: Este archivo > ai-core
 
 ---
+
 <!-- ============================================================================
      AI-CORE INTEGRATION - GEMINI CLI
      ============================================================================
@@ -36,9 +37,10 @@
 > **Precedencia**: Este archivo > ai-core
 
 ---
+
 ## Project Overview
 
-This project, `@ai-core/orchestra`, is a "Meta-Orchestrator" for AI development tools. It coordinates multiple AI agents (Claude, Codex, Gemini, and GLM) to perform complex development tasks. The project is a Node.js application written in TypeScript and includes both a command-line interface (CLI) and a text-based user interface (TUI).
+This project, `@orchestra`, is a "Meta-Orchestrator" for AI development tools. It coordinates multiple AI agents (Claude, Codex, Gemini, and GLM) to perform complex development tasks. The project is a Node.js application written in TypeScript and includes both a command-line interface (CLI) and a text-based user interface (TUI).
 
 The orchestration flow follows a sequence of agents:
 
@@ -53,8 +55,8 @@ The orchestrator uses a fallback mechanism for the AI agents, ensuring resilienc
 
 ### Prerequisites
 
-*   Node.js (>=18.0.0)
-*   npm
+- Node.js (>=18.0.0)
+- npm
 
 ### Installation
 
@@ -122,13 +124,14 @@ npm run lint
 
 ## Development Conventions
 
-*   **Language:** TypeScript
-*   **Testing:** `vitest`
-*   **Linting:** `eslint`
-*   **Code Style:** The project follows a modular structure with a clear separation of concerns. The code is well-documented with comments and JSDoc annotations.
-*   **User Interface:** The project includes both a CLI and a TUI. The TUI is built with React and the `ink` library.
-*   **State Management:** The `StateManager` class is used to manage the state of the orchestration process.
-*   **AI Integration:** The project uses an adapter pattern to integrate with different AI agents. The `FallbackAdapter` provides a resilient way to interact with the agents.
+- **Language:** TypeScript
+- **Testing:** `vitest`
+- **Linting:** `eslint`
+- **Code Style:** The project follows a modular structure with a clear separation of concerns. The code is well-documented with comments and JSDoc annotations.
+- **User Interface:** The project includes both a CLI and a TUI. The TUI is built with React and the `ink` library.
+- **State Management:** The `StateManager` class is used to manage the state of the orchestration process.
+- **AI Integration:** The project uses an adapter pattern to integrate with different AI agents. The `FallbackAdapter` provides a resilient way to interact with the agents.
+
 ---
 
 ## Recursos de ai-core
@@ -159,8 +162,7 @@ Gemini detecta automáticamente qué skill usar según tu solicitud:
 - `testing-specialist` - TDD, coverage, mocking
 - `code-reviewer` - Revisión de PRs
 
-Para lista completa y working agreements, ver: **`ai-core/SUBAGENTS/AGENTS.md`**
----
+## Para lista completa y working agreements, ver: **`ai-core/SUBAGENTS/AGENTS.md`**
 
 ## Recursos de ai-core
 

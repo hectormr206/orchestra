@@ -891,7 +891,7 @@ echo -e "${BLUE}Instalando Meta-Orquestador...${NC}"
 # Verificar si Node.js está instalado
 if ! command -v node &> /dev/null; then
     echo -e "${YELLOW}⚠️  Node.js no encontrado. El orquestador requiere Node.js 18+${NC}"
-    echo -e "   Instala Node.js y ejecuta: cd ai-core/orchestra && npm install"
+    echo -e "   Instala Node.js y ejecuta: cd orchestra && npm install"
 else
     NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
     if [ "$NODE_VERSION" -lt 18 ]; then
@@ -931,7 +931,7 @@ fi
 echo ""
 echo -e "${GREEN}Orquestador listo. Uso:${NC}"
 echo -e "  ${CYAN}cd $PROJECT_ROOT${NC}"
-echo -e "  ${CYAN}./ai-core/orchestra/bin/orchestra start \"Tu tarea aquí\"${NC}"
+echo -e "  ${CYAN}./orchestra/bin/orchestra start \"Tu tarea aquí\"${NC}"
 ```
 
 ---
@@ -1524,7 +1524,7 @@ Mitigación:
 ### Ubicación del Código
 
 ```yaml
-Decisión: Dentro de ai-core/orchestra/
+Decisión: Dentro de orchestra/
 
 Razones:
   - ai-core ya se instala en proyectos
@@ -1712,8 +1712,8 @@ Ejemplo TUI:
 
 ```bash
 # Crear y ejecutar el PoC para validar la idea
-mkdir -p ai-core/orchestra/poc
-cat > ai-core/orchestra/poc/test-flow.sh << 'EOF'
+mkdir -p orchestra/poc
+cat > orchestra/poc/test-flow.sh << 'EOF'
 #!/bin/bash
 # PoC: Validar que podemos orquestar CLIs
 
@@ -1742,15 +1742,15 @@ fi
 
 echo "SUCCESS: PoC completado"
 EOF
-chmod +x ai-core/orchestra/poc/test-flow.sh
+chmod +x orchestra/poc/test-flow.sh
 ```
 
 ### Paso 2: Estructura del Proyecto (1 hora)
 
 ```bash
 # Crear estructura inicial
-mkdir -p ai-core/orchestra/{src/{adapters,orchestrator,cli},bin}
-cd ai-core/orchestra
+mkdir -p orchestra/{src/{adapters,orchestrator,cli},bin}
+cd orchestra
 npm init -y
 npm install typescript commander chalk ora
 npm install -D @types/node ts-node

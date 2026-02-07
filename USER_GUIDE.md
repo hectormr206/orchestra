@@ -29,7 +29,7 @@ Complete guide for using Orchestra, the AI-powered meta-orchestrator for develop
 ### Install from npm
 
 ```bash
-npm install -g @ai-core/orchestra
+npm install -g @orchestra
 ```
 
 ### Install from source
@@ -146,25 +146,33 @@ Done   Consultant
 ### Execution Modes
 
 #### Sequential Mode (default)
+
 Agents run one after another. Best for:
+
 - Simple tasks
 - Debugging
 - Learning
 
 #### Parallel Mode
+
 Multiple files processed concurrently. Best for:
+
 - Large codebases
 - Independent modules
 - Time-critical tasks
 
 #### Pipeline Mode
+
 Execution and auditing happen simultaneously. Best for:
+
 - Fast iteration
 - CI/CD environments
 - Experienced users
 
 #### Watch Mode
+
 Auto-reload on file changes. Best for:
+
 - Interactive development
 - Rapid prototyping
 
@@ -175,6 +183,7 @@ Auto-reload on file changes. Best for:
 ### Main Commands
 
 #### `orchestra start <task>`
+
 Begin a new orchestration task.
 
 ```bash
@@ -182,6 +191,7 @@ orchestra start "Create user authentication system"
 ```
 
 **Options:**
+
 - `--auto-approve` - Skip plan approval
 - `--parallel` - Enable parallel processing
 - `--max-concurrency <n>` - Set max concurrent operations (default: 3)
@@ -191,6 +201,7 @@ orchestra start "Create user authentication system"
 - `--profile <name>` - Use configuration profile
 
 #### `orchestra resume`
+
 Resume an interrupted session.
 
 ```bash
@@ -198,10 +209,12 @@ orchestra resume --parallel
 ```
 
 **Options:**
+
 - `--force` - Resume even if warnings exist
 - `--clean` - Start fresh instead of resuming
 
 #### `orchestra pipeline <task>`
+
 Execute in pipeline mode (execution + audit simultaneously).
 
 ```bash
@@ -209,6 +222,7 @@ orchestra pipeline "Add error handling to API layer"
 ```
 
 #### `orchestra watch <task>`
+
 Run in watch mode with auto-reload.
 
 ```bash
@@ -216,9 +230,11 @@ orchestra watch "Implement caching layer" --debounce 1000
 ```
 
 **Options:**
+
 - `--debounce <ms>` - Debounce time for reload (default: 5000)
 
 #### `orchestra tui`
+
 Launch Terminal User Interface.
 
 ```bash
@@ -228,6 +244,7 @@ orchestra tui --auto-approve
 ### Management Commands
 
 #### `orchestra status`
+
 Show current session status.
 
 ```bash
@@ -235,6 +252,7 @@ orchestra status
 ```
 
 #### `orchestra plan`
+
 View current execution plan.
 
 ```bash
@@ -242,6 +260,7 @@ orchestra plan
 ```
 
 #### `orchestra history`
+
 Show session history.
 
 ```bash
@@ -249,11 +268,13 @@ orchestra history --limit 10 --status completed
 ```
 
 **Options:**
+
 - `--limit <n>` - Number of sessions to show
 - `--status <status>` - Filter by status
 - `--search <query>` - Search in task descriptions
 
 #### `orchestra clean`
+
 Clear session data.
 
 ```bash
@@ -261,6 +282,7 @@ orchestra clean --force
 ```
 
 #### `orchestra doctor`
+
 Verify setup and dependencies.
 
 ```bash
@@ -268,6 +290,7 @@ orchestra doctor
 ```
 
 #### `orchestra validate`
+
 Validate syntax of generated code.
 
 ```bash
@@ -277,6 +300,7 @@ orchestra validate --language typescript
 ### Integration Commands
 
 #### `orchestra audit`
+
 Run security audit on the project.
 
 ```bash
@@ -284,6 +308,7 @@ orchestra audit --fail high
 ```
 
 **Options:**
+
 - `-d, --dependencies` - Check for vulnerable dependencies
 - `-s, --secrets` - Scan for leaked secrets
 - `-c, --code` - Check code security
@@ -292,6 +317,7 @@ orchestra audit --fail high
 - `-o, --output <format>` - Output format (text|markdown|json)
 
 #### `orchestra export [session-id]`
+
 Export session data to various formats.
 
 ```bash
@@ -299,12 +325,14 @@ orchestra export --format html --output report.html
 ```
 
 **Options:**
+
 - `-f, --format <format>` - Export format (html|markdown|json)
 - `-o, --output <path>` - Output file path
 - `--include-logs` - Include execution logs
 - `--include-metadata` - Include session metadata
 
 #### `orchestra ci <action>`
+
 CI/CD workflow management.
 
 ```bash
@@ -315,6 +343,7 @@ orchestra ci list
 ```
 
 #### `orchestra jira <action>`
+
 Jira integration.
 
 ```bash
@@ -324,6 +353,7 @@ orchestra jira transition --issue PROJ-123 --transition "Done"
 ```
 
 #### `orchestra notify`
+
 Send test notification (requires SLACK_WEBHOOK_URL or DISCORD_WEBHOOK_URL).
 
 ```bash
@@ -331,6 +361,7 @@ orchestra notify --message "Test from Orchestra"
 ```
 
 #### `orchestra detect`
+
 Detect project framework and technology stack.
 
 ```bash
@@ -338,6 +369,7 @@ orchestra detect --json
 ```
 
 #### `orchestra prompt-optimize [prompt]`
+
 Analyze and optimize prompts.
 
 ```bash
@@ -347,6 +379,7 @@ echo "Create REST API" | orchestra prompt-optimize
 ### Plugin Commands
 
 #### `orchestra plugin <action>`
+
 Plugin management.
 
 ```bash
@@ -360,6 +393,7 @@ orchestra plugin info --name my-plugin
 ```
 
 #### `orchestra hooks`
+
 List available plugin hooks.
 
 ```bash
@@ -369,6 +403,7 @@ orchestra hooks
 ### Utility Commands
 
 #### `orchestra profiler`
+
 Performance profiling and optimization.
 
 ```bash
@@ -380,6 +415,7 @@ orchestra profiler --end "operation-name"
 ```
 
 #### `orchestra profile`
+
 Configuration profile management.
 
 ```bash
@@ -391,6 +427,7 @@ orchestra profile delete old-profile
 ```
 
 #### `orchestra recover [session-id]`
+
 Session recovery.
 
 ```bash
@@ -520,8 +557,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
-          cache: 'npm'
+          node-version: "18"
+          cache: "npm"
       - name: Install dependencies
         run: npm ci
       - name: Run Orchestra
@@ -610,31 +647,33 @@ my-plugin/
 // index.js
 
 export async function beforeExecute(context) {
-  console.log('Task:', context.task);
-  console.log('Phase:', context.phase);
+  console.log("Task:", context.task);
+  console.log("Phase:", context.phase);
 
   // Return result
   return {
     success: true,
-    data: { /* optional data */ }
+    data: {
+      /* optional data */
+    },
   };
 }
 
 export async function afterExecute(context) {
-  console.log('Execution complete');
+  console.log("Execution complete");
 
   return {
-    success: true
+    success: true,
   };
 }
 
 // Optional lifecycle hooks
 export async function init() {
-  console.log('Plugin initialized');
+  console.log("Plugin initialized");
 }
 
 export async function destroy() {
-  console.log('Plugin destroyed');
+  console.log("Plugin destroyed");
 }
 ```
 
@@ -697,11 +736,13 @@ orchestra tui
 ### Keyboard Shortcuts
 
 #### Global
+
 - `q` - Quit
 - `?` - Show help
 - `Ctrl+C` - Cancel
 
 #### Navigation
+
 - `↑/k` - Up
 - `↓/j` - Down
 - `g` - Go to top
@@ -709,32 +750,38 @@ orchestra tui
 - `/` - Search
 
 #### Lists
+
 - `Enter` - Open item
 - `Escape` - Go back
 
 ### Screens
 
 #### Dashboard
+
 - Overview of current session
 - Quick actions
 - Recent sessions
 
 #### Execution
+
 - Real-time progress
 - Live logs
 - File status
 
 #### History
+
 - Browse past sessions
 - View session details
 - Reuse session configurations
 
 #### Settings
+
 - Configure Orchestra
 - Set preferences
 - Manage profiles
 
 #### Advanced Settings
+
 - Fine-tune parameters
 - Agent preferences
 - Recovery options
@@ -748,6 +795,7 @@ orchestra tui
 Orchestra automatically detects and works with monorepos:
 
 **Supported:**
+
 - npm/yarn workspaces
 - pnpm workspaces
 - Turborepo
@@ -819,6 +867,7 @@ orchestra detect
 ```
 
 Output:
+
 ```
 Project Detection Results
 =========================
@@ -890,7 +939,7 @@ Increase timeout in `.orchestrarc.json`:
 ```json
 {
   "execution": {
-    "timeout": 600000  // 10 minutes
+    "timeout": 600000 // 10 minutes
   }
 }
 ```
@@ -925,6 +974,7 @@ orchestra doctor
 Report issues at: https://github.com/your-repo/orchestra/issues
 
 Include:
+
 - Orchestra version (`orchestra --version`)
 - Node version (`node --version`)
 - OS and version
@@ -993,6 +1043,7 @@ orchestra profiler --compare
 ### 7. Leverage Plugins
 
 Create plugins for:
+
 - Custom code generation patterns
 - Team-specific conventions
 - Integration with internal tools

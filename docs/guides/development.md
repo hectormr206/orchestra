@@ -26,7 +26,7 @@ Guide for contributing to Orchestra CLI development.
 ```bash
 # Clone repository
 git clone https://github.com/gama/ai-core.git
-cd ai-core/orchestra
+cd orchestra
 
 # Install dependencies
 npm install
@@ -77,8 +77,8 @@ interface UserConfig {
 
 const getUser = (id: string): User => ({
   id,
-  name: '',
-  email: '',
+  name: "",
+  email: "",
 });
 
 // Bad
@@ -119,20 +119,20 @@ npm run test:coverage
 ### Writing Tests
 
 ```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { myFunction } from './myModule.js';
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { myFunction } from "./myModule.js";
 
-describe('myFunction', () => {
+describe("myFunction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('should return expected result', () => {
-    const result = myFunction('input');
-    expect(result).toBe('expected');
+  it("should return expected result", () => {
+    const result = myFunction("input");
+    expect(result).toBe("expected");
   });
 
-  it('should handle errors gracefully', () => {
+  it("should handle errors gracefully", () => {
     expect(() => myFunction(null)).not.toThrow();
   });
 });
@@ -154,9 +154,9 @@ Create command in `src/cli/index.ts`:
 
 ```typescript
 program
-  .command('mycommand <input>')
-  .description('Description of command')
-  .option('--opt, -o', 'Option description')
+  .command("mycommand <input>")
+  .description("Description of command")
+  .option("--opt, -o", "Option description")
   .action(async (input, options) => {
     // Implementation
     console.log(`Processing: ${input}`);
@@ -180,7 +180,7 @@ export async function myUtility(input: string): Promise<string> {
 Export from `src/utils/index.ts`:
 
 ```typescript
-export { myUtility } from './myUtility.js';
+export { myUtility } from "./myUtility.js";
 ```
 
 ### 3. Adding a New Adapter
@@ -188,7 +188,7 @@ export { myUtility } from './myUtility.js';
 Implement `Adapter` interface (see [Adapters API](../docs/api/adapters.md)):
 
 ```typescript
-import type { Adapter, ExecuteOptions, AgentResult } from '../types.js';
+import type { Adapter, ExecuteOptions, AgentResult } from "../types.js";
 
 export class MyAdapter implements Adapter {
   // Implement interface methods
@@ -284,6 +284,7 @@ npm run tui
 ### Viewing Logs
 
 Orchestra uses structured logging. Logs are written to:
+
 - Console (with colors/formatting)
 - `.orchestra/logs/` directory (if enabled)
 
@@ -314,7 +315,7 @@ try {
   const result = await riskyOperation();
   return { success: true, data: result };
 } catch (error) {
-  logger.error('Operation failed', { error });
+  logger.error("Operation failed", { error });
   return { success: false, error: error.message };
 }
 ```
@@ -322,7 +323,7 @@ try {
 ### Configuration Loading
 
 ```typescript
-import { configLoader } from './utils/configLoader.js';
+import { configLoader } from "./utils/configLoader.js";
 
 const config = configLoader.load();
 const customConfig = config.customPrompts?.myPrompt;
@@ -331,7 +332,7 @@ const customConfig = config.customPrompts?.myPrompt;
 ### Session Persistence
 
 ```typescript
-import { StateManager } from './utils/StateManager.js';
+import { StateManager } from "./utils/StateManager.js";
 
 const stateManager = new StateManager();
 await stateManager.saveSession(sessionData);
