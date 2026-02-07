@@ -10,3 +10,4 @@ node_modules/
 # Test outputs
 *.log
 .orchestra-test/
+test-output.txt
